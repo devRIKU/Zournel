@@ -1,5 +1,5 @@
-import React from 'react';
-import { Quote, Edit2 } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Clock, Sparkles, Feather, Image as ImageIcon } from 'lucide-react';
 import { JournalEntry } from '../types';
 
 interface JournalViewProps {
@@ -7,97 +7,121 @@ interface JournalViewProps {
   onEdit: (entry: JournalEntry) => void;
 }
 
+const TRUNCATE_LIMIT = 140;
+
 export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => {
   
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
+  const groupedEntries = useMemo(() => {
+    const groups: Record<string, JournalEntry[]> = {};
+    const sorted = [...entries].sort((a, b) => b.createdAt - a.createdAt);
+    
+    sorted.forEach(entry => {
+      const date = new Date(entry.createdAt);
+      const dateKey = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      if (!groups[dateKey]) groups[dateKey] = [];
+      groups[dateKey].push(entry);
     });
+    
+    return Object.entries(groups);
+  }, [entries]);
+
+  const stripMarkdownAndTruncate = (text: string) => {
+    const stripped = text.replace(/[#*`_~[\]()]/g, '').trim();
+    if (stripped.length <= TRUNCATE_LIMIT) return stripped;
+    return stripped.slice(0, TRUNCATE_LIMIT) + '...';
   };
 
-  const formatYear = (timestamp: number) => {
-     return new Date(timestamp).getFullYear();
-  }
-
   return (
-    <div className="pb-32 px-6 max-w-3xl mx-auto w-full">
-      <div className="mb-12 mt-4">
-        <h2 className="text-5xl font-display font-bold text-primary tracking-tight">Journal</h2>
-        <p className="font-grotesk text-secondary mt-2 text-sm uppercase tracking-widest">Your Story</p>
+    <div className="pb-40 px-6 max-w-6xl mx-auto w-full">
+      <div className="mb-20 mt-8 flex flex-col gap-2">
+        <h2 className="text-6xl font-display font-bold text-primary tracking-tighter">Archives</h2>
+        <div className="flex items-center gap-3">
+            <div className="h-0.5 w-12 bg-accent rounded-full"></div>
+            <p className="font-grotesk text-secondary text-xs uppercase tracking-[0.4em]">Visual Temporal Grid</p>
+        </div>
       </div>
 
       {entries.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-center opacity-40">
-           <Quote className="w-16 h-16 text-secondary mb-4 stroke-[1]" />
-           <p className="font-display text-2xl text-secondary">Write your first entry</p>
-           <p className="font-grotesk text-sm text-secondary mt-2">Capture the moment</p>
+        <div className="flex flex-col items-center justify-center py-32 text-center animate-fade-in">
+           <div className="w-24 h-24 bg-surface-highlight rounded-full flex items-center justify-center mb-8 border border-accent/10">
+             <Feather className="w-10 h-10 text-accent/40" />
+           </div>
+           <p className="font-display text-4xl text-primary font-bold">The page is waiting</p>
+           <p className="font-sans text-secondary mt-4 max-w-xs mx-auto leading-relaxed opacity-60">
+             Your thoughts deserve a home. Tap the action button to begin.
+           </p>
         </div>
       ) : (
-        <div className="space-y-12 animate-fade-in">
-          {entries.map((entry, index) => (
-            <div key={entry.id} className="relative group">
-               {/* Timeline Connector */}
-               {index !== entries.length - 1 && (
-                  <div className="absolute left-[1.15rem] top-12 bottom-[-3rem] w-[1px] bg-secondary opacity-10"></div>
-               )}
-
-               <div className="flex gap-8">
-                  {/* Date Column */}
-                  <div className="flex flex-col items-center min-w-[3rem] pt-2">
-                     <span className="font-grotesk font-bold text-2xl text-primary">{new Date(entry.createdAt).getDate()}</span>
-                     <span className="font-grotesk text-xs text-secondary uppercase tracking-wider">{new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'short' })}</span>
-                  </div>
-
-                  {/* Card Content */}
-                  <div className="flex-1 bg-surface rounded-[2rem] shadow-sm overflow-hidden border border-surface-highlight hover:shadow-lg transition-all duration-500 relative group/card">
-                    
-                    {/* Edit Button - Always Visible */}
+        <div className="space-y-32 animate-fade-in">
+          {groupedEntries.map(([dateLabel, dayEntries]) => (
+            <section key={dateLabel} className="group/section">
+              <div className="flex items-baseline gap-6 mb-12">
+                <span className="text-3xl font-display font-bold text-primary group-hover/section:text-accent transition-colors">{dateLabel}</span>
+                <div className="h-px flex-grow bg-surface-highlight"></div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {dayEntries.map((entry, idx) => {
+                  const isHero = dayEntries.length === 1 || (dayEntries.length > 2 && idx === 0);
+                  return (
                     <button 
-                        onClick={() => onEdit(entry)}
-                        className="absolute top-4 right-4 z-20 p-3 bg-surface/60 backdrop-blur-md rounded-full text-secondary hover:text-accent hover:bg-surface shadow-sm border border-surface-highlight/50 transition-all duration-300"
-                        title="Edit Entry"
+                      key={entry.id} 
+                      onClick={() => onEdit(entry)}
+                      className={`group relative flex flex-col text-left bg-surface rounded-[2rem] border border-surface-highlight shadow-sm hover:shadow-2xl hover:-translate-y-2 active:scale-[0.98] transition-all duration-700 overflow-hidden outline-none ${
+                        isHero ? 'md:col-span-2' : ''
+                      }`}
                     >
-                        <Edit2 className="w-4 h-4" />
-                    </button>
-
-                    {entry.image && (
-                        <div className="h-56 w-full overflow-hidden relative">
-                            <img src={entry.image} alt="cover" className="w-full h-full object-cover transition-transform duration-700 group-hover/card:scale-105" />
-                            {entry.mood && (
-                                <div className="absolute bottom-4 left-4">
-                                    <span className="px-3 py-1 bg-black/40 backdrop-blur-md text-white font-grotesk text-xs uppercase tracking-widest rounded-full">
-                                        {entry.mood}
-                                    </span>
-                                </div>
-                            )}
+                      {entry.image ? (
+                        <div className={`${isHero ? 'h-80' : 'h-52'} w-full overflow-hidden relative`}>
+                          <img 
+                            src={entry.image} 
+                            alt="cover" 
+                            className="w-full h-full object-cover transition-transform duration-[2s] group-hover:scale-110" 
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
+                          <div className="absolute top-6 left-6 flex gap-2">
+                             <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-white text-[10px] font-bold tracking-widest uppercase">
+                               {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                             </div>
+                          </div>
                         </div>
-                    )}
+                      ) : (
+                        <div className="p-8 pb-0">
+                           <div className="flex items-center gap-2 mb-4">
+                              <ImageIcon className="w-4 h-4 text-accent/20" />
+                              <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-secondary">
+                                {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                           </div>
+                        </div>
+                      )}
 
-                    <div className="p-8">
-                        {!entry.image && entry.mood && (
-                             <span className="inline-block px-3 py-1 bg-surface-highlight text-secondary font-grotesk text-xs uppercase tracking-widest rounded-full mb-4">
-                                {entry.mood}
+                      <div className="p-10 flex-1 flex flex-col">
+                        <div className="mb-8">
+                           {entry.mood && (
+                             <span className="inline-block text-[10px] font-grotesk font-bold uppercase tracking-widest text-accent mb-4 px-3 py-1 bg-accent/5 rounded-lg border border-accent/10">
+                               {entry.mood}
                              </span>
-                        )}
-                        
-                        <div className="prose prose-lg max-w-none">
-                            <p className="font-sans text-lg leading-8 text-primary opacity-90 whitespace-pre-line">
-                                {entry.content}
-                            </p>
+                           )}
+                           <p className="font-sans text-xl leading-relaxed text-primary/80 line-clamp-3">
+                             {stripMarkdownAndTruncate(entry.content)}
+                           </p>
                         </div>
 
                         {entry.aiInsight && (
-                            <div className="mt-8 pt-6 border-t border-surface-highlight">
-                                <p className="font-display italic text-xl text-secondary leading-relaxed">
-                                    "{entry.aiInsight}"
-                                </p>
-                            </div>
+                          <div className="mt-auto pt-8 border-t border-surface-highlight flex gap-4">
+                            <Sparkles className="w-5 h-5 text-accent shrink-0 mt-1" />
+                            <p className="font-display text-lg text-secondary leading-relaxed italic opacity-80">
+                              {entry.aiInsight}
+                            </p>
+                          </div>
                         )}
-                    </div>
-                  </div>
-               </div>
-            </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
           ))}
         </div>
       )}

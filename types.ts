@@ -1,11 +1,9 @@
-
-
 export enum Tab {
   TODO = 'TODO',
   JOURNAL = 'JOURNAL'
 }
 
-export type Theme = 'light' | 'dawn' | 'paper' | 'midnight' | 'obsidian' | 'terminal';
+export type Theme = 'light' | 'nord' | 'cyberpunk' | 'botanist' | 'glass' | 'midnight';
 
 export type CompletionAnimation = 'none' | 'confetti' | 'bounce' | 'slide-right';
 export type DeleteAnimation = 'none' | 'shrink' | 'slide-left';
@@ -59,7 +57,6 @@ declare global {
   }
 
   interface Window {
-    // Fixed: Added optional modifier to resolve conflicting declarations of aistudio in different contexts
     aistudio?: AIStudio;
   }
 }

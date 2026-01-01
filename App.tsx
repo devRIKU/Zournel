@@ -31,7 +31,6 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkKey = async () => {
-      // 1. Check AI Studio Bridge
       if (window.aistudio) {
         setIsStudioEnv(true);
         try {
@@ -45,13 +44,11 @@ const App: React.FC = () => {
         setIsStudioEnv(false);
       }
 
-      // 2. Check Environment Variables (Netlify)
       if (process.env.API_KEY && process.env.API_KEY !== 'undefined') {
         setHasKey(true);
         return;
       }
 
-      // 3. Check Cookies
       const cookieMatch = document.cookie.match(/GEMINI_API_KEY=([^;]+)/);
       if (cookieMatch && cookieMatch[1]) {
         setHasKey(true);
@@ -65,14 +62,13 @@ const App: React.FC = () => {
 
   const handleSaveManualKey = () => {
     if (manualKey.trim()) {
-      document.cookie = `GEMINI_API_KEY=${manualKey.trim()};path=/;max-age=31536000`; // 1 year
+      document.cookie = `GEMINI_API_KEY=${manualKey.trim()};path=/;max-age=31536000`;
       setHasKey(true);
     }
   };
 
   const handleOpenKeyDialog = async (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation();
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
       setHasKey(true); 
@@ -98,10 +94,13 @@ const App: React.FC = () => {
   }, [tasks, journalEntries, settings, loaded]);
 
   useEffect(() => {
-    const themes = ['theme-light', 'theme-midnight', 'theme-dawn', 'theme-paper', 'theme-obsidian', 'theme-terminal'];
-    document.body.classList.remove(...themes);
-    if (settings.theme) {
+    // Correctly apply the current theme class to body
+    const themeClasses = ['theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 'theme-glass', 'theme-midnight'];
+    document.body.classList.remove(...themeClasses);
+    if (settings.theme && settings.theme !== 'light') {
       document.body.classList.add(`theme-${settings.theme}`);
+    } else {
+      document.body.classList.add('theme-light');
     }
   }, [settings.theme]);
 
@@ -201,7 +200,7 @@ const App: React.FC = () => {
                 <div className="flex items-start gap-2 px-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500 mt-0.5" />
                   <p className="text-[11px] text-secondary text-left italic leading-tight">
-                    Disclaimer: API keys are not stored by us. They are kept locally in your browser's cookies for session persistence.
+                    Disclaimer: API keys are not stored by us. They are kept locally in your browser's cookies.
                   </p>
                 </div>
               </div>
