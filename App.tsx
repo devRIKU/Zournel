@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, Sparkles, Key, ExternalLink } from 'lucide-react';
+import { Settings, Plus, Sparkles, Key, ExternalLink, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Tab, Task, JournalEntry, AppSettings } from './types';
 import { BottomNav } from './components/BottomNav';
 import { TodoView } from './components/TodoView';
@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
   const [isStudioEnv, setIsStudioEnv] = useState(false);
+  const [manualKey, setManualKey] = useState('');
   
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'light',
@@ -30,22 +31,44 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const checkKey = async () => {
+      // 1. Check AI Studio Bridge
       if (window.aistudio) {
         setIsStudioEnv(true);
         try {
           const selected = await window.aistudio.hasSelectedApiKey();
-          setHasKey(selected);
-        } catch (e) {
-          setHasKey(!!process.env.API_KEY);
-        }
+          if (selected) {
+            setHasKey(true);
+            return;
+          }
+        } catch (e) {}
       } else {
         setIsStudioEnv(false);
-        // On Netlify/Production, process.env.API_KEY is the source of truth
-        setHasKey(!!process.env.API_KEY);
       }
+
+      // 2. Check Environment Variables (Netlify)
+      if (process.env.API_KEY && process.env.API_KEY !== 'undefined') {
+        setHasKey(true);
+        return;
+      }
+
+      // 3. Check Cookies
+      const cookieMatch = document.cookie.match(/GEMINI_API_KEY=([^;]+)/);
+      if (cookieMatch && cookieMatch[1]) {
+        setHasKey(true);
+        return;
+      }
+
+      setHasKey(false);
     };
     checkKey();
   }, []);
+
+  const handleSaveManualKey = () => {
+    if (manualKey.trim()) {
+      document.cookie = `GEMINI_API_KEY=${manualKey.trim()};path=/;max-age=31536000`; // 1 year
+      setHasKey(true);
+    }
+  };
 
   const handleOpenKeyDialog = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -133,8 +156,7 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
-  // Only show the key gate if we're in AI Studio without a key OR if we have no key anywhere
-  if (hasKey === false && (isStudioEnv || !process.env.API_KEY)) {
+  if (hasKey === false) {
     return (
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500 overflow-hidden">
         <div className="max-w-md w-full text-center space-y-8 animate-scale-in">
@@ -144,32 +166,56 @@ const App: React.FC = () => {
           <div className="space-y-4">
             <h1 className="text-4xl font-display font-bold">Zournel</h1>
             <p className="text-secondary font-sans leading-relaxed">
-              {isStudioEnv 
-                ? "Connect your Gemini API Key to unlock intelligent planning and artistic journaling."
-                : "API Key required. Please set the API_KEY environment variable in your Netlify settings."}
+              Unlock intelligent planning and artistic journaling by connecting your Gemini API Key.
             </p>
           </div>
-          {isStudioEnv && (
-            <div className="space-y-4 relative z-[10000]">
+
+          <div className="bg-surface p-6 rounded-[2rem] border border-surface-highlight shadow-xl space-y-6">
+            {isStudioEnv ? (
               <button 
                 type="button"
                 onClick={handleOpenKeyDialog}
                 className="w-full py-4 bg-accent text-accent-fg rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-accent/20 transition-all cursor-pointer active:scale-95"
-                style={{ pointerEvents: 'auto' }}
               >
                 <Key className="w-5 h-5" />
-                Connect Gemini API
+                Select Project Key
               </button>
-              <a 
-                href="https://ai.google.dev/gemini-api/docs/billing" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-xs font-grotesk text-secondary hover:text-accent transition-colors"
-              >
-                Learn about API keys & billing <ExternalLink className="w-3 h-3" />
-              </a>
-            </div>
-          )}
+            ) : (
+              <div className="space-y-4">
+                <div className="relative">
+                  <input 
+                    type="password"
+                    placeholder="Enter your Gemini API Key"
+                    value={manualKey}
+                    onChange={(e) => setManualKey(e.target.value)}
+                    className="w-full px-5 py-4 bg-bg border-2 border-surface-highlight focus:border-accent rounded-2xl outline-none text-primary transition-all font-mono text-sm"
+                  />
+                  <button 
+                    onClick={handleSaveManualKey}
+                    disabled={!manualKey.trim()}
+                    className="absolute right-2 top-2 bottom-2 px-4 bg-accent text-accent-fg rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="flex items-start gap-2 px-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500 mt-0.5" />
+                  <p className="text-[11px] text-secondary text-left italic leading-tight">
+                    Disclaimer: API keys are not stored by us. They are kept locally in your browser's cookies for session persistence.
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            <a 
+              href="https://ai.google.dev/gemini-api/docs/billing" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-xs font-grotesk text-secondary hover:text-accent transition-colors"
+            >
+              Learn about API keys & billing <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
         </div>
       </div>
     );

@@ -1,8 +1,20 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIProcessedInput, Priority } from "../types";
 
 const imageModelName = 'gemini-3-pro-image-preview';
+
+/**
+ * Retrieves the API key, checking environment variables first, then stored cookies.
+ */
+const getApiKey = () => {
+  // Check process.env.API_KEY first as per guidelines
+  if (process.env.API_KEY && process.env.API_KEY !== 'undefined') {
+    return process.env.API_KEY;
+  }
+  // Fallback to user-provided key in cookies for non-AI Studio deployments
+  const cookieMatch = document.cookie.match(/GEMINI_API_KEY=([^;]+)/);
+  return cookieMatch ? cookieMatch[1] : undefined;
+};
 
 /**
  * Common error handler for API key issues
@@ -10,7 +22,6 @@ const imageModelName = 'gemini-3-pro-image-preview';
 const handleAiError = (error: any) => {
   console.error("AI Error:", error);
   if (error?.message?.includes("Requested entity was not found")) {
-    // This indicates an issue with the selected API key/project
     console.warn("API Key issue detected. User may need to re-select key.");
   }
 };
@@ -26,8 +37,8 @@ const isThinkingSupported = (model: string): boolean => {
  * Categorizes and extracts tasks and journal content from a single input string.
  */
 export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
-  // Always create a new instance right before making an API call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -70,8 +81,8 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
 };
 
 export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-pro-preview'): Promise<{ text: string, priority: Priority }[]> => {
-  // Always create a new instance right before making an API call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
@@ -96,7 +107,6 @@ export const extractTasksFromJournal = async (journalText: string, model: string
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        // Guard: thinkingConfig is only available for Gemini 3 and 2.5 series
         ...(isThinkingSupported(model) ? { thinkingConfig: { thinkingBudget: 1000 } } : {})
       },
     });
@@ -111,8 +121,8 @@ export const extractTasksFromJournal = async (journalText: string, model: string
 };
 
 export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-pro-preview'): Promise<string[]> => {
-  // Always create a new instance right before making an API call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   const responseSchema = {
     type: Type.ARRAY,
     items: { type: Type.STRING },
@@ -137,13 +147,12 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
 };
 
 export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-pro-preview'): Promise<string> => {
-  // Always create a new instance right before making an API call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   try {
     const response = await ai.models.generateContent({
       model: model,
       contents: `Provide one reflective sentence for this entry: "${entryText}"`,
-      // Guard: thinkingConfig is only available for Gemini 3 and 2.5 series
       config: isThinkingSupported(model) ? { thinkingConfig: { thinkingBudget: 512 } } : {}
     });
     return response.text || "";
@@ -154,8 +163,8 @@ export const generateJournalInsight = async (entryText: string, model: string = 
 };
 
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-pro-preview'): Promise<string> => {
-  // Always create a new instance right before making an API call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   const prompts = {
     IMPROVE: "Improve grammar/flow:",
     REPHRASE: "Rephrase creatively:",
@@ -175,8 +184,8 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 };
 
 export const generateCoverImage = async (context: string): Promise<string | null> => {
-  // Always create a new instance right before making an API call
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = getApiKey();
+  const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   try {
     const response = await ai.models.generateContent({
       model: imageModelName,
@@ -191,7 +200,6 @@ export const generateCoverImage = async (context: string): Promise<string | null
     if (!response.candidates?.[0]?.content?.parts) return null;
 
     for (const part of response.candidates[0].content.parts) {
-      // Find the image part, do not assume it is the first part.
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }

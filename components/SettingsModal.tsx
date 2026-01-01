@@ -12,8 +12,8 @@ interface SettingsModalProps {
 const MODELS = [
   { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Power', desc: 'Complex reasoning' },
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', badge: 'Fast', desc: 'Quick responses' },
-  { id: 'gemma-3-27b-it', label: 'Gemma 3 27B', badge: 'Expert', desc: 'Advanced open model' },
-  { id: 'gemma-3-4b-it', label: 'Gemma 3 4B', badge: 'Efficient', desc: 'Fast & responsive open model' },
+  { id: 'gemma-3-27b-it', label: 'Gemma 3', badge: 'Expert', desc: 'High performance open model' },
+  { id: 'gemma-3-4b-it', label: 'Gemma 3n', badge: 'Nano', desc: 'Efficient, fast, and local-friendly' },
   { id: 'gemini-flash-lite-latest', label: 'Gemini Flash Lite', badge: 'Lite', desc: 'Optimized efficiency' },
 ];
 
