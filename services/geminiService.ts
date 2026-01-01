@@ -1,18 +1,22 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { AIProcessedInput, Priority } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+const textModelName = 'gemini-3-pro-preview';
+const imageModelName = 'gemini-3-pro-image-preview';
 
-const modelName = 'gemini-3-flash-preview';
-const imageModelName = 'gemini-2.5-flash-image';
+/**
+ * Helper to get AI instance with latest key
+ */
+const getAi = () => {
+  const apiKey = process.env.API_KEY || '';
+  return new GoogleGenAI({ apiKey });
+};
 
 /**
  * Classifies raw user input into actionable tasks and/or journal content.
  */
 export const processUserInput = async (input: string): Promise<AIProcessedInput> => {
-  if (!apiKey) throw new Error("API Key missing");
-
+  const ai = getAi();
   const responseSchema: Schema = {
     type: Type.OBJECT,
     properties: {
@@ -35,13 +39,14 @@ export const processUserInput = async (input: string): Promise<AIProcessedInput>
 
   try {
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: textModelName,
       contents: `Analyze the following input. Separate actionable to-do items from personal reflections. 
       Input: "${input}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
         systemInstruction: "You are a helpful personal assistant. Your goal is to strictly separate tasks from journal thoughts. If the input is ambiguous, bias towards Journal if it contains feelings, and Task if it contains verbs/objects.",
+        thinkingConfig: { thinkingBudget: 2000 }
       },
     });
 
@@ -59,8 +64,7 @@ export const processUserInput = async (input: string): Promise<AIProcessedInput>
  * Strictly extracts tasks from a text that is primarily a journal entry, including priority.
  */
 export const extractTasksFromJournal = async (journalText: string): Promise<{ text: string, priority: Priority }[]> => {
-  if (!apiKey) return [];
-
+  const ai = getAi();
   const responseSchema: Schema = {
     type: Type.OBJECT,
     properties: {
@@ -81,12 +85,13 @@ export const extractTasksFromJournal = async (journalText: string): Promise<{ te
 
   try {
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: textModelName,
       contents: `Read this journal entry and extract any implicit or explicit tasks/to-dos. Assign a priority (high/medium/low) based on urgency or emotional weight in the text.
       Journal Entry: "${journalText}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
+        thinkingConfig: { thinkingBudget: 2000 }
       },
     });
 
@@ -103,8 +108,7 @@ export const extractTasksFromJournal = async (journalText: string): Promise<{ te
  * Generates subtasks for a complex task.
  */
 export const generateSubtasks = async (taskText: string): Promise<string[]> => {
-  if (!apiKey) return [];
-
+  const ai = getAi();
   const responseSchema: Schema = {
     type: Type.ARRAY,
     items: { type: Type.STRING },
@@ -112,11 +116,12 @@ export const generateSubtasks = async (taskText: string): Promise<string[]> => {
 
   try {
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: textModelName,
       contents: `Break down this task into 3-5 smaller, actionable steps: "${taskText}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
+        thinkingConfig: { thinkingBudget: 1000 }
       },
     });
 
@@ -132,12 +137,14 @@ export const generateSubtasks = async (taskText: string): Promise<string[]> => {
  * Generates a brief reflective insight for a journal entry.
  */
 export const generateJournalInsight = async (entryText: string): Promise<string> => {
-  if (!apiKey) return "";
-
+  const ai = getAi();
   try {
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: textModelName,
       contents: `Provide a single sentence, deep, philosophical or supportive insight based on this journal entry: "${entryText}"`,
+      config: {
+        thinkingConfig: { thinkingBudget: 1000 }
+      }
     });
 
     return response.text || "";
@@ -151,8 +158,7 @@ export const generateJournalInsight = async (entryText: string): Promise<string>
  * Improves or modifies journal text.
  */
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE'): Promise<string> => {
-  if (!apiKey) return text;
-  
+  const ai = getAi();
   let prompt = "";
   switch (type) {
     case 'IMPROVE':
@@ -168,8 +174,11 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 
   try {
     const response = await ai.models.generateContent({
-      model: modelName,
+      model: textModelName,
       contents: `${prompt} "${text}"`,
+      config: {
+        thinkingConfig: { thinkingBudget: 1000 }
+      }
     });
     return response.text || text;
   } catch (error) {
@@ -182,8 +191,7 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
  * Generates a cover image based on text.
  */
 export const generateCoverImage = async (context: string): Promise<string | null> => {
-  if (!apiKey) return null;
-
+  const ai = getAi();
   try {
     const response = await ai.models.generateContent({
       model: imageModelName,
@@ -193,15 +201,16 @@ export const generateCoverImage = async (context: string): Promise<string | null
         ]
       },
       config: {
-        // No schema/mime type for image models usually unless specific endpoint
+        imageConfig: {
+          aspectRatio: "16:9",
+          imageSize: "1K"
+        }
       }
     });
 
-    if (response.candidates?.[0]?.content?.parts) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
-        }
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) {
+        return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
     }
     return null;
