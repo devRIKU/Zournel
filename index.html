@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Zournel</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,6 +57,8 @@
       .theme-terminal { --color-bg: #020402; --color-surface: #0D1C0D; --color-surface-highlight: #142814; --color-primary: #22C55E; --color-secondary: #15803D; --color-accent: #22C55E; --color-accent-fg: #000000; --color-accent-dim: #052e16; }
       html, body { height: 100%; min-height: 100vh; overflow-x: hidden; background-color: var(--color-bg); color: var(--color-primary); transition: background-color 0.4s ease; }
       #root { min-height: 100vh; display: flex; flex-direction: column; }
+      /* Prevent scrolling under modals */
+      body.modal-open { overflow: hidden; }
     </style>
   <script type="importmap">
 {

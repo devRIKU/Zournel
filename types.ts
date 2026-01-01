@@ -59,7 +59,7 @@ declare global {
   }
 
   interface Window {
-    // Fixed error: All declarations of 'aistudio' must have identical modifiers.
-    aistudio: AIStudio;
+    // Fixed: Added optional modifier to resolve conflicting declarations of aistudio in different contexts
+    aistudio?: AIStudio;
   }
 }

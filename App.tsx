@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Settings, Plus, Sparkles, Key, ExternalLink } from 'lucide-react';
 import { Tab, Task, JournalEntry, AppSettings } from './types';
@@ -16,6 +15,7 @@ const App: React.FC = () => {
   const [focusInputSignal, setFocusInputSignal] = useState(0); 
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   const [hasKey, setHasKey] = useState<boolean | null>(null);
+  const [isStudioEnv, setIsStudioEnv] = useState(false);
   
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'light',
@@ -31,6 +31,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkKey = async () => {
       if (window.aistudio) {
+        setIsStudioEnv(true);
         try {
           const selected = await window.aistudio.hasSelectedApiKey();
           setHasKey(selected);
@@ -38,6 +39,8 @@ const App: React.FC = () => {
           setHasKey(!!process.env.API_KEY);
         }
       } else {
+        setIsStudioEnv(false);
+        // On Netlify/Production, process.env.API_KEY is the source of truth
         setHasKey(!!process.env.API_KEY);
       }
     };
@@ -49,7 +52,6 @@ const App: React.FC = () => {
     e.stopPropagation();
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
-      // Assume success to proceed to the app immediately per SDK instructions
       setHasKey(true); 
     }
   };
@@ -131,7 +133,8 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
-  if (hasKey === false) {
+  // Only show the key gate if we're in AI Studio without a key OR if we have no key anywhere
+  if (hasKey === false && (isStudioEnv || !process.env.API_KEY)) {
     return (
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500 overflow-hidden">
         <div className="max-w-md w-full text-center space-y-8 animate-scale-in">
@@ -141,28 +144,32 @@ const App: React.FC = () => {
           <div className="space-y-4">
             <h1 className="text-4xl font-display font-bold">Zournel</h1>
             <p className="text-secondary font-sans leading-relaxed">
-              Connect your Gemini API Key to unlock intelligent planning and artistic journaling.
+              {isStudioEnv 
+                ? "Connect your Gemini API Key to unlock intelligent planning and artistic journaling."
+                : "API Key required. Please set the API_KEY environment variable in your Netlify settings."}
             </p>
           </div>
-          <div className="space-y-4 relative z-[10000]">
-            <button 
-              type="button"
-              onClick={handleOpenKeyDialog}
-              className="w-full py-4 bg-accent text-accent-fg rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-accent/20 transition-all cursor-pointer active:scale-95"
-              style={{ pointerEvents: 'auto' }}
-            >
-              <Key className="w-5 h-5" />
-              Connect Gemini API
-            </button>
-            <a 
-              href="https://ai.google.dev/gemini-api/docs/billing" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs font-grotesk text-secondary hover:text-accent transition-colors"
-            >
-              Learn about API keys & billing <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
+          {isStudioEnv && (
+            <div className="space-y-4 relative z-[10000]">
+              <button 
+                type="button"
+                onClick={handleOpenKeyDialog}
+                className="w-full py-4 bg-accent text-accent-fg rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-accent/20 transition-all cursor-pointer active:scale-95"
+                style={{ pointerEvents: 'auto' }}
+              >
+                <Key className="w-5 h-5" />
+                Connect Gemini API
+              </button>
+              <a 
+                href="https://ai.google.dev/gemini-api/docs/billing" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs font-grotesk text-secondary hover:text-accent transition-colors"
+              >
+                Learn about API keys & billing <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -206,5 +213,4 @@ const App: React.FC = () => {
   );
 };
 
-// Fixed error: App must have a default export.
 export default App;

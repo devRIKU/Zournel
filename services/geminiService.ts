@@ -16,6 +16,13 @@ const handleAiError = (error: any) => {
 };
 
 /**
+ * Helper to check if a model supports thinking configuration
+ */
+const isThinkingSupported = (model: string): boolean => {
+  return model.includes('gemini-3') || model.includes('gemini-2.5') || model.includes('flash-lite');
+};
+
+/**
  * Categorizes and extracts tasks and journal content from a single input string.
  */
 export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
@@ -89,7 +96,8 @@ export const extractTasksFromJournal = async (journalText: string, model: string
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        thinkingConfig: { thinkingBudget: 1000 }
+        // Guard: thinkingConfig is only available for Gemini 3 and 2.5 series
+        ...(isThinkingSupported(model) ? { thinkingConfig: { thinkingBudget: 1000 } } : {})
       },
     });
 
@@ -135,7 +143,8 @@ export const generateJournalInsight = async (entryText: string, model: string = 
     const response = await ai.models.generateContent({
       model: model,
       contents: `Provide one reflective sentence for this entry: "${entryText}"`,
-      config: { thinkingConfig: { thinkingBudget: 512 } }
+      // Guard: thinkingConfig is only available for Gemini 3 and 2.5 series
+      config: isThinkingSupported(model) ? { thinkingConfig: { thinkingBudget: 512 } } : {}
     });
     return response.text || "";
   } catch (error) {
@@ -182,6 +191,7 @@ export const generateCoverImage = async (context: string): Promise<string | null
     if (!response.candidates?.[0]?.content?.parts) return null;
 
     for (const part of response.candidates[0].content.parts) {
+      // Find the image part, do not assume it is the first part.
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
