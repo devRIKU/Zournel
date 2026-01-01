@@ -1,3 +1,4 @@
+
 export enum Tab {
   TODO = 'TODO',
   JOURNAL = 'JOURNAL'
@@ -29,7 +30,7 @@ export interface Task {
   createdAt: number;
   priority: Priority;
   subtasks?: SubTask[];
-  aiAnalysis?: string; // Short AI tip on how to complete it
+  aiAnalysis?: string; 
 }
 
 export interface JournalEntry {
@@ -38,8 +39,8 @@ export interface JournalEntry {
   createdAt: number;
   title?: string;
   mood?: string;
-  image?: string; // URL or Base64
-  aiInsight?: string; // AI reflection
+  image?: string; 
+  aiInsight?: string; 
   tags?: string[];
 }
 
@@ -47,4 +48,18 @@ export interface AIProcessedInput {
   tasks: string[];
   journalContent: string | null;
   mood: string | null;
+}
+
+// Global Type Definitions for Gemini Studio Bridge
+declare global {
+  // Fix: Explicitly defining AIStudio to match existing environment expectations
+  interface AIStudio {
+    hasSelectedApiKey: () => Promise<boolean>;
+    openSelectKey: () => Promise<void>;
+  }
+
+  interface Window {
+    // Fix: Adding readonly modifier and using the named AIStudio type to resolve declaration conflicts
+    readonly aistudio: AIStudio;
+  }
 }

@@ -5,16 +5,13 @@ const textModelName = 'gemini-3-pro-preview';
 const imageModelName = 'gemini-3-pro-image-preview';
 
 /**
- * Helper to get AI instance with latest key
+ * Helper to get fresh AI instance to ensure it uses the latest selected API key
  */
 const getAi = () => {
   const apiKey = process.env.API_KEY || '';
   return new GoogleGenAI({ apiKey });
 };
 
-/**
- * Classifies raw user input into actionable tasks and/or journal content.
- */
 export const processUserInput = async (input: string): Promise<AIProcessedInput> => {
   const ai = getAi();
   const responseSchema: Schema = {
@@ -45,7 +42,7 @@ export const processUserInput = async (input: string): Promise<AIProcessedInput>
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
-        systemInstruction: "You are a helpful personal assistant. Your goal is to strictly separate tasks from journal thoughts. If the input is ambiguous, bias towards Journal if it contains feelings, and Task if it contains verbs/objects.",
+        systemInstruction: "You are a helpful personal assistant. Separate tasks from journal thoughts. Be intelligent about identifying priorities.",
         thinkingConfig: { thinkingBudget: 2000 }
       },
     });
@@ -60,9 +57,6 @@ export const processUserInput = async (input: string): Promise<AIProcessedInput>
   }
 };
 
-/**
- * Strictly extracts tasks from a text that is primarily a journal entry, including priority.
- */
 export const extractTasksFromJournal = async (journalText: string): Promise<{ text: string, priority: Priority }[]> => {
   const ai = getAi();
   const responseSchema: Schema = {
@@ -86,7 +80,7 @@ export const extractTasksFromJournal = async (journalText: string): Promise<{ te
   try {
     const response = await ai.models.generateContent({
       model: textModelName,
-      contents: `Read this journal entry and extract any implicit or explicit tasks/to-dos. Assign a priority (high/medium/low) based on urgency or emotional weight in the text.
+      contents: `Read this journal entry and extract any implicit or explicit tasks. Assign priority based on emotional weight.
       Journal Entry: "${journalText}"`,
       config: {
         responseMimeType: "application/json",
@@ -104,9 +98,6 @@ export const extractTasksFromJournal = async (journalText: string): Promise<{ te
   }
 };
 
-/**
- * Generates subtasks for a complex task.
- */
 export const generateSubtasks = async (taskText: string): Promise<string[]> => {
   const ai = getAi();
   const responseSchema: Schema = {
@@ -133,15 +124,12 @@ export const generateSubtasks = async (taskText: string): Promise<string[]> => {
   }
 };
 
-/**
- * Generates a brief reflective insight for a journal entry.
- */
 export const generateJournalInsight = async (entryText: string): Promise<string> => {
   const ai = getAi();
   try {
     const response = await ai.models.generateContent({
       model: textModelName,
-      contents: `Provide a single sentence, deep, philosophical or supportive insight based on this journal entry: "${entryText}"`,
+      contents: `Provide a single sentence, deep reflective insight based on this journal entry: "${entryText}"`,
       config: {
         thinkingConfig: { thinkingBudget: 1000 }
       }
@@ -154,57 +142,37 @@ export const generateJournalInsight = async (entryText: string): Promise<string>
   }
 };
 
-/**
- * Improves or modifies journal text.
- */
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE'): Promise<string> => {
   const ai = getAi();
   let prompt = "";
   switch (type) {
-    case 'IMPROVE':
-      prompt = "Improve the grammar, flow, and tone of this writing while keeping the original meaning:";
-      break;
-    case 'REPHRASE':
-      prompt = "Rephrase this text to be more creative and expressive:";
-      break;
-    case 'SUMMARIZE':
-      prompt = "Summarize this into a concise reflection:";
-      break;
+    case 'IMPROVE': prompt = "Improve the grammar and flow:"; break;
+    case 'REPHRASE': prompt = "Rephrase this to be more expressive:"; break;
+    case 'SUMMARIZE': prompt = "Summarize this into a concise reflection:"; break;
   }
 
   try {
     const response = await ai.models.generateContent({
       model: textModelName,
       contents: `${prompt} "${text}"`,
-      config: {
-        thinkingConfig: { thinkingBudget: 1000 }
-      }
+      config: { thinkingConfig: { thinkingBudget: 1000 } }
     });
     return response.text || text;
   } catch (error) {
-    console.error("Text Edit Error:", error);
     return text;
   }
 };
 
-/**
- * Generates a cover image based on text.
- */
 export const generateCoverImage = async (context: string): Promise<string | null> => {
   const ai = getAi();
   try {
     const response = await ai.models.generateContent({
       model: imageModelName,
       contents: {
-        parts: [
-          { text: `Generate a minimalist, artistic, and soothing cover image that represents this mood/theme: ${context || "peaceful reflection"}. Do not include text in the image.` }
-        ]
+        parts: [{ text: `Generate a minimalist, soothing, artistic cover image representing this theme: ${context}. No text.` }]
       },
       config: {
-        imageConfig: {
-          aspectRatio: "16:9",
-          imageSize: "1K"
-        }
+        imageConfig: { aspectRatio: "16:9", imageSize: "1K" }
       }
     });
 
