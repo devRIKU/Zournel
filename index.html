@@ -65,7 +65,7 @@
 
       .theme-glass body { background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%); background-attachment: fixed; }
 
-      html, body { height: 100%; min-height: 100vh; background-color: var(--color-bg); color: var(--color-primary); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); scroll-behavior: smooth; }
+      html, body { height: 100%; min-height: 100vh; background-color: var(--color-bg); color: var(--color-primary); transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease; scroll-behavior: smooth; }
       
       .prose { max-width: none; color: inherit; }
       .prose h1, .prose h2, .prose h3 { color: var(--color-primary); font-family: 'Playfair Display', serif; }
@@ -84,7 +84,7 @@
         opacity: 0.2;
       }
     </style>
-    <script type="importmap">
+  <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@^19.2.3",
@@ -93,14 +93,14 @@
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
     "canvas-confetti": "https://esm.sh/canvas-confetti@^1.9.4",
-    "react-markdown": "https://esm.sh/react-markdown@^9.0.1",
-    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.0",
     "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1",
+    "react-markdown": "https://esm.sh/react-markdown@^10.1.0"
   }
 }
 </script>
-  </head>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>

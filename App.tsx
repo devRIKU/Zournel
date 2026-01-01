@@ -94,13 +94,13 @@ const App: React.FC = () => {
   }, [tasks, journalEntries, settings, loaded]);
 
   useEffect(() => {
-    // Correctly apply the current theme class to body
+    // Correctly apply the current theme class to HTML element for full propagation
     const themeClasses = ['theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 'theme-glass', 'theme-midnight'];
-    document.body.classList.remove(...themeClasses);
+    document.documentElement.classList.remove(...themeClasses);
     if (settings.theme && settings.theme !== 'light') {
-      document.body.classList.add(`theme-${settings.theme}`);
+      document.documentElement.classList.add(`theme-${settings.theme}`);
     } else {
-      document.body.classList.add('theme-light');
+      document.documentElement.classList.add('theme-light');
     }
   }, [settings.theme]);
 
