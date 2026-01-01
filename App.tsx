@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Settings, Plus, Sparkles, Key, ExternalLink } from 'lucide-react';
 import { Tab, Task, JournalEntry, AppSettings } from './types';
@@ -19,7 +20,8 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'light',
     completionAnimation: 'confetti',
-    deleteAnimation: 'shrink'
+    deleteAnimation: 'shrink',
+    model: 'gemini-3-pro-preview'
   });
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -42,9 +44,12 @@ const App: React.FC = () => {
     checkKey();
   }, []);
 
-  const handleOpenKeyDialog = async () => {
+  const handleOpenKeyDialog = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
+      // Assume success to proceed to the app immediately per SDK instructions
       setHasKey(true); 
     }
   };
@@ -55,7 +60,7 @@ const App: React.FC = () => {
     const savedSettings = localStorage.getItem('mf_settings');
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (savedJournal) setJournalEntries(JSON.parse(savedJournal));
-    if (savedSettings) setSettings(JSON.parse(savedSettings));
+    if (savedSettings) setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
     setLoaded(true);
   }, []);
 
@@ -106,10 +111,10 @@ const App: React.FC = () => {
     }
 
     if (entryId && hasKey) {
-        generateJournalInsight(content).then(insight => {
+        generateJournalInsight(content, settings.model).then(insight => {
             if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
         });
-        extractTasksFromJournal(content).then(newAIItems => {
+        extractTasksFromJournal(content, settings.model).then(newAIItems => {
             if (newAIItems?.length > 0) {
                 const tasksToAdd = newAIItems.map(item => ({
                     id: Math.random().toString(36).substr(2, 9),
@@ -128,21 +133,23 @@ const App: React.FC = () => {
 
   if (hasKey === false) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500">
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500 overflow-hidden">
         <div className="max-w-md w-full text-center space-y-8 animate-scale-in">
           <div className="w-24 h-24 bg-accent/10 rounded-[2.5rem] flex items-center justify-center mx-auto">
             <Sparkles className="w-12 h-12 text-accent" />
           </div>
           <div className="space-y-4">
-            <h1 className="text-4xl font-display font-bold">Welcome to Zournel</h1>
+            <h1 className="text-4xl font-display font-bold">Zournel</h1>
             <p className="text-secondary font-sans leading-relaxed">
-              Activate intelligent journaling and task extraction with Gemini 3 Pro.
+              Connect your Gemini API Key to unlock intelligent planning and artistic journaling.
             </p>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-4 relative z-[10000]">
             <button 
+              type="button"
               onClick={handleOpenKeyDialog}
-              className="w-full py-4 bg-accent text-accent-fg rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-accent/20 transition-all"
+              className="w-full py-4 bg-accent text-accent-fg rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl hover:shadow-accent/20 transition-all cursor-pointer active:scale-95"
+              style={{ pointerEvents: 'auto' }}
             >
               <Key className="w-5 h-5" />
               Connect Gemini API
@@ -153,7 +160,7 @@ const App: React.FC = () => {
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-xs font-grotesk text-secondary hover:text-accent transition-colors"
             >
-              Learn about paid API keys <ExternalLink className="w-3 h-3" />
+              Learn about API keys & billing <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         </div>
@@ -180,6 +187,7 @@ const App: React.FC = () => {
               onUpdateTask={t => setTasks(prev => prev.map(tk => tk.id === t.id ? t : tk))}
               onAddTask={addTask} focusInputSignal={focusInputSignal}
               completionAnim={settings.completionAnimation} deleteAnim={settings.deleteAnimation}
+              selectedModel={settings.model}
             />
         </div>
         <div className={`transition-all duration-500 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
@@ -192,10 +200,11 @@ const App: React.FC = () => {
         </button>
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
-      <JournalEditor isOpen={isEditorOpen} onClose={() => {setIsEditorOpen(false); setEditingEntry(null);}} onSave={saveJournalEntry} initialContent={editingEntry?.content} initialImage={editingEntry?.image} />
+      <JournalEditor isOpen={isEditorOpen} onClose={() => {setIsEditorOpen(false); setEditingEntry(null);}} onSave={saveJournalEntry} initialContent={editingEntry?.content} initialImage={editingEntry?.image} selectedModel={settings.model} />
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onUpdateSettings={setSettings} />
     </div>
   );
 };
 
+// Fixed error: App must have a default export.
 export default App;

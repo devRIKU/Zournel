@@ -1,4 +1,5 @@
 
+
 export enum Tab {
   TODO = 'TODO',
   JOURNAL = 'JOURNAL'
@@ -15,6 +16,7 @@ export interface AppSettings {
   theme: Theme;
   completionAnimation: CompletionAnimation;
   deleteAnimation: DeleteAnimation;
+  model: string;
 }
 
 export interface SubTask {
@@ -50,16 +52,14 @@ export interface AIProcessedInput {
   mood: string | null;
 }
 
-// Global Type Definitions for Gemini Studio Bridge
 declare global {
-  // Fix: Explicitly defining AIStudio to match existing environment expectations
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
     openSelectKey: () => Promise<void>;
   }
 
   interface Window {
-    // Fix: Adding readonly modifier and using the named AIStudio type to resolve declaration conflicts
-    readonly aistudio: AIStudio;
+    // Fixed error: All declarations of 'aistudio' must have identical modifiers.
+    aistudio: AIStudio;
   }
 }
