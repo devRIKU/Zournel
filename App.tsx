@@ -22,7 +22,7 @@ const App: React.FC = () => {
     theme: 'light',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
-    model: 'gemini-3-pro-preview'
+    model: 'gemini-3-flash-preview'
   });
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -94,7 +94,6 @@ const App: React.FC = () => {
   }, [tasks, journalEntries, settings, loaded]);
 
   useEffect(() => {
-    // Correctly apply the current theme class to HTML element for full propagation
     const themeClasses = ['theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 'theme-glass', 'theme-midnight'];
     document.documentElement.classList.remove(...themeClasses);
     if (settings.theme && settings.theme !== 'light') {

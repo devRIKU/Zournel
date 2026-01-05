@@ -7,35 +7,21 @@ const imageModelName = 'gemini-3-pro-image-preview';
  * Retrieves the API key, checking environment variables first, then stored cookies.
  */
 const getApiKey = () => {
-  // Check process.env.API_KEY first as per guidelines
   if (process.env.API_KEY && process.env.API_KEY !== 'undefined') {
     return process.env.API_KEY;
   }
-  // Fallback to user-provided key in cookies for non-AI Studio deployments
   const cookieMatch = document.cookie.match(/GEMINI_API_KEY=([^;]+)/);
   return cookieMatch ? cookieMatch[1] : undefined;
 };
 
-/**
- * Common error handler for API key issues
- */
 const handleAiError = (error: any) => {
   console.error("AI Error:", error);
-  if (error?.message?.includes("Requested entity was not found")) {
-    console.warn("API Key issue detected. User may need to re-select key.");
-  }
 };
 
-/**
- * Helper to check if a model supports thinking configuration
- */
 const isThinkingSupported = (model: string): boolean => {
-  return model.includes('gemini-3') || model.includes('gemini-2.5') || model.includes('flash-lite');
+  return model.includes('gemini-3') || model.includes('gemini-2.5');
 };
 
-/**
- * Categorizes and extracts tasks and journal content from a single input string.
- */
 export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
   const apiKey = getApiKey();
   const ai = new GoogleGenAI({ apiKey: apiKey || "" });
@@ -46,15 +32,15 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
       tasks: {
         type: Type.ARRAY,
         items: { type: Type.STRING },
-        description: 'A list of distinct actionable tasks extracted from the user input.'
+        description: 'Actionable tasks.'
       },
       journalContent: {
         type: Type.STRING,
-        description: 'The narrative or reflective parts of the input, stripped of task-only items.'
+        description: 'Narrative content.'
       },
       mood: {
         type: Type.STRING,
-        description: 'A single word or short phrase representing the detected mood.'
+        description: 'Mood phrase.'
       }
     },
     required: ['tasks', 'journalContent', 'mood']
@@ -63,7 +49,7 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
   try {
     const response = await ai.models.generateContent({
       model: model,
-      contents: `Process this input and separate it into tasks, journal narrative, and mood: "${input}"`,
+      contents: `Separate this input: "${input}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
@@ -71,16 +57,14 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
     });
 
     const text = response.text;
-    if (!text) throw new Error("Empty response from AI");
-    
-    return JSON.parse(text) as AIProcessedInput;
+    return text ? JSON.parse(text) : { tasks: [], journalContent: null, mood: null };
   } catch (error) {
     handleAiError(error);
     return { tasks: [], journalContent: null, mood: null };
   }
 };
 
-export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-pro-preview'): Promise<{ text: string, priority: Priority }[]> => {
+export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-flash-preview'): Promise<{ text: string, priority: Priority }[]> => {
   const apiKey = getApiKey();
   const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   const responseSchema = {
@@ -103,11 +87,10 @@ export const extractTasksFromJournal = async (journalText: string, model: string
   try {
     const response = await ai.models.generateContent({
       model: model,
-      contents: `Extract actionable tasks from this journal entry with priority: "${journalText}"`,
+      contents: `Extract tasks from entry: "${journalText}"`,
       config: {
         responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        ...(isThinkingSupported(model) ? { thinkingConfig: { thinkingBudget: 1000 } } : {})
+        responseSchema: responseSchema
       },
     });
 
@@ -120,7 +103,7 @@ export const extractTasksFromJournal = async (journalText: string, model: string
   }
 };
 
-export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-pro-preview'): Promise<string[]> => {
+export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-flash-preview'): Promise<string[]> => {
   const apiKey = getApiKey();
   const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   const responseSchema = {
@@ -131,7 +114,7 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
   try {
     const response = await ai.models.generateContent({
       model: model,
-      contents: `Break down this task into steps: "${taskText}"`,
+      contents: `Steps for task: "${taskText}"`,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema,
@@ -146,14 +129,13 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
   }
 };
 
-export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-pro-preview'): Promise<string> => {
+export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-flash-preview'): Promise<string> => {
   const apiKey = getApiKey();
   const ai = new GoogleGenAI({ apiKey: apiKey || "" });
   try {
     const response = await ai.models.generateContent({
       model: model,
-      contents: `Provide one reflective sentence for this entry: "${entryText}"`,
-      config: isThinkingSupported(model) ? { thinkingConfig: { thinkingBudget: 512 } } : {}
+      contents: `One reflective sentence: "${entryText}"`,
     });
     return response.text || "";
   } catch (error) {
@@ -162,15 +144,10 @@ export const generateJournalInsight = async (entryText: string, model: string = 
   }
 };
 
-export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-pro-preview'): Promise<string> => {
+export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-flash-preview'): Promise<string> => {
   const apiKey = getApiKey();
   const ai = new GoogleGenAI({ apiKey: apiKey || "" });
-  const prompts = {
-    IMPROVE: "Improve grammar/flow:",
-    REPHRASE: "Rephrase creatively:",
-    SUMMARIZE: "Summarize concisely:"
-  };
-
+  const prompts = { IMPROVE: "Improve:", REPHRASE: "Rewrite:", SUMMARIZE: "Sum:" };
   try {
     const response = await ai.models.generateContent({
       model: model,
@@ -190,7 +167,7 @@ export const generateCoverImage = async (context: string): Promise<string | null
     const response = await ai.models.generateContent({
       model: imageModelName,
       contents: {
-        parts: [{ text: `Minimalist, soothing cover image for theme: ${context}. No text.` }]
+        parts: [{ text: `Minimalist soothing cover: ${context}.` }]
       },
       config: {
         imageConfig: { aspectRatio: "16:9", imageSize: "1K" }

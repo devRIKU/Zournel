@@ -67,21 +67,34 @@
 
       html, body { height: 100%; min-height: 100vh; background-color: var(--color-bg); color: var(--color-primary); transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), color 0.5s ease; scroll-behavior: smooth; }
       
-      .prose { max-width: none; color: inherit; }
-      .prose h1, .prose h2, .prose h3 { color: var(--color-primary); font-family: 'Playfair Display', serif; }
-      .prose p { color: var(--color-secondary); line-height: 1.8; }
-      .prose img { border-radius: 1.5rem; margin: 2rem 0; box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1); }
-      .prose code { font-family: 'JetBrains Mono', monospace; background: var(--color-surface-highlight); padding: 0.2rem 0.4rem; border-radius: 0.4rem; }
-      
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      .editor-layer {
-        caret-color: var(--color-accent);
+      /* Milkdown specific styles - Remove all borders */
+      .milkdown {
+        background: transparent !important;
+        box-shadow: none !important;
+        color: var(--color-primary) !important;
+        border: none !important;
       }
-      .editor-layer::placeholder {
-        color: var(--color-secondary);
-        opacity: 0.2;
+      .milkdown .editor {
+        font-family: 'Inter', sans-serif !important;
+        font-size: 1.25rem !important;
+        line-height: 1.8 !important;
+        color: var(--color-primary) !important;
+        padding: 0 !important;
+        outline: none !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      .milkdown .editor p { margin-bottom: 1.5rem; }
+      .milkdown .editor h1 { font-family: 'Playfair Display', serif !important; font-size: 2.5rem !important; font-weight: bold !important; margin-bottom: 1rem; }
+      .milkdown .editor h2 { font-family: 'Playfair Display', serif !important; font-size: 2rem !important; font-weight: bold !important; margin-bottom: 0.8rem; }
+      
+      /* Target the Prosemirror focus ring and borders */
+      .ProseMirror {
+        outline: none !important;
+        border: none !important;
       }
     </style>
   <script type="importmap">
@@ -95,8 +108,13 @@
     "canvas-confetti": "https://esm.sh/canvas-confetti@^1.9.4",
     "vite": "https://esm.sh/vite@^7.3.0",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "remark-gfm": "https://esm.sh/remark-gfm@^4.0.1",
-    "react-markdown": "https://esm.sh/react-markdown@^10.1.0"
+    "@milkdown/core": "https://esm.sh/@milkdown/core@^7.5.1",
+    "@milkdown/ctx": "https://esm.sh/@milkdown/ctx@^7.5.1",
+    "@milkdown/preset-commonmark": "https://esm.sh/@milkdown/preset-commonmark@^7.5.1",
+    "@milkdown/react": "https://esm.sh/@milkdown/react@^7.5.1",
+    "@milkdown/theme-nord": "https://esm.sh/@milkdown/theme-nord@^7.5.1",
+    "@milkdown/plugin-listener": "https://esm.sh/@milkdown/plugin-listener@^7.5.1",
+    "@milkdown/utils": "https://esm.sh/@milkdown/utils@^7.18.0"
   }
 }
 </script>
