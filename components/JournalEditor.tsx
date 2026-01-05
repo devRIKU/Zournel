@@ -2,23 +2,15 @@ import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { 
   ArrowLeft, Sparkles, Wand2, RefreshCw, Save, ImageIcon, X, Plus, 
   Paperclip, CheckCircle, MoreHorizontal, AlignLeft, Bold, Italic, 
-  Strikethrough, List, ListOrdered, Quote, Code
+  Strikethrough, List, ListOrdered, Quote, Code, SquareCode
 } from 'lucide-react';
-import { Editor, rootCtx, defaultValueCtx } from '@milkdown/core';
+import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
-import { 
-  commonmark, 
-  toggleStrongCommand, 
-  toggleEmphasisCommand, 
-  wrapInBulletListCommand, 
-  wrapInOrderedListCommand, 
-  wrapInBlockquoteCommand,
-  toggleCodeCommand
-} from '@milkdown/preset-commonmark';
-import { gfm, toggleStrikethroughCommand } from '@milkdown/preset-gfm';
+import { commonmark } from '@milkdown/preset-commonmark';
+import { gfm } from '@milkdown/preset-gfm';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
-import { replaceAll, callCommand } from '@milkdown/utils';
+import { replaceAll } from '@milkdown/utils';
 import { editJournalText, generateCoverImage } from '../services/geminiService';
 
 interface JournalEditorProps {
@@ -86,7 +78,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const localCoverInputRef = useRef<HTMLInputElement>(null);
   const aiMenuRef = useRef<HTMLDivElement>(null);
 
-  // Close AI menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (aiMenuRef.current && !aiMenuRef.current.contains(event.target as Node)) {
@@ -145,8 +136,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   }, [image, onSave, onClose]);
 
-  const execCommand = useCallback((command: any) => {
-    editorInstanceRef.current?.action(callCommand(command));
+  const execCommand = useCallback((commandId: string) => {
+    if (editorInstanceRef.current) {
+      editorInstanceRef.current.action((ctx) => {
+        const commandManager = ctx.get(commandsCtx);
+        commandManager.call(commandId);
+      });
+    }
   }, []);
 
   const handleAIEdit = async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
@@ -255,23 +251,23 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             
             {/* Formatting Group */}
             <div className="flex items-center border-r border-surface-highlight pr-1">
-               <button onClick={() => execCommand(toggleStrongCommand)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Bold"><Bold className="w-4 h-4"/></button>
-               <button onClick={() => execCommand(toggleEmphasisCommand)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Italic"><Italic className="w-4 h-4"/></button>
-               <button onClick={() => execCommand(toggleStrikethroughCommand)} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Strikethrough"><Strikethrough className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('ToggleStrong')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Bold"><Bold className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('ToggleEmphasis')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Italic"><Italic className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('ToggleStrikethrough')} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Strikethrough"><Strikethrough className="w-4 h-4"/></button>
             </div>
 
             {/* Structure Group */}
             <div className="flex items-center border-r border-surface-highlight pr-1">
-               <button onClick={() => execCommand(wrapInBulletListCommand)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Bullets"><List className="w-4 h-4"/></button>
-               <button onClick={() => execCommand(wrapInOrderedListCommand)} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Numbers"><ListOrdered className="w-4 h-4"/></button>
-               <button onClick={() => execCommand(wrapInBlockquoteCommand)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Quote"><Quote className="w-4 h-4"/></button>
-               <button onClick={() => execCommand(toggleCodeCommand)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Code"><Code className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('WrapInBulletList')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Bullets"><List className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('WrapInOrderedList')} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Numbers"><ListOrdered className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('WrapInBlockquote')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Quote"><Quote className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('ToggleInlineCode')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Inline Code"><Code className="w-4 h-4"/></button>
+               <button onClick={() => execCommand('InsertCodeBlock')} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Code Block"><SquareCode className="w-4 h-4"/></button>
                <button onClick={() => setShowImagePrompt(true)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Image"><ImageIcon className="w-4 h-4"/></button>
             </div>
 
-            {/* AI Actions - Collapsed for better Mobile UX */}
+            {/* AI Actions */}
             <div className="flex items-center relative pl-1" ref={aiMenuRef}>
-               {/* Desktop: Show full buttons */}
                <div className="hidden md:flex items-center">
                  <button onClick={() => handleAIEdit('IMPROVE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
                    <Wand2 className="w-3.5 h-3.5"/> Refine
@@ -284,7 +280,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                  </button>
                </div>
 
-               {/* Mobile/Tablet: Collapsed into '...' menu that opens DOWNWARD */}
                <div className="md:hidden relative">
                  <button 
                   onClick={() => setShowAiMenu(!showAiMenu)} 
