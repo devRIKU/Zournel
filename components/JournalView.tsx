@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Sparkles, Feather, Image as ImageIcon } from 'lucide-react';
+import { Sparkles, Feather, Image as ImageIcon, Library } from 'lucide-react';
 import { JournalEntry } from '../types';
 
 interface JournalViewProps {
@@ -34,21 +34,26 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
   return (
     <div className="pb-40 px-6 max-w-6xl mx-auto w-full animate-fade-in">
       <div className="mb-20 mt-8 flex flex-col gap-2">
-        <h2 className="text-6xl font-display font-bold text-primary tracking-tighter">Archives</h2>
+        <div className="flex items-center gap-4 mb-2">
+           <div className="p-3 bg-accent/10 rounded-2xl">
+              <Library className="w-8 h-8 text-accent" />
+           </div>
+           <h2 className="text-6xl font-display font-bold text-primary tracking-tighter">Memories</h2>
+        </div>
         <div className="flex items-center gap-3">
             <div className="h-0.5 w-12 bg-accent rounded-full"></div>
-            <p className="font-grotesk text-secondary text-[10px] uppercase tracking-[0.4em] opacity-60">Visual Temporal Grid</p>
+            <p className="font-grotesk text-secondary text-[10px] uppercase tracking-[0.4em] opacity-60">Visual Journal Timeline</p>
         </div>
       </div>
 
       {entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-32 text-center">
            <div className="w-24 h-24 bg-surface-highlight rounded-[2rem] flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
-             <Feather className="w-10 h-10 text-accent/20" />
+             <Sparkles className="w-10 h-10 text-accent/20" />
            </div>
-           <p className="font-display text-4xl text-primary font-bold">Unwritten Stories</p>
+           <p className="font-display text-4xl text-primary font-bold">A Clean Page</p>
            <p className="font-sans text-secondary mt-4 max-w-xs mx-auto leading-relaxed opacity-40">
-             Capture a thought or a moment to begin your archive.
+             Your story begins here. Capture a thought or a moment to build your archive of memories.
            </p>
         </div>
       ) : (
@@ -67,6 +72,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
                     <button 
                       key={entry.id} 
                       onClick={() => onEdit(entry)}
+                      title="View & Edit Memory"
                       className={`group relative flex flex-col text-left bg-surface rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-2xl hover:-translate-y-2 active:scale-[0.98] transition-all duration-500 overflow-hidden outline-none ${
                         isHero ? 'md:col-span-2' : ''
                       }`}

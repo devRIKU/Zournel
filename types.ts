@@ -42,6 +42,7 @@ export interface JournalEntry {
   image?: string; 
   aiInsight?: string; 
   tags?: string[];
+  tasksExtracted?: boolean;
 }
 
 export interface AIProcessedInput {

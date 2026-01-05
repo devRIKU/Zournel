@@ -9,10 +9,10 @@ interface SettingsModalProps {
   onUpdateSettings: (s: AppSettings) => void;
 }
 
+// Guideline compliance: Using only recommended Gemini models.
 const MODELS = [
-  { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Ultra', desc: 'Expert reasoning' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', badge: 'Lite', desc: 'Fast & responsive' },
-  { id: 'gemma-3-27b-it', label: 'Gemma 3', badge: 'Open', desc: 'High performance' },
+  { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Ultra', desc: 'Expert reasoning & coding' },
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', badge: 'Lite', desc: 'Fast & responsive daily tasks' },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {

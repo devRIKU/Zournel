@@ -1,5 +1,6 @@
 import React from 'react';
 import { Tab } from '../types';
+import { ListTodo, Library } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -14,24 +15,28 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           
           <button 
             onClick={() => onTabChange(Tab.TODO)}
-            className={`px-8 py-3 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-90 ${
+            title="Switch to Tasks View"
+            className={`px-6 sm:px-8 py-3 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-90 flex items-center gap-2 ${
                 activeTab === Tab.TODO 
                 ? 'bg-primary text-bg shadow-lg scale-105' 
                 : 'text-secondary hover:text-primary hover:bg-surface-highlight/50'
             }`}
           >
-            Focus
+            <ListTodo className={`w-4 h-4 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-40'}`} />
+            <span>Tasks</span>
           </button>
 
           <button 
             onClick={() => onTabChange(Tab.JOURNAL)}
-            className={`px-8 py-3 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-90 ${
+            title="Switch to Memories View"
+            className={`px-6 sm:px-8 py-3 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-90 flex items-center gap-2 ${
                 activeTab === Tab.JOURNAL 
                 ? 'bg-primary text-bg shadow-lg scale-105' 
                 : 'text-secondary hover:text-primary hover:bg-surface-highlight/50'
             }`}
           >
-             Archive
+             <Library className={`w-4 h-4 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-40'}`} />
+             <span>Memories</span>
           </button>
 
         </div>

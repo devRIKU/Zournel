@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { 
   ArrowLeft, Sparkles, Wand2, RefreshCw, Save, ImageIcon, X, Plus, 
   Paperclip, CheckCircle, MoreHorizontal, AlignLeft, Bold, Italic, 
-  Strikethrough, List, ListOrdered, Quote, Code, SquareCode
+  List, Quote, Code, Undo, Redo
 } from 'lucide-react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
@@ -19,6 +19,7 @@ interface JournalEditorProps {
   onSave: (content: string, image: string | undefined) => void;
   initialContent?: string;
   initialImage?: string;
+  initialId?: string;
   selectedModel?: string;
 }
 
@@ -35,18 +36,36 @@ const AESTHETIC_COLLECTION = [
 const getRandomCover = () => AESTHETIC_COLLECTION[Math.floor(Math.random() * AESTHETIC_COLLECTION.length)];
 const DRAFT_KEY = 'mf_journal_draft';
 
-const EditorInstance = memo(({ initialValue, onChange, editorRef }: { 
-  initialValue: string; 
-  onChange: (markdown: string) => void;
-  editorRef: React.MutableRefObject<Editor | null>;
+// Debounce helper to prevent heavy serialization on every keypress
+function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
+  let timeout: any;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => fn(...args), delay);
+  };
+}
+
+/**
+ * EditorInstance manages the heavy Milkdown lifecycle.
+ * Keyed by initialId to reset when switching entries.
+ */
+const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady }: { 
+  defaultValue: string; 
+  onMarkdownUpdate: (markdown: string) => void;
+  onEditorReady: (editor: Editor) => void;
 }) => {
+  const initialValueRef = useRef(defaultValue);
+  
+  // We debounce the update callback to eliminate lag in long documents
+  const debouncedUpdate = useMemo(() => debounce(onMarkdownUpdate, 300), [onMarkdownUpdate]);
+
   useEditor((root) => {
-    const e = Editor.make()
+    const editor = Editor.make()
       .config((ctx) => {
         ctx.set(rootCtx, root);
-        ctx.set(defaultValueCtx, initialValue);
+        ctx.set(defaultValueCtx, initialValueRef.current);
         ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
-          onChange(markdown);
+          debouncedUpdate(markdown);
         });
       })
       .config(nord)
@@ -54,15 +73,89 @@ const EditorInstance = memo(({ initialValue, onChange, editorRef }: {
       .use(gfm)
       .use(listener);
     
-    editorRef.current = e;
-    return e;
-  }, [initialValue]);
+    onEditorReady(editor);
+    return editor;
+  }, [debouncedUpdate, onEditorReady]);
 
   return <Milkdown />;
 });
 
+/**
+ * Memoized Toolbar to keep the editor container focused on writing.
+ */
+const EditorToolbar = memo(({ 
+  onCommand, 
+  onShowImagePrompt, 
+  onAiEdit, 
+  isProcessing,
+  showAiMenu,
+  setShowAiMenu,
+  aiMenuRef 
+}: {
+  onCommand: (id: string) => void;
+  onShowImagePrompt: () => void;
+  onAiEdit: (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => void;
+  isProcessing: boolean;
+  showAiMenu: boolean;
+  setShowAiMenu: (show: boolean) => void;
+  aiMenuRef: React.RefObject<HTMLDivElement | null>;
+}) => {
+  return (
+    <div className="sticky top-6 flex justify-center z-40 px-4 mt-6">
+      <div className="flex items-center justify-center gap-1 p-1.5 bg-surface border border-surface-highlight shadow-xl rounded-full sm:rounded-3xl max-w-full">
+        {/* History Group */}
+        <div className="flex items-center border-r border-surface-highlight pr-1">
+          <button onClick={() => onCommand('Undo')} title="Undo" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Undo className="w-4 h-4"/></button>
+          <button onClick={() => onCommand('Redo')} title="Redo" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Redo className="w-4 h-4"/></button>
+        </div>
+
+        {/* Formatting Group */}
+        <div className="flex items-center border-r border-surface-highlight pr-1 pl-1">
+          <button onClick={() => onCommand('ToggleStrong')} title="Bold" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Bold className="w-4 h-4"/></button>
+          <button onClick={() => onCommand('ToggleEmphasis')} title="Italic" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Italic className="w-4 h-4"/></button>
+        </div>
+
+        {/* Structure Group */}
+        <div className="flex items-center border-r border-surface-highlight pr-1 pl-1">
+          <button onClick={() => onCommand('WrapInBulletList')} title="Bullet List" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><List className="w-4 h-4"/></button>
+          <button onClick={() => onCommand('WrapInBlockquote')} title="Quote" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Quote className="w-4 h-4"/></button>
+          <button onClick={() => onCommand('ToggleInlineCode')} title="Code" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Code className="w-4 h-4"/></button>
+          <button onClick={onShowImagePrompt} title="Add Image" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><ImageIcon className="w-4 h-4"/></button>
+        </div>
+
+        {/* AI Assistant Menu */}
+        <div className="flex items-center relative pl-1" ref={aiMenuRef}>
+          <div className="hidden md:flex items-center">
+            <button onClick={() => onAiEdit('IMPROVE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
+              <Wand2 className="w-3.5 h-3.5"/> Refine
+            </button>
+            <button onClick={() => onAiEdit('REPHRASE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
+              <RefreshCw className="w-3.5 h-3.5"/> Rewrite
+            </button>
+            <button onClick={() => onAiEdit('SUMMARIZE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
+              <AlignLeft className="w-3.5 h-3.5"/> Sum
+            </button>
+          </div>
+          <div className="md:hidden">
+            <button onClick={() => setShowAiMenu(!showAiMenu)} className={`p-2.5 rounded-xl transition-all ${showAiMenu ? 'bg-accent text-accent-fg' : 'text-secondary hover:bg-surface-highlight'}`}>
+              <MoreHorizontal className="w-5 h-5" />
+            </button>
+            {showAiMenu && (
+              <div className="absolute top-full mt-3 right-0 w-48 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-[60] animate-scale-in">
+                <button onClick={() => onAiEdit('IMPROVE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all"><Wand2 className="w-4 h-4 text-accent"/> Refine Entry</button>
+                <button onClick={() => onAiEdit('REPHRASE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all"><RefreshCw className="w-4 h-4 text-accent"/> Rewrite Draft</button>
+                <button onClick={() => onAiEdit('SUMMARIZE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all"><AlignLeft className="w-4 h-4 text-accent"/> Summarize</button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 export const JournalEditor: React.FC<JournalEditorProps> = ({ 
-  isOpen, onClose, onSave, initialContent = '', initialImage, selectedModel 
+  isOpen, onClose, onSave, initialContent = '', initialImage, initialId, selectedModel 
 }) => {
   const [image, setImage] = useState<string>(initialImage || getRandomCover());
   const [isProcessing, setIsProcessing] = useState(false);
@@ -73,10 +166,18 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [imageLoaded, setImageLoaded] = useState(false);
   
   const contentRef = useRef(initialContent);
-  const editorInstanceRef = useRef<Editor | null>(null);
+  const editorRef = useRef<Editor | null>(null);
+  const aiMenuRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
   const localCoverInputRef = useRef<HTMLInputElement>(null);
-  const aiMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      setImage(initialImage || getRandomCover());
+      setImageLoaded(false);
+      contentRef.current = initialContent;
+    }
+  }, [isOpen, initialContent, initialImage]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -84,34 +185,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         setShowAiMenu(false);
       }
     };
-    if (showAiMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+    if (showAiMenu) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showAiMenu]);
-
-  useEffect(() => {
-    if (isOpen) {
-      const savedDraft = localStorage.getItem(DRAFT_KEY);
-      let targetContent = initialContent;
-      let targetImage = initialImage || getRandomCover();
-
-      if (!initialContent && savedDraft) {
-        try {
-          const draft = JSON.parse(savedDraft);
-          targetContent = draft.content || '';
-          targetImage = draft.image || initialImage || getRandomCover();
-        } catch (e) {}
-      }
-
-      contentRef.current = targetContent;
-      setImage(targetImage);
-      setImageLoaded(false);
-      if (editorInstanceRef.current) {
-        editorInstanceRef.current.action(replaceAll(targetContent));
-      }
-    }
-  }, [isOpen, initialContent, initialImage]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -120,46 +196,52 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       if (currentText.trim() && currentText !== initialContent) {
         localStorage.setItem(DRAFT_KEY, JSON.stringify({ content: currentText, image, timestamp: Date.now() }));
         setShowSaveIndicator(true);
-        const timer = setTimeout(() => setShowSaveIndicator(false), 2000);
-        return () => clearTimeout(timer);
+        setTimeout(() => setShowSaveIndicator(false), 2000);
       }
     }, 15000);
     return () => clearInterval(interval);
   }, [isOpen, image, initialContent]);
 
   const handleManualSave = useCallback(() => {
-    const finalContent = contentRef.current;
-    if (finalContent.trim()) {
-      onSave(finalContent, image);
-      localStorage.removeItem(DRAFT_KEY);
-      onClose();
-    }
+    onSave(contentRef.current, image);
+    localStorage.removeItem(DRAFT_KEY);
+    onClose();
   }, [image, onSave, onClose]);
 
+  const handleContentUpdate = useCallback((val: string) => {
+    contentRef.current = val;
+  }, []);
+
+  const handleEditorReady = useCallback((editor: Editor) => {
+    editorRef.current = editor;
+  }, []);
+
   const execCommand = useCallback((commandId: string) => {
-    if (editorInstanceRef.current) {
-      editorInstanceRef.current.action((ctx) => {
+    if (editorRef.current) {
+      editorRef.current.action((ctx) => {
         const commandManager = ctx.get(commandsCtx);
         commandManager.call(commandId);
       });
     }
   }, []);
 
-  const handleAIEdit = async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
+  const handleAIEdit = useCallback(async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
     const currentText = contentRef.current;
     if (!currentText.trim()) return;
     setIsProcessing(true);
     setShowAiMenu(false);
     try {
       const newText = await editJournalText(currentText, type, selectedModel);
-      editorInstanceRef.current?.action(replaceAll(newText));
+      editorRef.current?.action(replaceAll(newText));
       contentRef.current = newText;
-    } catch (e) {} finally {
+    } catch (e) {
+      console.error("AI Error:", e);
+    } finally {
       setIsProcessing(false);
     }
-  };
+  }, [selectedModel]);
 
-  const handleGenerateCover = async () => {
+  const handleGenerateCover = useCallback(async () => {
     setIsProcessing(true);
     try {
       const generated = await generateCoverImage(contentRef.current.slice(0, 150));
@@ -167,10 +249,12 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         setImage(generated);
         setImageLoaded(false);
       }
-    } catch (e) {} finally {
+    } catch (e) {
+      console.error("Cover Gen Error:", e);
+    } finally {
       setIsProcessing(false);
     }
-  };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -188,7 +272,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           className={`w-full h-full object-cover transition-opacity duration-1000 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`} 
           alt="Entry cover" 
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImage(getRandomCover())}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-bg"></div>
         
@@ -204,7 +287,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             className="px-6 py-3 sm:px-8 sm:py-4 bg-accent text-accent-fg rounded-2xl text-sm font-bold shadow-2xl hover:bg-accent/90 active:scale-95 transition-all flex items-center gap-3 border border-white/10 outline-none"
           >
             <Save className="w-5 h-5" />
-            <span className="hidden sm:inline text-[10px] sm:text-sm uppercase tracking-widest sm:normal-case sm:tracking-normal">Save</span>
+            <span className="hidden sm:inline">Save Entry</span>
           </button>
         </div>
 
@@ -227,10 +310,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             </button>
             <input type="file" ref={localCoverInputRef} className="hidden" accept="image/*" onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) {
-                setImage(URL.createObjectURL(file));
-                setImageLoaded(false);
-              }
+              if (file) { setImage(URL.createObjectURL(file)); setImageLoaded(false); }
             }} />
           </div>
           <button 
@@ -245,79 +325,24 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
       <div className="flex-1 bg-bg flex flex-col overflow-hidden relative z-20 -mt-10 rounded-t-[3rem] sm:rounded-t-[3.5rem] shadow-[-10px_-10px_60px_-10px_rgba(0,0,0,0.1)]">
         
-        {/* Responsive Toolbar */}
-        <div className="sticky top-6 flex justify-center z-40 px-4 mt-6">
-          <div className="flex items-center justify-center gap-1 p-1.5 bg-surface border border-surface-highlight shadow-xl rounded-full sm:rounded-3xl max-w-full">
-            
-            {/* Formatting Group */}
-            <div className="flex items-center border-r border-surface-highlight pr-1">
-               <button onClick={() => execCommand('ToggleStrong')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Bold"><Bold className="w-4 h-4"/></button>
-               <button onClick={() => execCommand('ToggleEmphasis')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Italic"><Italic className="w-4 h-4"/></button>
-               <button onClick={() => execCommand('ToggleStrikethrough')} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Strikethrough"><Strikethrough className="w-4 h-4"/></button>
-            </div>
-
-            {/* Structure Group */}
-            <div className="flex items-center border-r border-surface-highlight pr-1">
-               <button onClick={() => execCommand('WrapInBulletList')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Bullets"><List className="w-4 h-4"/></button>
-               <button onClick={() => execCommand('WrapInOrderedList')} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Numbers"><ListOrdered className="w-4 h-4"/></button>
-               <button onClick={() => execCommand('WrapInBlockquote')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Quote"><Quote className="w-4 h-4"/></button>
-               <button onClick={() => execCommand('ToggleInlineCode')} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Inline Code"><Code className="w-4 h-4"/></button>
-               <button onClick={() => execCommand('InsertCodeBlock')} className="hidden sm:block p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Code Block"><SquareCode className="w-4 h-4"/></button>
-               <button onClick={() => setShowImagePrompt(true)} className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary transition-all active:scale-90" title="Image"><ImageIcon className="w-4 h-4"/></button>
-            </div>
-
-            {/* AI Actions */}
-            <div className="flex items-center relative pl-1" ref={aiMenuRef}>
-               <div className="hidden md:flex items-center">
-                 <button onClick={() => handleAIEdit('IMPROVE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
-                   <Wand2 className="w-3.5 h-3.5"/> Refine
-                 </button>
-                 <button onClick={() => handleAIEdit('REPHRASE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
-                   <RefreshCw className="w-3.5 h-3.5"/> Rewrite
-                 </button>
-                 <button onClick={() => handleAIEdit('SUMMARIZE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
-                   <AlignLeft className="w-3.5 h-3.5"/> Sum
-                 </button>
-               </div>
-
-               <div className="md:hidden relative">
-                 <button 
-                  onClick={() => setShowAiMenu(!showAiMenu)} 
-                  className={`p-2.5 rounded-xl transition-all ${showAiMenu ? 'bg-accent text-accent-fg' : 'text-secondary hover:bg-surface-highlight'}`}
-                 >
-                   <MoreHorizontal className="w-5 h-5" />
-                 </button>
-                 
-                 {showAiMenu && (
-                   <div className="absolute top-full mt-3 right-0 w-48 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 animate-scale-in flex flex-col gap-1 z-[60]">
-                      <div className="px-4 py-2 mb-1 border-b border-surface-highlight">
-                         <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2">
-                           <Sparkles className="w-3 h-3" /> AI Assistant
-                         </span>
-                      </div>
-                      <button onClick={() => handleAIEdit('IMPROVE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all">
-                        <Wand2 className="w-4 h-4 text-accent"/> Refine Entry
-                      </button>
-                      <button onClick={() => handleAIEdit('REPHRASE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all">
-                        <RefreshCw className="w-4 h-4 text-accent"/> Rewrite Draft
-                      </button>
-                      <button onClick={() => handleAIEdit('SUMMARIZE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all">
-                        <AlignLeft className="w-4 h-4 text-accent"/> Summarize
-                      </button>
-                   </div>
-                 )}
-               </div>
-            </div>
-          </div>
-        </div>
+        <EditorToolbar 
+          onCommand={execCommand}
+          onShowImagePrompt={() => setShowImagePrompt(true)}
+          onAiEdit={handleAIEdit}
+          isProcessing={isProcessing}
+          showAiMenu={showAiMenu}
+          setShowAiMenu={setShowAiMenu}
+          aiMenuRef={aiMenuRef}
+        />
 
         <div className="flex-1 overflow-y-auto no-scrollbar pt-10 px-6 sm:px-10 pb-32">
-          <div className="max-w-4xl mx-auto relative min-h-[50vh]">
+          <div className="max-w-4xl mx-auto min-h-[50vh]">
             <MilkdownProvider>
               <EditorInstance 
-                initialValue={initialContent} 
-                onChange={(val) => { contentRef.current = val; }}
-                editorRef={editorInstanceRef}
+                key={initialId || 'new'}
+                defaultValue={initialContent} 
+                onMarkdownUpdate={handleContentUpdate}
+                onEditorReady={handleEditorReady}
               />
             </MilkdownProvider>
           </div>
@@ -332,15 +357,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       </div>
 
       {showImagePrompt && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in p-6" role="dialog" aria-modal="true">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-6" role="dialog" aria-modal="true">
           <div className="bg-surface rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border border-white/5 animate-scale-in">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-2xl font-display font-bold text-primary">Add Visual</h3>
               <button onClick={() => setShowImagePrompt(false)} className="p-2 hover:bg-surface-highlight rounded-xl transition-all active:scale-90"><X className="w-5 h-5"/></button>
             </div>
             <div className="space-y-6">
-              <button onClick={() => localImageInputRef.current?.click()} className="w-full py-8 bg-surface-highlight hover:bg-accent hover:text-accent-fg border-2 border-dashed border-accent/20 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all group">
-                <Paperclip className="w-7 h-7 text-secondary group-hover:text-accent-fg" />
+              <button onClick={() => localImageInputRef.current?.click()} className="w-full py-8 bg-surface-highlight hover:bg-accent hover:text-accent-fg border-2 border-dashed border-accent/20 rounded-3xl flex flex-col items-center justify-center gap-3 transition-all">
+                <Paperclip className="w-7 h-7" />
                 <span className="text-xs font-bold uppercase tracking-widest">Upload Local File</span>
               </button>
               <input type="file" ref={localImageInputRef} className="hidden" accept="image/*" onChange={(e) => {
@@ -348,31 +373,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 if (file) {
                    const url = URL.createObjectURL(file);
                    const currentText = contentRef.current + `\n\n![Image](${url})\n\n`;
-                   editorInstanceRef.current?.action(replaceAll(currentText));
+                   editorRef.current?.action(replaceAll(currentText));
                    contentRef.current = currentText;
                    setShowImagePrompt(false);
                 }
               }} />
-              <div className="relative flex justify-center items-center py-2"><div className="w-full border-t border-surface-highlight"></div><span className="bg-surface px-4 text-[9px] font-bold uppercase tracking-[0.2em] text-secondary absolute">OR USE URL</span></div>
               <div className="flex gap-2">
                 <input autoFocus type="text" value={imgUrlInput} onChange={(e) => setImgUrlInput(e.target.value)} onKeyDown={(e) => {
                    if (e.key === 'Enter' && imgUrlInput.trim()) {
                      const currentText = contentRef.current + `\n\n![Image](${imgUrlInput.trim()})\n\n`;
-                     editorInstanceRef.current?.action(replaceAll(currentText));
+                     editorRef.current?.action(replaceAll(currentText));
                      contentRef.current = currentText;
                      setImgUrlInput('');
                      setShowImagePrompt(false);
                    }
                 }} className="flex-1 px-5 py-4 bg-surface-highlight border border-transparent focus:border-accent rounded-2xl outline-none text-primary transition-all text-xs" placeholder="https://..." />
-                <button onClick={() => {
-                   if (imgUrlInput.trim()) {
-                      const currentText = contentRef.current + `\n\n![Image](${imgUrlInput.trim()})\n\n`;
-                      editorInstanceRef.current?.action(replaceAll(currentText));
-                      contentRef.current = currentText;
-                      setImgUrlInput('');
-                      setShowImagePrompt(false);
-                   }
-                }} className="p-4 bg-accent text-accent-fg rounded-2xl hover:bg-accent/90 transition-all active:scale-90"><Plus className="w-5 h-5" /></button>
+                <button onClick={() => setShowImagePrompt(false)} className="p-4 bg-accent text-accent-fg rounded-2xl active:scale-90"><Plus className="w-5 h-5" /></button>
               </div>
             </div>
           </div>

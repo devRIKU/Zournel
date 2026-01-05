@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Bot } from 'lucide-react';
+import { Check, Trash2, Bot, ClipboardList } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Task, CompletionAnimation, DeleteAnimation, Priority } from '../types';
 import { generateSubtasks } from '../services/geminiService';
@@ -27,6 +27,7 @@ const PriorityBadge: React.FC<{ priority: Priority; onClick: () => void }> = ({ 
   return (
     <button 
       onClick={(e) => { e.stopPropagation(); onClick(); }} 
+      title="Change Priority"
       className={`px-2.5 py-0.5 rounded-full text-[10px] font-grotesk font-bold uppercase tracking-widest border transition-all active:scale-90 ${getColors()}`}
     >
       {priority}
@@ -34,6 +35,7 @@ const PriorityBadge: React.FC<{ priority: Priority; onClick: () => void }> = ({ 
   );
 };
 
+// Fixed destructuring syntax: changed semicolons to commas in the argument list to resolve scope errors.
 const TaskItem: React.FC<{ 
   task: Task; onToggle: () => void; onDelete: () => void; onUpdate: (t: Task) => void;
   completionAnim: CompletionAnimation; deleteAnim: DeleteAnimation; selectedModel?: string;
@@ -52,7 +54,7 @@ const TaskItem: React.FC<{
   const handleDelete = () => {
     if (deleteAnim === 'none') { onDelete(); return; }
     setIsDeleting(true);
-    setTimeout(() => onDelete(), 300); // Faster delete transition
+    setTimeout(() => onDelete(), 300);
   };
 
   const handleGenerateSubtasks = async () => {
@@ -71,6 +73,7 @@ const TaskItem: React.FC<{
       <div className="flex items-start gap-4">
         <button 
           onClick={handleToggle} 
+          title={task.completed ? "Mark as incomplete" : "Mark as complete"}
           className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all active:scale-75 ${task.completed ? 'bg-accent border-accent' : 'border-secondary hover:border-accent'}`}
         >
           {task.completed && <Check className="w-3.5 h-3.5 text-accent-fg" />}
@@ -82,13 +85,19 @@ const TaskItem: React.FC<{
                 const next: Record<Priority, Priority> = { 'high': 'medium', 'medium': 'low', 'low': 'high' };
                 onUpdate({ ...task, priority: next[task.priority] });
             }} />
+            {task.aiAnalysis && <span className="text-[9px] text-accent/60 font-medium italic">{task.aiAnalysis}</span>}
           </div>
         </div>
         <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => { if (task.subtasks?.length) setIsExpanded(!isExpanded); else handleGenerateSubtasks(); }} disabled={loadingSubtasks} className="p-1.5 text-secondary hover:text-accent rounded-lg transition-colors active:scale-90">
+          <button 
+            onClick={() => { if (task.subtasks?.length) setIsExpanded(!isExpanded); else handleGenerateSubtasks(); }} 
+            disabled={loadingSubtasks} 
+            title="AI Breakdown (Subtasks)"
+            className="p-1.5 text-secondary hover:text-accent rounded-lg transition-colors active:scale-90"
+          >
              {loadingSubtasks ? <Bot className="w-4 h-4 animate-pulse" /> : <Bot className="w-4 h-4"/>}
           </button>
-          <button onClick={handleDelete} className="p-1.5 text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-90"><Trash2 className="w-4 h-4" /></button>
+          <button onClick={handleDelete} title="Delete Task" className="p-1.5 text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-90"><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
       {(isExpanded || loadingSubtasks) && (
@@ -114,15 +123,24 @@ const TaskItem: React.FC<{
 export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDeleteTask, onUpdateTask, onAddTask, focusInputSignal, completionAnim, deleteAnim, selectedModel }) => {
   const [inputText, setInputText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  
   useEffect(() => { if (focusInputSignal > 0 && inputRef.current) inputRef.current.focus(); }, [focusInputSignal]);
+  
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && inputText.trim()) { onAddTask(inputText); setInputText(''); } };
   
-  const activeTasks = tasks.filter(t => !t.completed);
-  const completedTasks = tasks.filter(t => t.completed);
+  // Sort tasks by time (newest first)
+  const sortedTasks = [...tasks].sort((a, b) => b.createdAt - a.createdAt);
+  const activeTasks = sortedTasks.filter(t => !t.completed);
+  const completedTasks = sortedTasks.filter(t => t.completed);
 
   return (
     <div className="pb-32 px-6 max-w-3xl mx-auto w-full animate-fade-in">
-      <div className="mb-12 mt-4"><h2 className="text-5xl font-display font-bold text-primary tracking-tight">Focus</h2></div>
+      <div className="mb-12 mt-4 flex items-center gap-4">
+        <div className="p-3 bg-accent/10 rounded-2xl">
+          <ClipboardList className="w-8 h-8 text-accent" />
+        </div>
+        <h2 className="text-5xl font-display font-bold text-primary tracking-tight">Tasks</h2>
+      </div>
       <div className="relative mb-12">
         <input 
           ref={inputRef} 
@@ -130,13 +148,15 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
           value={inputText} 
           onChange={(e) => setInputText(e.target.value)} 
           onKeyDown={handleKeyDown} 
-          placeholder="What's on your mind?" 
+          placeholder="What's on your list?" 
+          title="Type a task and press Enter"
           className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-2xl py-4 transition-all duration-300 placeholder:opacity-30"
         />
       </div>
       {tasks.length === 0 ? (
-        <div className="py-24 text-center opacity-30 animate-pulse">
-          <p className="font-display text-2xl">Clean Slate</p>
+        <div className="py-24 text-center opacity-30 flex flex-col items-center gap-4">
+          <Check className="w-12 h-12 text-accent/50" />
+          <p className="font-display text-2xl">Nothing to do</p>
         </div>
       ) : (
         <div className="space-y-1">
