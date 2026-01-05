@@ -70,7 +70,7 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      /* Milkdown specific styles - Remove all borders */
+      /* Milkdown specific styles */
       .milkdown {
         background: transparent !important;
         box-shadow: none !important;
@@ -91,7 +91,27 @@
       .milkdown .editor h1 { font-family: 'Playfair Display', serif !important; font-size: 2.5rem !important; font-weight: bold !important; margin-bottom: 1rem; }
       .milkdown .editor h2 { font-family: 'Playfair Display', serif !important; font-size: 2rem !important; font-weight: bold !important; margin-bottom: 0.8rem; }
       
-      /* Target the Prosemirror focus ring and borders */
+      /* Distinct code styling */
+      .milkdown .editor code {
+        font-family: 'JetBrains Mono', monospace !important;
+        background: var(--color-surface-highlight);
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.4rem;
+        font-size: 0.9em;
+      }
+      .milkdown .editor pre {
+        background: var(--color-surface-highlight) !important;
+        padding: 1.5rem !important;
+        border-radius: 1rem !important;
+        margin-bottom: 1.5rem !important;
+        overflow-x: auto;
+      }
+      .milkdown .editor pre code {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
+      }
+
       .ProseMirror {
         outline: none !important;
         border: none !important;
@@ -111,6 +131,7 @@
     "@milkdown/core": "https://esm.sh/@milkdown/core@^7.5.1",
     "@milkdown/ctx": "https://esm.sh/@milkdown/ctx@^7.5.1",
     "@milkdown/preset-commonmark": "https://esm.sh/@milkdown/preset-commonmark@^7.5.1",
+    "@milkdown/preset-gfm": "https://esm.sh/@milkdown/preset-gfm@^7.5.1",
     "@milkdown/react": "https://esm.sh/@milkdown/react@^7.5.1",
     "@milkdown/theme-nord": "https://esm.sh/@milkdown/theme-nord@^7.5.1",
     "@milkdown/plugin-listener": "https://esm.sh/@milkdown/plugin-listener@^7.5.1",
