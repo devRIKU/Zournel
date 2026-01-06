@@ -309,12 +309,21 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         }
 
         try {
+          // Primary attempt
           commandManager.call(commandId);
         } catch (e) {
           console.warn(`Primary command ${commandId} failed, trying fallback:`, e);
-          // Fallback for code blocks which might be named differently in certain v7 builds
+          // Standard fallbacks for common presets
           if (commandId === 'TurnIntoCodeBlock') {
-             try { commandManager.call('WrapInCodeBlock'); } catch(e2) {}
+             try { commandManager.call('ToggleCodeBlock'); } catch(e2) {
+               try { commandManager.call('WrapInCodeBlock'); } catch(e3) {}
+             }
+          }
+          if (commandId === 'WrapInBlockquote') {
+             try { commandManager.call('ToggleBlockquote'); } catch(e2) {}
+          }
+          if (commandId === 'WrapInBulletList') {
+             try { commandManager.call('ToggleBulletList'); } catch(e2) {}
           }
         }
       });

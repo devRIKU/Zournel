@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets } from 'lucide-react';
+import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, ShieldCheck } from 'lucide-react';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 
 interface SettingsModalProps {
@@ -47,6 +47,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
         <div className="overflow-y-auto p-10 space-y-12 no-scrollbar">
           
           <section>
+             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
+              <ShieldCheck className="w-4 h-4" /> AI System Status
+            </h3>
+            <div className="bg-surface-highlight rounded-3xl p-6 border border-accent/5">
+              <div className="flex items-center justify-between mb-4">
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">API Authorization</span>
+                 <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">System Managed</span>
+                 </div>
+              </div>
+              <p className="text-xs text-secondary leading-relaxed opacity-70">
+                Your API credentials are automatically secured and managed by the environment. For security reasons, manual key entry is disabled.
+              </p>
+            </div>
+          </section>
+
+          <section>
             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
               <Palette className="w-4 h-4" /> Aesthetics
             </h3>
@@ -62,7 +80,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
           <section>
              <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
-              <Cpu className="w-4 h-4" /> AI Configuration
+              <Cpu className="w-4 h-4" /> Active Model
             </h3>
             <div className="space-y-3">
                {MODELS.map((m) => (

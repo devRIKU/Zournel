@@ -5,15 +5,19 @@ const imageModelName = 'gemini-3-pro-image-preview';
 
 /**
  * Guideline compliance: The API key must be obtained exclusively from process.env.API_KEY.
- * Removed cookie fallback to strictly follow provided rules.
+ * Removed fallback to strictly follow provided rules.
  */
 const handleAiError = (error: any) => {
   console.error("AI Error:", error);
 };
 
+// Utility to clean model output that might include markdown code blocks
+const cleanJsonString = (str: string) => {
+  return str.replace(/```json/g, '').replace(/```/g, '').trim();
+};
+
 export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
-  // Always create instance before request to ensure latest API key
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -52,7 +56,8 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
     });
 
     const text = response.text;
-    return text ? JSON.parse(text) : { tasks: [], journalContent: null, mood: null };
+    if (!text) return { tasks: [], journalContent: null, mood: null };
+    return JSON.parse(cleanJsonString(text));
   } catch (error) {
     handleAiError(error);
     return { tasks: [], journalContent: null, mood: null };
@@ -60,7 +65,7 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
 };
 
 export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-flash-preview'): Promise<{ text: string, priority: Priority }[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
@@ -93,7 +98,8 @@ export const extractTasksFromJournal = async (journalText: string, model: string
     });
 
     const text = response.text;
-    const result = text ? JSON.parse(text) : { tasks: [] };
+    if (!text) return [];
+    const result = JSON.parse(cleanJsonString(text));
     return result.tasks || [];
   } catch (error) {
     handleAiError(error);
@@ -102,7 +108,7 @@ export const extractTasksFromJournal = async (journalText: string, model: string
 };
 
 export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-flash-preview'): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const responseSchema = {
     type: Type.ARRAY,
     items: { type: Type.STRING },
@@ -119,7 +125,8 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
     });
 
     const text = response.text;
-    return text ? JSON.parse(text) : [];
+    if (!text) return [];
+    return JSON.parse(cleanJsonString(text));
   } catch (error) {
     handleAiError(error);
     return [];
@@ -127,7 +134,7 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
 };
 
 export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-flash-preview'): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: model,
@@ -143,7 +150,7 @@ export const generateJournalInsight = async (entryText: string, model: string = 
 };
 
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-flash-preview'): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompts = { 
     IMPROVE: "Enhance the flow, vocabulary, and clarity of this text while maintaining its original meaning and personal tone:", 
     REPHRASE: "Rewrite this entry in a more elegant and literary style, keeping the first-person perspective and emotional honesty:", 
@@ -162,7 +169,7 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 };
 
 export const generateCoverImage = async (context: string): Promise<string | null> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || "" });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: imageModelName,
