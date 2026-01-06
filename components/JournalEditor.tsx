@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { 
   ArrowLeft, Sparkles, Wand2, RefreshCw, Save, ImageIcon, X, Plus, 
-  Paperclip, CheckCircle, MoreHorizontal, AlignLeft, Bold, Italic, 
-  List, Quote, Code, Undo, Redo
+  Paperclip, CheckCircle, AlignLeft, Bold, Italic, 
+  List, Quote, Code, Undo, Redo, Strikethrough, Terminal
 } from 'lucide-react';
-import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
+import { Editor, rootCtx, defaultValueCtx, commandsCtx, editorViewCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
 import { commonmark } from '@milkdown/preset-commonmark';
 import { gfm } from '@milkdown/preset-gfm';
@@ -36,7 +36,6 @@ const AESTHETIC_COLLECTION = [
 const getRandomCover = () => AESTHETIC_COLLECTION[Math.floor(Math.random() * AESTHETIC_COLLECTION.length)];
 const DRAFT_KEY = 'mf_journal_draft';
 
-// Debounce helper to prevent heavy serialization on every keypress
 function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
   let timeout: any;
   return (...args: Parameters<T>) => {
@@ -45,18 +44,13 @@ function debounce<T extends (...args: any[]) => any>(fn: T, delay: number) {
   };
 }
 
-/**
- * EditorInstance manages the heavy Milkdown lifecycle.
- * Keyed by initialId to reset when switching entries.
- */
-const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady }: { 
+const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, onStateChange }: { 
   defaultValue: string; 
   onMarkdownUpdate: (markdown: string) => void;
   onEditorReady: (editor: Editor) => void;
+  onStateChange: (editor: Editor) => void;
 }) => {
   const initialValueRef = useRef(defaultValue);
-  
-  // We debounce the update callback to eliminate lag in long documents
   const debouncedUpdate = useMemo(() => debounce(onMarkdownUpdate, 300), [onMarkdownUpdate]);
 
   useEditor((root) => {
@@ -64,8 +58,13 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady }: 
       .config((ctx) => {
         ctx.set(rootCtx, root);
         ctx.set(defaultValueCtx, initialValueRef.current);
-        ctx.get(listenerCtx).markdownUpdated((_, markdown) => {
+        const l = ctx.get(listenerCtx);
+        l.markdownUpdated((_, markdown) => {
           debouncedUpdate(markdown);
+          onStateChange(editor);
+        });
+        l.updated((_) => {
+           onStateChange(editor);
         });
       })
       .config(nord)
@@ -75,14 +74,21 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady }: 
     
     onEditorReady(editor);
     return editor;
-  }, [debouncedUpdate, onEditorReady]);
+  }, [debouncedUpdate, onEditorReady, onStateChange]);
 
   return <Milkdown />;
 });
 
-/**
- * Memoized Toolbar to keep the editor container focused on writing.
- */
+interface ActiveStates {
+  bold: boolean;
+  italic: boolean;
+  strike: boolean;
+  code: boolean;
+  codeBlock: boolean;
+  blockquote: boolean;
+  bulletList: boolean;
+}
+
 const EditorToolbar = memo(({ 
   onCommand, 
   onShowImagePrompt, 
@@ -90,7 +96,8 @@ const EditorToolbar = memo(({
   isProcessing,
   showAiMenu,
   setShowAiMenu,
-  aiMenuRef 
+  aiMenuRef,
+  activeStates
 }: {
   onCommand: (id: string) => void;
   onShowImagePrompt: () => void;
@@ -99,57 +106,83 @@ const EditorToolbar = memo(({
   showAiMenu: boolean;
   setShowAiMenu: (show: boolean) => void;
   aiMenuRef: React.RefObject<HTMLDivElement | null>;
+  activeStates: ActiveStates;
 }) => {
+  const btnClass = (active: boolean = false) => `
+    p-3 rounded-2xl transition-all duration-300 active:scale-90 flex items-center justify-center
+    ${active ? 'bg-accent text-accent-fg shadow-lg shadow-accent/20 ring-2 ring-accent' : 'text-secondary hover:bg-surface-highlight hover:text-primary'}
+  `;
+
   return (
-    <div className="sticky top-6 flex justify-center z-40 px-4 mt-6">
-      <div className="flex items-center justify-center gap-1 p-1.5 bg-surface border border-surface-highlight shadow-xl rounded-full sm:rounded-3xl max-w-full">
-        {/* History Group */}
-        <div className="flex items-center border-r border-surface-highlight pr-1">
-          <button onClick={() => onCommand('Undo')} title="Undo" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Undo className="w-4 h-4"/></button>
-          <button onClick={() => onCommand('Redo')} title="Redo" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Redo className="w-4 h-4"/></button>
-        </div>
-
-        {/* Formatting Group */}
-        <div className="flex items-center border-r border-surface-highlight pr-1 pl-1">
-          <button onClick={() => onCommand('ToggleStrong')} title="Bold" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Bold className="w-4 h-4"/></button>
-          <button onClick={() => onCommand('ToggleEmphasis')} title="Italic" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Italic className="w-4 h-4"/></button>
-        </div>
-
-        {/* Structure Group */}
-        <div className="flex items-center border-r border-surface-highlight pr-1 pl-1">
-          <button onClick={() => onCommand('WrapInBulletList')} title="Bullet List" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><List className="w-4 h-4"/></button>
-          <button onClick={() => onCommand('WrapInBlockquote')} title="Quote" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Quote className="w-4 h-4"/></button>
-          <button onClick={() => onCommand('ToggleInlineCode')} title="Code" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><Code className="w-4 h-4"/></button>
-          <button onClick={onShowImagePrompt} title="Add Image" className="p-2 sm:p-2.5 hover:bg-surface-highlight rounded-xl text-secondary transition-all active:scale-90"><ImageIcon className="w-4 h-4"/></button>
-        </div>
-
-        {/* AI Assistant Menu */}
-        <div className="flex items-center relative pl-1" ref={aiMenuRef}>
-          <div className="hidden md:flex items-center">
-            <button onClick={() => onAiEdit('IMPROVE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
-              <Wand2 className="w-3.5 h-3.5"/> Refine
-            </button>
-            <button onClick={() => onAiEdit('REPHRASE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
-              <RefreshCw className="w-3.5 h-3.5"/> Rewrite
-            </button>
-            <button onClick={() => onAiEdit('SUMMARIZE')} disabled={isProcessing} className="flex items-center gap-2 px-3 py-2.5 hover:bg-accent/10 hover:text-accent rounded-xl text-secondary font-bold text-[9px] uppercase tracking-widest transition-all">
-              <AlignLeft className="w-3.5 h-3.5"/> Sum
-            </button>
-          </div>
-          <div className="md:hidden">
-            <button onClick={() => setShowAiMenu(!showAiMenu)} className={`p-2.5 rounded-xl transition-all ${showAiMenu ? 'bg-accent text-accent-fg' : 'text-secondary hover:bg-surface-highlight'}`}>
-              <MoreHorizontal className="w-5 h-5" />
-            </button>
-            {showAiMenu && (
-              <div className="absolute top-full mt-3 right-0 w-48 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-[60] animate-scale-in">
-                <button onClick={() => onAiEdit('IMPROVE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all"><Wand2 className="w-4 h-4 text-accent"/> Refine Entry</button>
-                <button onClick={() => onAiEdit('REPHRASE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all"><RefreshCw className="w-4 h-4 text-accent"/> Rewrite Draft</button>
-                <button onClick={() => onAiEdit('SUMMARIZE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-xs font-bold uppercase tracking-wider rounded-xl transition-all"><AlignLeft className="w-4 h-4 text-accent"/> Summarize</button>
-              </div>
-            )}
-          </div>
-        </div>
+    <div className="fixed left-4 sm:left-8 top-1/2 -translate-y-1/2 z-[100] hidden lg:flex flex-col gap-2 p-2 bg-surface border border-surface-highlight shadow-2xl rounded-[2.5rem] animate-slide-up">
+      <div className="flex flex-col gap-1.5 pb-2 border-b border-surface-highlight">
+        <button onClick={() => onCommand('Undo')} title="Undo" className={btnClass()}><Undo className="w-5 h-5"/></button>
+        <button onClick={() => onCommand('Redo')} title="Redo" className={btnClass()}><Redo className="w-5 h-5"/></button>
       </div>
+
+      <div className="flex flex-col gap-1.5 py-2 border-b border-surface-highlight">
+        <button onClick={() => onCommand('ToggleStrong')} title="Bold" className={btnClass(activeStates.bold)}><Bold className="w-5 h-5"/></button>
+        <button onClick={() => onCommand('ToggleEmphasis')} title="Italic" className={btnClass(activeStates.italic)}><Italic className="w-5 h-5"/></button>
+        <button onClick={() => onCommand('ToggleStrikeThrough')} title="Strikethrough" className={btnClass(activeStates.strike)}><Strikethrough className="w-5 h-5"/></button>
+        <button onClick={() => onCommand('ToggleInlineCode')} title="Inline Code" className={btnClass(activeStates.code)}><Code className="w-5 h-5"/></button>
+        <button onClick={() => onCommand('TurnIntoCodeBlock')} title="Code Block" className={btnClass(activeStates.codeBlock)}><Terminal className="w-5 h-5"/></button>
+      </div>
+
+      <div className="flex flex-col gap-1.5 py-2 border-b border-surface-highlight">
+        <button onClick={() => onCommand('WrapInBulletList')} title="Bullet List" className={btnClass(activeStates.bulletList)}><List className="w-5 h-5"/></button>
+        <button onClick={() => onCommand('WrapInBlockquote')} title="Quote" className={btnClass(activeStates.blockquote)}><Quote className="w-5 h-5"/></button>
+        <button onClick={onShowImagePrompt} title="Add Image" className={btnClass()}><ImageIcon className="w-5 h-5"/></button>
+      </div>
+
+      <div className="flex flex-col gap-1.5 pt-2 relative" ref={aiMenuRef}>
+        <button 
+          onClick={() => setShowAiMenu(!showAiMenu)} 
+          title="AI Assistant"
+          className={btnClass(showAiMenu)}
+        >
+          <Sparkles className={`w-5 h-5 ${isProcessing ? 'animate-pulse' : ''}`} />
+        </button>
+        
+        {showAiMenu && (
+          <div className="absolute left-full ml-4 top-0 w-48 bg-surface border border-surface-highlight rounded-3xl shadow-2xl p-2 flex flex-col gap-1 z-[110] animate-scale-in">
+            <button onClick={() => onAiEdit('IMPROVE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all"><Wand2 className="w-4 h-4 text-accent"/> Refine</button>
+            <button onClick={() => onAiEdit('REPHRASE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all"><RefreshCw className="w-4 h-4 text-accent"/> Rewrite</button>
+            <button onClick={() => onAiEdit('SUMMARIZE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all"><AlignLeft className="w-4 h-4 text-accent"/> Summarize</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const MobileToolbar = memo(({ 
+  onCommand, onShowImagePrompt, onAiEdit, isProcessing, showAiMenu, setShowAiMenu, aiMenuRef, activeStates 
+}: any) => {
+  const btnClass = (active: boolean = false) => `
+    p-3 rounded-xl transition-all duration-300 active:scale-90 flex items-center justify-center
+    ${active ? 'bg-accent text-accent-fg' : 'text-secondary hover:bg-surface-highlight'}
+  `;
+  return (
+    <div className="lg:hidden sticky top-4 flex justify-center z-[80] px-4 mb-4">
+      <div className="flex items-center gap-1 p-1.5 bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-2xl rounded-2xl max-w-full overflow-x-auto no-scrollbar">
+        <button onClick={() => onCommand('ToggleStrong')} className={btnClass(activeStates.bold)}><Bold className="w-4 h-4"/></button>
+        <button onClick={() => onCommand('ToggleEmphasis')} className={btnClass(activeStates.italic)}><Italic className="w-4 h-4"/></button>
+        <button onClick={() => onCommand('ToggleStrikeThrough')} className={btnClass(activeStates.strike)}><Strikethrough className="w-4 h-4"/></button>
+        <button onClick={() => onCommand('ToggleInlineCode')} className={btnClass(activeStates.code)}><Code className="w-4 h-4"/></button>
+        <button onClick={() => onCommand('TurnIntoCodeBlock')} className={btnClass(activeStates.codeBlock)}><Terminal className="w-4 h-4"/></button>
+        <button onClick={() => onCommand('WrapInBulletList')} className={btnClass(activeStates.bulletList)}><List className="w-4 h-4"/></button>
+        <button onClick={() => onCommand('WrapInBlockquote')} className={btnClass(activeStates.blockquote)}><Quote className="w-4 h-4"/></button>
+        <button onClick={onShowImagePrompt} className={btnClass()}><ImageIcon className="w-4 h-4"/></button>
+        <div className="h-6 w-px bg-surface-highlight mx-1"></div>
+        <button onClick={() => setShowAiMenu(!showAiMenu)} className={btnClass(showAiMenu)}><Sparkles className="w-4 h-4"/></button>
+      </div>
+      {showAiMenu && (
+        <div className="fixed inset-x-4 top-20 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col gap-1 z-[110] animate-scale-in" ref={aiMenuRef}>
+          <button onClick={() => onAiEdit('IMPROVE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all"><Wand2 className="w-4 h-4 text-accent"/> Refine</button>
+          <button onClick={() => onAiEdit('REPHRASE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all"><RefreshCw className="w-4 h-4 text-accent"/> Rewrite</button>
+          <button onClick={() => onAiEdit('SUMMARIZE')} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/10 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all"><AlignLeft className="w-4 h-4 text-accent"/> Summarize</button>
+        </div>
+      )}
     </div>
   );
 });
@@ -164,6 +197,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [imgUrlInput, setImgUrlInput] = useState('');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+  const [activeStates, setActiveStates] = useState<ActiveStates>({
+    bold: false,
+    italic: false,
+    strike: false,
+    code: false,
+    codeBlock: false,
+    blockquote: false,
+    bulletList: false
+  });
   
   const contentRef = useRef(initialContent);
   const editorRef = useRef<Editor | null>(null);
@@ -216,14 +258,69 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     editorRef.current = editor;
   }, []);
 
+  const handleStateChange = useCallback((editor: Editor) => {
+    editor.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      if (!view) return;
+      const { state } = view;
+      const { selection, schema } = state;
+      const { from, to, empty } = selection;
+
+      const isMarkActive = (type: any) => {
+        if (!type) return false;
+        if (empty) return !!type.isInSet(state.storedMarks || selection.$from.marks());
+        return state.doc.rangeHasMark(from, to, type);
+      };
+
+      const isNodeActive = (type: any) => {
+        if (!type) return false;
+        let active = false;
+        state.doc.nodesBetween(from, to, (node) => {
+          if (node.type === type) active = true;
+        });
+        return active;
+      };
+
+      setActiveStates({
+        bold: isMarkActive(schema.marks.strong),
+        italic: isMarkActive(schema.marks.emphasis),
+        strike: isMarkActive(schema.marks.strike_through),
+        code: isMarkActive(schema.marks.code_inline),
+        codeBlock: isNodeActive(schema.nodes.code_block),
+        blockquote: isNodeActive(schema.nodes.blockquote),
+        bulletList: isNodeActive(schema.nodes.bullet_list)
+      });
+    });
+  }, []);
+
   const execCommand = useCallback((commandId: string) => {
     if (editorRef.current) {
       editorRef.current.action((ctx) => {
         const commandManager = ctx.get(commandsCtx);
-        commandManager.call(commandId);
+        
+        // Logical "toggle" for block nodes by using Lift if already active
+        if (commandId === 'WrapInBlockquote' && activeStates.blockquote) {
+          commandManager.call('Lift');
+          return;
+        }
+        if (commandId === 'WrapInBulletList' && activeStates.bulletList) {
+          commandManager.call('Lift');
+          return;
+        }
+
+        try {
+          commandManager.call(commandId);
+        } catch (e) {
+          console.warn(`Primary command ${commandId} failed, trying fallback:`, e);
+          // Fallback for code blocks which might be named differently in certain v7 builds
+          if (commandId === 'TurnIntoCodeBlock') {
+             try { commandManager.call('WrapInCodeBlock'); } catch(e2) {}
+          }
+        }
       });
+      handleStateChange(editorRef.current);
     }
-  }, []);
+  }, [handleStateChange, activeStates]);
 
   const handleAIEdit = useCallback(async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
     const currentText = contentRef.current;
@@ -260,8 +357,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-bg flex flex-col animate-fade-in overflow-hidden" role="dialog" aria-modal="true">
-      {/* Cover Section */}
-      <div className="relative h-[40vh] sm:h-[45vh] shrink-0 w-full overflow-hidden bg-surface-highlight">
+      <div className="relative h-[35vh] shrink-0 w-full overflow-hidden bg-surface-highlight">
         {!imageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-highlight">
             <div className="w-10 h-10 border-4 border-accent/20 border-t-accent rounded-full animate-spin"></div>
@@ -333,16 +429,29 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           showAiMenu={showAiMenu}
           setShowAiMenu={setShowAiMenu}
           aiMenuRef={aiMenuRef}
+          activeStates={activeStates}
+        />
+
+        <MobileToolbar 
+           onCommand={execCommand}
+           onShowImagePrompt={() => setShowImagePrompt(true)}
+           onAiEdit={handleAIEdit}
+           isProcessing={isProcessing}
+           showAiMenu={showAiMenu}
+           setShowAiMenu={setShowAiMenu}
+           aiMenuRef={aiMenuRef}
+           activeStates={activeStates}
         />
 
         <div className="flex-1 overflow-y-auto no-scrollbar pt-10 px-6 sm:px-10 pb-32">
-          <div className="max-w-4xl mx-auto min-h-[50vh]">
+          <div className="max-w-3xl mx-auto min-h-[50vh] lg:pl-16">
             <MilkdownProvider>
               <EditorInstance 
                 key={initialId || 'new'}
                 defaultValue={initialContent} 
                 onMarkdownUpdate={handleContentUpdate}
                 onEditorReady={handleEditorReady}
+                onStateChange={handleStateChange}
               />
             </MilkdownProvider>
           </div>

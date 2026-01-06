@@ -71,6 +71,7 @@
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+      /* Milkdown Editor Overrides */
       .milkdown {
         background: transparent !important;
         box-shadow: none !important;
@@ -91,24 +92,55 @@
       .milkdown .editor h1 { font-family: 'Playfair Display', serif !important; font-size: 2.5rem !important; font-weight: bold !important; margin-bottom: 1rem; }
       .milkdown .editor h2 { font-family: 'Playfair Display', serif !important; font-size: 2rem !important; font-weight: bold !important; margin-bottom: 0.8rem; }
       
+      /* GFM support */
+      .milkdown .editor del {
+        text-decoration: line-through !important;
+        opacity: 0.6 !important;
+      }
+
+      /* Code Styling */
       .milkdown .editor code {
         font-family: 'JetBrains Mono', monospace !important;
-        background: var(--color-surface-highlight);
-        padding: 0.2rem 0.4rem;
-        border-radius: 0.4rem;
-        font-size: 0.9em;
-      }
-      .milkdown .editor pre {
         background: var(--color-surface-highlight) !important;
+        color: var(--color-accent) !important;
+        padding: 0.2rem 0.5rem !important;
+        border-radius: 0.4rem !important;
+        font-size: 0.9em !important;
+        font-weight: 500 !important;
+      }
+
+      .milkdown .editor pre {
+        background: #111827 !important; /* Dark neutral for high contrast code */
+        color: #E5E7EB !important;
         padding: 1.5rem !important;
         border-radius: 1rem !important;
-        margin-bottom: 1.5rem !important;
-        overflow-x: auto;
+        margin: 1.5rem 0 !important;
+        overflow-x: auto !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
       }
+
       .milkdown .editor pre code {
-        background: transparent;
-        padding: 0;
-        border-radius: 0;
+        background: transparent !important;
+        color: inherit !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        font-size: 0.95em !important;
+      }
+
+      /* Blockquote (Quote) Styling */
+      .milkdown .editor blockquote {
+        border-left: 5px solid var(--color-accent) !important;
+        padding: 0.75rem 1.5rem !important;
+        margin: 1.5rem 0 !important;
+        background: var(--color-surface-highlight) !important;
+        border-radius: 0 1rem 1rem 0 !important;
+        font-style: italic !important;
+        color: var(--color-secondary) !important;
+      }
+
+      .milkdown .editor blockquote p {
+        margin-bottom: 0 !important;
       }
 
       .ProseMirror {
