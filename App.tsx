@@ -51,11 +51,28 @@ const App: React.FC = () => {
       setHasKey(true);
     }
 
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-    if (savedJournal) setJournalEntries(JSON.parse(savedJournal));
+    if (savedTasks) {
+      try {
+        setTasks(JSON.parse(savedTasks));
+      } catch (e) {
+        console.error("Failed to parse tasks", e);
+      }
+    }
+
+    if (savedJournal) {
+      try {
+        setJournalEntries(JSON.parse(savedJournal));
+      } catch (e) {
+        console.error("Failed to parse journal", e);
+      }
+    }
     
     if (savedSettings) {
-      setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
+      try {
+        setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
+      } catch (e) {
+        console.error("Failed to parse settings", e);
+      }
     } else {
       // Auto-detect theme on first run
       const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -265,6 +282,7 @@ const App: React.FC = () => {
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
       <JournalEditor 
+        key={editingEntry ? editingEntry.id : 'new-entry'}
         isOpen={isEditorOpen} 
         onClose={() => {setIsEditorOpen(false); setEditingEntry(null);}} 
         onSave={saveJournalEntry} 

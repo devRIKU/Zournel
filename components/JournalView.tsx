@@ -13,11 +13,19 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
   
   const groupedEntries = useMemo(() => {
     const groups: Record<string, JournalEntry[]> = {};
-    const sorted = [...entries].sort((a, b) => b.createdAt - a.createdAt);
+    // Ensure createdAt exists
+    const sorted = [...entries].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     
     sorted.forEach(entry => {
-      const date = new Date(entry.createdAt);
-      const dateKey = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      // Safety check for date
+      const timestamp = entry.createdAt || Date.now();
+      const date = new Date(timestamp);
+      
+      let dateKey = 'Unknown Date';
+      if (!isNaN(date.getTime())) {
+         dateKey = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      }
+
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(entry);
     });
@@ -26,6 +34,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
   }, [entries]);
 
   const stripMarkdownAndTruncate = (text: string) => {
+    if (!text) return '';
     const stripped = text.replace(/[#*`_~[\]()]/g, '').trim();
     if (stripped.length <= TRUNCATE_LIMIT) return stripped;
     return stripped.slice(0, TRUNCATE_LIMIT) + '...';
@@ -68,6 +77,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {dayEntries.map((entry, idx) => {
                   const isHero = dayEntries.length === 1 || (dayEntries.length > 2 && idx === 0);
+                  // Safe date string
+                  const timeString = entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                  
                   return (
                     <button 
                       key={entry.id} 
@@ -87,7 +99,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
                           <div className="absolute top-6 left-6 flex gap-2">
                              <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-white text-[9px] font-bold tracking-widest uppercase">
-                               {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                               {timeString}
                              </div>
                           </div>
                         </div>
@@ -96,7 +108,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
                            <div className="flex items-center gap-2 mb-4 opacity-50">
                               <ImageIcon className="w-3 h-3 text-accent" />
                               <span className="text-[9px] font-grotesk font-bold uppercase tracking-wider text-secondary">
-                                {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                {timeString}
                               </span>
                            </div>
                         </div>
