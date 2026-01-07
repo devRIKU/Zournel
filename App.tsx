@@ -19,8 +19,9 @@ const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [focusInputSignal, setFocusInputSignal] = useState(0); 
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
-  const [hasKey, setHasKey] = useState<boolean | null>(null);
-  const [isStudioEnv, setIsStudioEnv] = useState(false);
+  
+  // API Key State
+  const [hasKey, setHasKey] = useState<boolean>(false);
   
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'light',
@@ -38,6 +39,22 @@ const App: React.FC = () => {
     const savedTasks = localStorage.getItem('mf_tasks');
     const savedJournal = localStorage.getItem('mf_journal');
     const savedSettings = localStorage.getItem('mf_settings');
+    
+    // Check for API Key via aistudio or process.env
+    const checkKey = async () => {
+      if (window.aistudio) {
+        try {
+          const selected = await window.aistudio.hasSelectedApiKey();
+          setHasKey(selected);
+        } catch (e) {
+          console.error("Error checking aistudio key:", e);
+        }
+      } else if (process.env.API_KEY) {
+        setHasKey(true);
+      }
+    };
+    checkKey();
+
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (savedJournal) setJournalEntries(JSON.parse(savedJournal));
     
@@ -73,24 +90,6 @@ const App: React.FC = () => {
     }
   }, [tasks, journalEntries, settings, loaded]);
 
-  // Handle API Key
-  useEffect(() => {
-    const checkKey = async () => {
-      if (window.aistudio) {
-        setIsStudioEnv(true);
-        try {
-          const selected = await window.aistudio.hasSelectedApiKey();
-          setHasKey(selected);
-        } catch (e) {
-          setHasKey(false);
-        }
-      } else {
-        setHasKey(true);
-      }
-    };
-    checkKey();
-  }, []);
-
   // Theme Applier - FIXED STICKINESS
   useEffect(() => {
     document.documentElement.classList.remove(...ALL_THEME_CLASSES);
@@ -105,11 +104,14 @@ const App: React.FC = () => {
     }
   }, [settings.theme]);
 
-  const handleOpenKeyDialog = async (e: React.MouseEvent) => {
-    e.preventDefault();
+  const handleSelectKey = async () => {
     if (window.aistudio) {
-      await window.aistudio.openSelectKey();
-      setHasKey(true); 
+      try {
+        await window.aistudio.openSelectKey();
+        setHasKey(true);
+      } catch (e) {
+        console.error("Failed to open key selection:", e);
+      }
     }
   };
 
@@ -172,28 +174,48 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
-  if (hasKey === false) {
+  if (!hasKey) {
     return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500">
-        <div className="max-w-md w-full text-center space-y-8 animate-scale-in">
-          <div className="w-24 h-24 bg-accent/10 rounded-[2.5rem] flex items-center justify-center mx-auto">
-            <Sparkles className="w-12 h-12 text-accent" />
+      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500 overflow-y-auto">
+        <div className="max-w-md w-full text-center space-y-8 animate-scale-in my-auto">
+          <div className="w-24 h-24 bg-accent/10 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-xl shadow-accent/5">
+            <Sparkles className="w-10 h-10 text-accent" />
           </div>
-          <div className="space-y-4">
-            <h1 className="text-4xl font-display font-bold">Zournel</h1>
-            <p className="text-secondary font-sans leading-relaxed">Connect your project via AI Studio to unlock intelligent features.</p>
+          
+          <div className="space-y-3">
+            <h1 className="text-5xl font-display font-bold text-primary tracking-tight">Zournel</h1>
+            <p className="text-secondary font-sans font-medium">Your intelligent companion for thoughts and tasks.</p>
           </div>
-          <div className="bg-surface p-6 rounded-[2rem] border border-surface-highlight shadow-xl space-y-6">
-            {isStudioEnv && (
-              <div className="space-y-4">
-                <button onClick={handleOpenKeyDialog} className="w-full py-4 bg-accent text-accent-fg rounded-2xl font-bold flex items-center justify-center gap-3 active:scale-95 transition-all">
-                  <Key className="w-5 h-5" /> Select Project Key
-                </button>
-                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 text-[10px] text-secondary hover:text-accent transition-colors">
-                  <ExternalLink className="w-3 h-3" /> Billing Documentation
+
+          <div className="bg-surface p-8 rounded-[2rem] border border-surface-highlight shadow-2xl space-y-6 text-left">
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-secondary leading-relaxed">
+                To start using Zournel with its AI capabilities, please connect your Google Gemini API key.
+              </p>
+              
+              <button 
+                  onClick={handleSelectKey}
+                  className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg bg-accent text-accent-fg hover:bg-accent/90"
+              >
+                <span>Select API Key</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="pt-4 border-t border-surface-highlight/50">
+               <div className="flex gap-3 items-start p-3 bg-surface-highlight/30 rounded-xl">
+                  <ShieldCheck className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                  <p className="text-[10px] text-secondary leading-relaxed">
+                     <span className="font-bold">Security Note:</span> Your API key is handled securely by Google AI Studio's environment injection or your provided environment variables.
+                  </p>
+               </div>
+            </div>
+
+            <div className="text-center">
+                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline font-medium">
+                  Review Billing Documentation <ExternalLink className="w-3 h-3" />
                 </a>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

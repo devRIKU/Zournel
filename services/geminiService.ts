@@ -3,10 +3,6 @@ import { AIProcessedInput, Priority } from "../types";
 
 const imageModelName = 'gemini-3-pro-image-preview';
 
-/**
- * Guideline compliance: The API key must be obtained exclusively from process.env.API_KEY.
- * Removed fallback to strictly follow provided rules.
- */
 const handleAiError = (error: any) => {
   console.error("AI Error:", error);
 };
@@ -17,6 +13,8 @@ const cleanJsonString = (str: string) => {
 };
 
 export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
+  if (!process.env.API_KEY) throw new Error("API Key missing");
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const responseSchema = {
@@ -65,6 +63,8 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
 };
 
 export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-flash-preview'): Promise<{ text: string, priority: Priority }[]> => {
+  if (!process.env.API_KEY) return [];
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const responseSchema = {
     type: Type.OBJECT,
@@ -108,6 +108,8 @@ export const extractTasksFromJournal = async (journalText: string, model: string
 };
 
 export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-flash-preview'): Promise<string[]> => {
+  if (!process.env.API_KEY) return [];
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const responseSchema = {
     type: Type.ARRAY,
@@ -134,6 +136,8 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
 };
 
 export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-flash-preview'): Promise<string> => {
+  if (!process.env.API_KEY) return "";
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
@@ -150,6 +154,8 @@ export const generateJournalInsight = async (entryText: string, model: string = 
 };
 
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-flash-preview'): Promise<string> => {
+  if (!process.env.API_KEY) return text;
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompts = { 
     IMPROVE: "Enhance the flow, vocabulary, and clarity of this text while maintaining its original meaning and personal tone:", 
@@ -169,6 +175,8 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 };
 
 export const generateCoverImage = async (context: string): Promise<string | null> => {
+  if (!process.env.API_KEY) return null;
+
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({

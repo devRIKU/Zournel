@@ -50,14 +50,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             </h3>
             <div className="bg-surface-highlight rounded-3xl p-6 border border-accent/5">
               <div className="flex items-center justify-between mb-4">
-                 <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">API Authorization</span>
+                 <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">Connection Status</span>
                  <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Managed</span>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Active</span>
                  </div>
               </div>
               <p className="text-xs text-secondary leading-relaxed opacity-70">
-                Credentials are automatically synchronized with your project. Manual entry is restricted for security.
+                 Zournel is connected to Google Gemini.
               </p>
             </div>
           </section>
