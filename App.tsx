@@ -13,6 +13,8 @@ const ALL_THEME_CLASSES = [
   'theme-glass', 'theme-midnight', 'theme-synthwave', 'theme-solarized', 'theme-material'
 ];
 
+const STORAGE_KEY_API = 'zournel_api_key';
+
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -22,6 +24,7 @@ const App: React.FC = () => {
   
   // API Key State
   const [hasKey, setHasKey] = useState<boolean>(false);
+  const [tempApiKey, setTempApiKey] = useState('');
   
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'light',
@@ -40,20 +43,13 @@ const App: React.FC = () => {
     const savedJournal = localStorage.getItem('mf_journal');
     const savedSettings = localStorage.getItem('mf_settings');
     
-    // Check for API Key via aistudio or process.env
-    const checkKey = async () => {
-      if (window.aistudio) {
-        try {
-          const selected = await window.aistudio.hasSelectedApiKey();
-          setHasKey(selected);
-        } catch (e) {
-          console.error("Error checking aistudio key:", e);
-        }
-      } else if (process.env.API_KEY) {
-        setHasKey(true);
-      }
-    };
-    checkKey();
+    // Check for API Key in Local Storage or Env
+    const storedKey = localStorage.getItem(STORAGE_KEY_API);
+    const envKey = process.env.API_KEY;
+    
+    if (storedKey || (envKey && envKey.length > 0)) {
+      setHasKey(true);
+    }
 
     if (savedTasks) setTasks(JSON.parse(savedTasks));
     if (savedJournal) setJournalEntries(JSON.parse(savedJournal));
@@ -104,14 +100,10 @@ const App: React.FC = () => {
     }
   }, [settings.theme]);
 
-  const handleSelectKey = async () => {
-    if (window.aistudio) {
-      try {
-        await window.aistudio.openSelectKey();
-        setHasKey(true);
-      } catch (e) {
-        console.error("Failed to open key selection:", e);
-      }
+  const handleSaveApiKey = () => {
+    if (tempApiKey.trim()) {
+      localStorage.setItem(STORAGE_KEY_API, tempApiKey.trim());
+      setHasKey(true);
     }
   };
 
@@ -174,6 +166,17 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
+  // Callback passed to Settings to allow removing the key
+  const handleSettingsClose = () => {
+    setIsSettingsOpen(false);
+    // Re-check key status
+    const storedKey = localStorage.getItem(STORAGE_KEY_API);
+    const envKey = process.env.API_KEY;
+    if (!storedKey && (!envKey || envKey.length === 0)) {
+        setHasKey(false);
+    }
+  };
+
   if (!hasKey) {
     return (
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500 overflow-y-auto">
@@ -188,32 +191,41 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-surface p-8 rounded-[2rem] border border-surface-highlight shadow-2xl space-y-6 text-left">
-            <div className="space-y-4 text-center">
-              <p className="text-sm text-secondary leading-relaxed">
-                To start using Zournel with its AI capabilities, please connect your Google Gemini API key.
-              </p>
-              
-              <button 
-                  onClick={handleSelectKey}
-                  className="w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg bg-accent text-accent-fg hover:bg-accent/90"
-              >
-                <span>Select API Key</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-secondary ml-1">Google Gemini API Key</label>
+                <div className="relative group">
+                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent/50 group-focus-within:text-accent transition-colors" />
+                    <input 
+                        type="password"
+                        value={tempApiKey}
+                        onChange={(e) => setTempApiKey(e.target.value)}
+                        placeholder="Paste your key here (AIza...)"
+                        className="w-full bg-surface-highlight/50 border border-surface-highlight focus:border-accent outline-none rounded-xl py-4 pl-12 pr-4 text-sm font-mono transition-all placeholder:text-secondary/30"
+                    />
+                </div>
             </div>
+
+            <button 
+                onClick={handleSaveApiKey}
+                disabled={!tempApiKey.trim()}
+                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg ${!tempApiKey.trim() ? 'bg-surface-highlight text-secondary cursor-not-allowed opacity-50' : 'bg-accent text-accent-fg hover:bg-accent/90'}`}
+            >
+              <span>Initialize App</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
 
             <div className="pt-4 border-t border-surface-highlight/50">
                <div className="flex gap-3 items-start p-3 bg-surface-highlight/30 rounded-xl">
                   <ShieldCheck className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
                   <p className="text-[10px] text-secondary leading-relaxed">
-                     <span className="font-bold">Security Note:</span> Your API key is handled securely by Google AI Studio's environment injection or your provided environment variables.
+                     <span className="font-bold">Privacy Note:</span> Your API key is stored locally on your device and is never sent to our servers.
                   </p>
                </div>
             </div>
 
             <div className="text-center">
-                <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline font-medium">
-                  Review Billing Documentation <ExternalLink className="w-3 h-3" />
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline font-medium">
+                  Get a free Gemini API Key <ExternalLink className="w-3 h-3" />
                 </a>
             </div>
           </div>
@@ -261,7 +273,7 @@ const App: React.FC = () => {
         initialImage={editingEntry?.image} 
         selectedModel={settings.model} 
       />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onUpdateSettings={setSettings} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={handleSettingsClose} settings={settings} onUpdateSettings={setSettings} />
     </div>
   );
 };

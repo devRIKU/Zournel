@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, ShieldCheck, Monitor, Cloud, Sparkles } from 'lucide-react';
+import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, ShieldCheck, Monitor, Cloud, Sparkles, Key, Trash2 } from 'lucide-react';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 
 interface SettingsModalProps {
@@ -14,8 +14,21 @@ const MODELS = [
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', badge: 'Lite', desc: 'Fast & responsive daily tasks' },
 ];
 
+const STORAGE_KEY_API = 'zournel_api_key';
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
   if (!isOpen) return null;
+
+  const hasStoredKey = !!localStorage.getItem(STORAGE_KEY_API);
+  const hasEnvKey = !!process.env.API_KEY && process.env.API_KEY.length > 0;
+
+  const handleClearKey = () => {
+    if (confirm("Are you sure? Removing the key will return you to the setup screen.")) {
+      localStorage.removeItem(STORAGE_KEY_API);
+      // Force close to trigger re-render in parent or reload
+      window.location.reload(); 
+    }
+  };
 
   const ThemeButton = ({ theme, icon: Icon, label, colorClass }: { theme: Theme, icon: any, label: string, colorClass: string }) => (
     <button 
@@ -56,8 +69,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     <span className="text-[9px] font-bold text-emerald-600 uppercase">Active</span>
                  </div>
               </div>
+              <div className="flex items-center justify-between p-4 bg-surface rounded-2xl mb-2">
+                 <div className="flex items-center gap-3">
+                    <Key className="w-4 h-4 text-accent" />
+                    <span className="font-mono text-xs text-secondary">
+                        {hasStoredKey ? '•••••••••••••••• (Local)' : hasEnvKey ? '•••••••••••••••• (Env)' : 'No Key Found'}
+                    </span>
+                 </div>
+                 {hasStoredKey && (
+                    <button onClick={handleClearKey} className="p-2 hover:bg-red-500/10 hover:text-red-500 text-secondary rounded-lg transition-colors" title="Remove Key">
+                        <Trash2 className="w-4 h-4" />
+                    </button>
+                 )}
+              </div>
               <p className="text-xs text-secondary leading-relaxed opacity-70">
-                 Zournel is connected to Google Gemini.
+                 {hasStoredKey 
+                    ? "Your key is stored securely in your browser's local storage." 
+                    : "Using default environment configuration."}
               </p>
             </div>
           </section>
