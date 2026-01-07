@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from '
 import { 
   ArrowLeft, Sparkles, Wand2, RefreshCw, Save, ImageIcon, X, Plus, 
   Paperclip, CheckCircle, Bold, Italic, 
-  List, Code, Undo, Redo, BrainCircuit, Type, FileText
+  List, Code, Undo, Redo, BrainCircuit, Type, FileText, Bot
 } from 'lucide-react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx, editorViewCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
@@ -90,7 +90,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [image, setImage] = useState<string>(initialImage || getRandomCover());
   const [isProcessing, setIsProcessing] = useState(false);
   const [showImagePrompt, setShowImagePrompt] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
+  
+  // Replaced dropdown with Modal state
+  const [showAiModal, setShowAiModal] = useState(false);
+  
   const [imgUrlInput, setImgUrlInput] = useState('');
   const [showSaveIndicator, setShowSaveIndicator] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -101,7 +104,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   
   const contentRef = useRef(initialContent);
   const editorRef = useRef<Editor | null>(null);
-  const aiMenuRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -129,18 +131,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }, 30000);
     return () => clearInterval(interval);
   }, [isOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (aiMenuRef.current && !aiMenuRef.current.contains(event.target as Node)) {
-        setShowAiMenu(false);
-      }
-    };
-    if (showAiMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showAiMenu]);
 
   const handleManualSave = useCallback(() => {
     onSave(contentRef.current, image);
@@ -202,7 +192,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     const currentText = contentRef.current;
     if (!currentText.trim()) return;
     setIsProcessing(true);
-    setShowAiMenu(false);
+    setShowAiModal(false);
     try {
       const newText = await editJournalText(currentText, type, selectedModel);
       editorRef.current?.action(replaceAll(newText));
@@ -217,7 +207,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const handleExtractTasks = useCallback(() => {
     if (!contentRef.current.trim()) return;
     setIsProcessing(true);
-    setShowAiMenu(false);
+    setShowAiModal(false);
     handleManualSave(); // Triggers the task extraction logic in App.tsx
   }, [handleManualSave]);
 
@@ -230,6 +220,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] bg-bg flex flex-col animate-fade-in overflow-hidden" role="dialog" aria-modal="true">
+      {/* Cover Image Area */}
       <div className="relative h-[22vh] sm:h-[28vh] shrink-0 w-full overflow-hidden bg-surface-highlight">
         {!imageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-highlight">
@@ -274,7 +265,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
       </div>
 
-      <div className="shrink-0 bg-surface border-b border-surface-highlight shadow-sm z-[110] px-2 sm:px-6 py-2">
+      {/* Toolbar */}
+      <div className="shrink-0 bg-surface border-b border-surface-highlight shadow-sm z-[101] px-2 sm:px-6 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => execCommand('Undo')} title="Undo" className={toolbarBtnClass()}><Undo className="w-4 h-4"/></button>
@@ -299,36 +291,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <button onClick={() => setShowImagePrompt(true)} title="Insert Image" className={toolbarBtnClass()}><ImageIcon className="w-4 h-4"/></button>
             <div className="w-px h-6 bg-surface-highlight mx-1"></div>
             
-            <div className="relative" ref={aiMenuRef}>
-              <button 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setShowAiMenu(!showAiMenu);
-                }} 
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${showAiMenu ? 'bg-accent text-accent-fg shadow-lg' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
-              >
-                <Sparkles className={`w-3.5 h-3.5 ${isProcessing ? 'animate-pulse' : ''}`} />
-                <span className="hidden sm:inline">AI Assistant</span>
-              </button>
-              
-              {showAiMenu && (
-                <div className="absolute right-0 top-full mt-3 w-60 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col z-[200] animate-scale-in">
-                  <div className="px-3 py-2 text-[9px] font-bold text-secondary uppercase tracking-tighter opacity-50 border-b border-surface-highlight mb-1">Text Processing</div>
-                  <button onClick={() => handleAIEdit('IMPROVE')} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
-                    <Wand2 className="w-4 h-4 text-accent"/> Polish Flow
-                  </button>
-                  <button onClick={() => handleAIEdit('REPHRASE')} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
-                    <Type className="w-4 h-4 text-accent"/> Elegant Rephrase
-                  </button>
-                  <div className="h-px bg-surface-highlight my-1"></div>
-                  <div className="px-3 py-2 text-[9px] font-bold text-secondary uppercase tracking-tighter opacity-50 border-b border-surface-highlight mb-1">Organization</div>
-                  <button onClick={handleExtractTasks} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
-                    <BrainCircuit className="w-4 h-4 text-accent"/> Extract Tasks
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* New Assistant Button triggers Modal */}
+            <button 
+              onClick={() => setShowAiModal(true)} 
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${showAiModal ? 'bg-accent text-accent-fg shadow-lg' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
+            >
+              <Bot className={`w-3.5 h-3.5 ${isProcessing ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">Assistant</span>
+            </button>
           </div>
         </div>
       </div>
@@ -347,6 +317,61 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
       </div>
 
+      {/* AI Assistant Modal (Separated from Dropdown) */}
+      {showAiModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-md p-6 animate-fade-in" onClick={() => setShowAiModal(false)}>
+           <div className="bg-surface rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl border border-white/5 animate-scale-in relative" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-8">
+                 <div className="flex items-center gap-3">
+                   <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-accent" />
+                   </div>
+                   <div>
+                      <h3 className="text-xl font-display font-bold text-primary">Journal Assistant</h3>
+                      <p className="text-secondary text-xs uppercase tracking-widest opacity-70">AI-Powered Enhancements</p>
+                   </div>
+                 </div>
+                 <button onClick={() => setShowAiModal(false)} className="p-2 hover:bg-surface-highlight rounded-full transition-all"><X className="w-5 h-5 text-secondary" /></button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                 <button onClick={() => handleAIEdit('IMPROVE')} disabled={isProcessing} className="flex items-start gap-4 p-5 rounded-3xl bg-surface-highlight/50 hover:bg-accent/5 border border-transparent hover:border-accent/30 transition-all group text-left">
+                    <div className="p-2.5 bg-surface rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                       <Wand2 className="w-5 h-5 text-accent" />
+                    </div>
+                    <div>
+                       <span className="block font-bold text-primary mb-1 text-sm">Polish Flow</span>
+                       <span className="text-xs text-secondary leading-tight opacity-70">Enhance clarity and readability without changing the meaning.</span>
+                    </div>
+                 </button>
+
+                 <button onClick={() => handleAIEdit('REPHRASE')} disabled={isProcessing} className="flex items-start gap-4 p-5 rounded-3xl bg-surface-highlight/50 hover:bg-accent/5 border border-transparent hover:border-accent/30 transition-all group text-left">
+                    <div className="p-2.5 bg-surface rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                       <Type className="w-5 h-5 text-accent" />
+                    </div>
+                    <div>
+                       <span className="block font-bold text-primary mb-1 text-sm">Literary Style</span>
+                       <span className="text-xs text-secondary leading-tight opacity-70">Rewrite the entry with a more elegant, reflective tone.</span>
+                    </div>
+                 </button>
+
+                 <div className="h-px bg-surface-highlight my-2"></div>
+
+                 <button onClick={handleExtractTasks} disabled={isProcessing} className="flex items-start gap-4 p-5 rounded-3xl bg-emerald-500/5 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/30 transition-all group text-left">
+                    <div className="p-2.5 bg-surface rounded-xl shadow-sm group-hover:scale-110 transition-transform">
+                       <BrainCircuit className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <div>
+                       <span className="block font-bold text-primary mb-1 text-sm">Extract Tasks</span>
+                       <span className="text-xs text-secondary leading-tight opacity-70">Identify action items and add them to your To-Do list automatically.</span>
+                    </div>
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+
+      {/* Image Upload Modal */}
       {showImagePrompt && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm p-6" role="dialog" aria-modal="true">
           <div className="bg-surface rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border border-white/5 animate-scale-in">
