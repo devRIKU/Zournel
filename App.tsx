@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Plus, Sparkles, Key, ExternalLink, ArrowRight, ShieldCheck } from 'lucide-react';
-import { Tab, Task, JournalEntry, AppSettings } from './types';
+import { Tab, Task, JournalEntry, AppSettings, Theme } from './types';
 import { BottomNav } from './components/BottomNav';
 import { TodoView } from './components/TodoView';
 import { JournalView } from './components/JournalView';
 import { JournalEditor } from './components/JournalEditor';
 import { SettingsModal } from './components/SettingsModal';
 import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
+
+const ALL_THEME_CLASSES = [
+  'theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 
+  'theme-glass', 'theme-midnight', 'theme-synthwave', 'theme-solarized', 'theme-material'
+];
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
@@ -28,10 +33,49 @@ const App: React.FC = () => {
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
 
-  // Guideline compliance: Handle API key checking flow.
+  // Initial load and settings hydration
+  useEffect(() => {
+    const savedTasks = localStorage.getItem('mf_tasks');
+    const savedJournal = localStorage.getItem('mf_journal');
+    const savedSettings = localStorage.getItem('mf_settings');
+    if (savedTasks) setTasks(JSON.parse(savedTasks));
+    if (savedJournal) setJournalEntries(JSON.parse(savedJournal));
+    
+    if (savedSettings) {
+      setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
+    } else {
+      // Auto-detect theme on first run
+      const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setSettings(prev => ({ ...prev, theme: isDarkMode ? 'midnight' : 'light' }));
+    }
+    setLoaded(true);
+  }, []);
+
+  // System theme detection listener
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (e: MediaQueryListEvent) => {
+      // Only auto-switch if the user is on light or midnight (the "default" dark)
+      if (settings.theme === 'light' || settings.theme === 'midnight') {
+        setSettings(prev => ({ ...prev, theme: e.matches ? 'midnight' : 'light' }));
+      }
+    };
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [settings.theme]);
+
+  // Persist settings
+  useEffect(() => {
+    if (loaded) {
+      localStorage.setItem('mf_tasks', JSON.stringify(tasks));
+      localStorage.setItem('mf_journal', JSON.stringify(journalEntries));
+      localStorage.setItem('mf_settings', JSON.stringify(settings));
+    }
+  }, [tasks, journalEntries, settings, loaded]);
+
+  // Handle API Key
   useEffect(() => {
     const checkKey = async () => {
-      // If we're in AI Studio, check for selected key as mandated for image-preview models.
       if (window.aistudio) {
         setIsStudioEnv(true);
         try {
@@ -41,50 +85,33 @@ const App: React.FC = () => {
           setHasKey(false);
         }
       } else {
-        // Outside AI Studio, assume process.env.API_KEY is configured.
         setHasKey(true);
       }
     };
     checkKey();
   }, []);
 
-  // Guideline compliance: Trigger AI Studio key selection dialog.
+  // Theme Applier - FIXED STICKINESS
+  useEffect(() => {
+    document.documentElement.classList.remove(...ALL_THEME_CLASSES);
+    const themeClass = `theme-${settings.theme}`;
+    document.documentElement.classList.add(themeClass);
+    
+    // Also toggle dark mode attribute for Tailwind
+    if (['midnight', 'nord', 'cyberpunk', 'synthwave'].includes(settings.theme)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.theme]);
+
   const handleOpenKeyDialog = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (window.aistudio) {
       await window.aistudio.openSelectKey();
-      // Assume success after dialog to allow app access without race condition delay.
       setHasKey(true); 
     }
   };
-
-  useEffect(() => {
-    const savedTasks = localStorage.getItem('mf_tasks');
-    const savedJournal = localStorage.getItem('mf_journal');
-    const savedSettings = localStorage.getItem('mf_settings');
-    if (savedTasks) setTasks(JSON.parse(savedTasks));
-    if (savedJournal) setJournalEntries(JSON.parse(savedJournal));
-    if (savedSettings) setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
-    setLoaded(true);
-  }, []);
-
-  useEffect(() => {
-    if (loaded) {
-      localStorage.setItem('mf_tasks', JSON.stringify(tasks));
-      localStorage.setItem('mf_journal', JSON.stringify(journalEntries));
-      localStorage.setItem('mf_settings', JSON.stringify(settings));
-    }
-  }, [tasks, journalEntries, settings, loaded]);
-
-  useEffect(() => {
-    const themeClasses = ['theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 'theme-glass', 'theme-midnight'];
-    document.documentElement.classList.remove(...themeClasses);
-    if (settings.theme && settings.theme !== 'light') {
-      document.documentElement.classList.add(`theme-${settings.theme}`);
-    } else {
-      document.documentElement.classList.add('theme-light');
-    }
-  }, [settings.theme]);
 
   const handlePlusClick = () => {
     if (activeTab === Tab.JOURNAL) {
@@ -120,12 +147,10 @@ const App: React.FC = () => {
     }
 
     if (entryId && hasKey) {
-        // Generate insights if it's new or content changed significantly
         generateJournalInsight(content, settings.model).then(insight => {
             if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
         });
 
-        // Only extract tasks automatically for new entries to prevent duplication
         const entry = journalEntries.find(e => e.id === entryId);
         if (isNew || (entry && !entry.tasksExtracted)) {
             extractTasksFromJournal(content, settings.model).then(newAIItems => {
@@ -139,7 +164,6 @@ const App: React.FC = () => {
                         aiAnalysis: "Extracted from your memory"
                     }));
                     setTasks(prev => [...tasksToAdd, ...prev]);
-                    // Mark as extracted so it doesn't run again on every edit
                     setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, tasksExtracted: true } : e));
                 }
             });
@@ -148,7 +172,6 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
-  // Fixed: Removed manual API key input UI as it is prohibited by guidelines.
   if (hasKey === false) {
     return (
       <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500">
@@ -180,8 +203,13 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-500">
       <header className="pt-12 px-8 pb-6 flex justify-between items-start">
-        <div><h1 className="text-4xl font-display font-bold text-primary">Zournel</h1><span className="text-accent italic font-grotesk text-sm">Reflect & Execute</span></div>
-        <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition-all"><Settings className="w-6 h-6" /></button>
+        <div>
+          <h1 className="text-4xl font-display font-bold text-primary">Zournel</h1>
+          <span className="text-accent italic font-grotesk text-sm">Reflect & Execute</span>
+        </div>
+        <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90">
+          <Settings className="w-6 h-6" />
+        </button>
       </header>
       <main className="relative flex-grow min-h-[80vh] w-full max-w-4xl mx-auto">
         <div className={`transition-all duration-300 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>

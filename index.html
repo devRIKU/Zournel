@@ -43,35 +43,40 @@
       }
     </script>
     <style>
-      :root { --color-bg: #F9FAFB; --color-surface: #FFFFFF; --color-surface-highlight: #F3F4F6; --color-primary: #111827; --color-secondary: #6B7280; --color-accent: #4F46E5; --color-accent-fg: #FFFFFF; --color-accent-dim: #E0E7FF; }
+      :root { --color-bg: #F9FAFB; --color-surface: #FFFFFF; --color-surface-highlight: #F3F4F6; --color-primary: #111827; --color-secondary: #4B5563; --color-accent: #4F46E5; --color-accent-fg: #FFFFFF; --color-accent-dim: #EEF2FF; }
       
       .theme-nord { --color-bg: #2E3440; --color-surface: #3B4252; --color-surface-highlight: #434C5E; --color-primary: #ECEFF4; --color-secondary: #D8DEE9; --color-accent: #88C0D0; --color-accent-fg: #2E3440; --color-accent-dim: #4C566A; }
       
-      .theme-cyberpunk { --color-bg: #050505; --color-surface: #121212; --color-surface-highlight: #1A1A1A; --color-primary: #FFFFFF; --color-secondary: #666666; --color-accent: #FDE047; --color-accent-fg: #000000; --color-accent-dim: #333300; }
+      .theme-cyberpunk { --color-bg: #050505; --color-surface: #121212; --color-surface-highlight: #1A1A1A; --color-primary: #FDE047; --color-secondary: #A1A1AA; --color-accent: #FDE047; --color-accent-fg: #000000; --color-accent-dim: #333300; }
       
       .theme-botanist { --color-bg: #FDFCF8; --color-surface: #FFFFFF; --color-surface-highlight: #F1F0E8; --color-primary: #1B2B1B; --color-secondary: #5C6B5C; --color-accent: #2D4F2D; --color-accent-fg: #FFFFFF; --color-accent-dim: #E8F0E8; }
+
+      .theme-synthwave { --color-bg: #1A0B2E; --color-surface: #24143D; --color-surface-highlight: #311B52; --color-primary: #FF7EDB; --color-secondary: #B19CD9; --color-accent: #36D1DC; --color-accent-fg: #1A0B2E; --color-accent-dim: #2A174D; }
+
+      .theme-solarized { --color-bg: #FDF6E3; --color-surface: #EEE8D5; --color-surface-highlight: #D5CCB6; --color-primary: #073642; --color-secondary: #586E75; --color-accent: #268BD2; --color-accent-fg: #FDF6E3; --color-accent-dim: #93A1A1; }
+
+      .theme-material { --color-bg: #F5F7F9; --color-surface: #FFFFFF; --color-surface-highlight: #E1E5E9; --color-primary: #1A1C1E; --color-secondary: #5D6064; --color-accent: #006666; --color-accent-fg: #FFFFFF; --color-accent-dim: #D1E5E5; }
       
       .theme-glass { 
         --color-bg: #E5E7EB; 
-        --color-surface: rgba(255, 255, 255, 0.4); 
-        --color-surface-highlight: rgba(255, 255, 255, 0.6); 
-        --color-primary: #1F2937; 
-        --color-secondary: #4B5563; 
-        --color-accent: #3B82F6; 
+        --color-surface: rgba(255, 255, 255, 0.45); 
+        --color-surface-highlight: rgba(255, 255, 255, 0.65); 
+        --color-primary: #111827; 
+        --color-secondary: #374151; 
+        --color-accent: #2563EB; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: rgba(59, 130, 246, 0.1); 
+        --color-accent-dim: rgba(37, 99, 235, 0.1); 
       }
       
-      .theme-midnight { --color-bg: #0F172A; --color-surface: #1E293B; --color-surface-highlight: #334155; --color-primary: #F8FAFC; --color-secondary: #94A3B8; --color-accent: #818CF8; --color-accent-fg: #000000; --color-accent-dim: #312E81; }
+      .theme-midnight { --color-bg: #0A0F1A; --color-surface: #161E2E; --color-surface-highlight: #252F44; --color-primary: #F3F4F6; --color-secondary: #9CA3AF; --color-accent: #6366F1; --color-accent-fg: #FFFFFF; --color-accent-dim: #1E1B4B; }
 
       .theme-glass body { background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(339,49%,30%,1) 0, transparent 50%); background-attachment: fixed; }
 
-      html, body { height: 100%; min-height: 100vh; background-color: var(--color-bg); color: var(--color-primary); transition: background-color 0.3s cubic-bezier(0.2, 0, 0, 1), color 0.3s ease; scroll-behavior: smooth; }
+      html, body { height: 100%; min-height: 100vh; background-color: var(--color-bg); color: var(--color-primary); transition: background-color 0.4s cubic-bezier(0.2, 0, 0, 1), color 0.4s ease; scroll-behavior: smooth; }
       
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-      /* Milkdown Editor Overrides */
       .milkdown {
         background: transparent !important;
         box-shadow: none !important;
@@ -88,59 +93,14 @@
         border: none !important;
         box-shadow: none !important;
       }
-      .milkdown .editor p { margin-bottom: 1.5rem; }
-      .milkdown .editor h1 { font-family: 'Playfair Display', serif !important; font-size: 2.5rem !important; font-weight: bold !important; margin-bottom: 1rem; }
-      .milkdown .editor h2 { font-family: 'Playfair Display', serif !important; font-size: 2rem !important; font-weight: bold !important; margin-bottom: 0.8rem; }
       
-      /* GFM support */
-      .milkdown .editor del {
-        text-decoration: line-through !important;
-        opacity: 0.6 !important;
-      }
-
-      /* Code Styling */
       .milkdown .editor code {
         font-family: 'JetBrains Mono', monospace !important;
         background: var(--color-surface-highlight) !important;
         color: var(--color-accent) !important;
         padding: 0.2rem 0.5rem !important;
         border-radius: 0.4rem !important;
-        font-size: 0.9em !important;
-        font-weight: 500 !important;
-      }
-
-      .milkdown .editor pre {
-        background: #111827 !important; /* Dark neutral for high contrast code */
-        color: #E5E7EB !important;
-        padding: 1.5rem !important;
-        border-radius: 1rem !important;
-        margin: 1.5rem 0 !important;
-        overflow-x: auto !important;
-        border: 1px solid rgba(255,255,255,0.1) !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-      }
-
-      .milkdown .editor pre code {
-        background: transparent !important;
-        color: inherit !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-        font-size: 0.95em !important;
-      }
-
-      /* Blockquote (Quote) Styling */
-      .milkdown .editor blockquote {
-        border-left: 5px solid var(--color-accent) !important;
-        padding: 0.75rem 1.5rem !important;
-        margin: 1.5rem 0 !important;
-        background: var(--color-surface-highlight) !important;
-        border-radius: 0 1rem 1rem 0 !important;
-        font-style: italic !important;
-        color: var(--color-secondary) !important;
-      }
-
-      .milkdown .editor blockquote p {
-        margin-bottom: 0 !important;
+        font-size: 0.85em !important;
       }
 
       .ProseMirror {

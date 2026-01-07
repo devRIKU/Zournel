@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, ShieldCheck } from 'lucide-react';
+import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, ShieldCheck, Monitor, Cloud, Sparkles } from 'lucide-react';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 
 interface SettingsModalProps {
@@ -9,7 +9,6 @@ interface SettingsModalProps {
   onUpdateSettings: (s: AppSettings) => void;
 }
 
-// Guideline compliance: Using only recommended Gemini models.
 const MODELS = [
   { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Ultra', desc: 'Expert reasoning & coding' },
   { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', badge: 'Lite', desc: 'Fast & responsive daily tasks' },
@@ -21,12 +20,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const ThemeButton = ({ theme, icon: Icon, label, colorClass }: { theme: Theme, icon: any, label: string, colorClass: string }) => (
     <button 
       onClick={() => onUpdateSettings({ ...settings, theme })}
-      className={`flex flex-col items-center gap-3 p-5 rounded-[2rem] border-2 transition-all duration-300 ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-105' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
+      className={`flex flex-col items-center gap-3 p-4 rounded-[2rem] border-2 transition-all duration-300 ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-105' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
     >
-      <div className={`w-12 h-12 rounded-2xl ${colorClass} flex items-center justify-center shadow-lg shadow-black/5`}>
-          <Icon className="w-6 h-6 text-white" />
+      <div className={`w-10 h-10 rounded-2xl ${colorClass} flex items-center justify-center shadow-lg shadow-black/5`}>
+          <Icon className="w-5 h-5 text-white" />
       </div>
-      <span className="text-[10px] font-bold uppercase tracking-[0.2em]">{label}</span>
+      <span className="text-[9px] font-bold uppercase tracking-[0.15em]">{label}</span>
     </button>
   );
 
@@ -34,44 +33,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
       <div className="bg-surface rounded-[3rem] w-full max-w-xl shadow-2xl relative animate-scale-in flex flex-col max-h-[90vh] overflow-hidden border border-white/10">
         
-        <div className="flex justify-between items-center p-10 border-b border-surface-highlight">
+        <div className="flex justify-between items-center p-8 border-b border-surface-highlight shrink-0">
           <div>
-            <h2 className="text-4xl font-display font-bold text-primary">Preferences</h2>
-            <p className="text-secondary text-sm font-grotesk tracking-widest uppercase mt-1">Configure your experience</p>
+            <h2 className="text-3xl font-display font-bold text-primary">Preferences</h2>
+            <p className="text-secondary text-[10px] font-grotesk tracking-widest uppercase mt-1">Refine your environment</p>
           </div>
           <button onClick={onClose} className="p-4 bg-surface-highlight hover:bg-accent hover:text-accent-fg rounded-2xl transition-all">
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="overflow-y-auto p-10 space-y-12 no-scrollbar">
-          
+        <div className="overflow-y-auto p-8 space-y-10 no-scrollbar">
           <section>
-             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
-              <ShieldCheck className="w-4 h-4" /> AI System Status
+             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+              <ShieldCheck className="w-4 h-4" /> AI System
             </h3>
             <div className="bg-surface-highlight rounded-3xl p-6 border border-accent/5">
               <div className="flex items-center justify-between mb-4">
                  <span className="text-[10px] font-bold uppercase tracking-widest text-secondary">API Authorization</span>
                  <div className="flex items-center gap-2 px-3 py-1 bg-emerald-500/10 rounded-full border border-emerald-500/20">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[9px] font-bold text-emerald-600 uppercase">System Managed</span>
+                    <span className="text-[9px] font-bold text-emerald-600 uppercase">Managed</span>
                  </div>
               </div>
               <p className="text-xs text-secondary leading-relaxed opacity-70">
-                Your API credentials are automatically secured and managed by the environment. For security reasons, manual key entry is disabled.
+                Credentials are automatically synchronized with your project. Manual entry is restricted for security.
               </p>
             </div>
           </section>
 
           <section>
-            <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
+            <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
               <Palette className="w-4 h-4" /> Aesthetics
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-3 gap-3">
               <ThemeButton theme="light" icon={Sun} label="Default" colorClass="bg-gray-400" />
               <ThemeButton theme="nord" icon={Wind} label="Nord" colorClass="bg-blue-400" />
               <ThemeButton theme="cyberpunk" icon={Zap} label="Cyber" colorClass="bg-yellow-400" />
+              <ThemeButton theme="synthwave" icon={Sparkles} label="Synth" colorClass="bg-purple-600" />
+              <ThemeButton theme="solarized" icon={Monitor} label="Solar" colorClass="bg-orange-400" />
+              <ThemeButton theme="material" icon={Box} label="Modern" colorClass="bg-teal-700" />
               <ThemeButton theme="botanist" icon={Leaf} label="Flora" colorClass="bg-emerald-600" />
               <ThemeButton theme="glass" icon={Droplets} label="Glass" colorClass="bg-sky-400" />
               <ThemeButton theme="midnight" icon={Moon} label="Void" colorClass="bg-indigo-900" />
@@ -79,8 +80,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           </section>
 
           <section>
-             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
-              <Cpu className="w-4 h-4" /> Active Model
+             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+              <Cpu className="w-4 h-4" /> AI Model
             </h3>
             <div className="space-y-3">
                {MODELS.map((m) => (
@@ -103,15 +104,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           </section>
 
           <section>
-            <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-8 flex items-center gap-3">
-              <CheckCircle2 className="w-4 h-4" /> Completion Style
+            <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+              <CheckCircle2 className="w-4 h-4" /> Completion
             </h3>
             <div className="flex gap-2 bg-surface-highlight p-2 rounded-2xl">
                {['confetti', 'bounce', 'none'].map((opt) => (
                  <button 
                   key={opt}
                   onClick={() => onUpdateSettings({ ...settings, completionAnimation: opt as CompletionAnimation })}
-                  className={`flex-1 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
+                  className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
                  >
                    {opt}
                  </button>
