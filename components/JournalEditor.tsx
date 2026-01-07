@@ -11,7 +11,7 @@ import { gfm } from '@milkdown/preset-gfm';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, generateCoverImage } from '../services/geminiService';
+import { editJournalText, extractTasksFromJournal } from '../services/geminiService';
 
 interface JournalEditorProps {
   isOpen: boolean;
@@ -103,7 +103,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const editorRef = useRef<Editor | null>(null);
   const aiMenuRef = useRef<HTMLDivElement>(null);
   const localImageInputRef = useRef<HTMLInputElement>(null);
-  const localCoverInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -125,7 +124,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       if (contentRef.current.trim()) {
         localStorage.setItem(AUTO_SAVE_KEY, contentRef.current);
         setShowSaveIndicator(true);
-        setTimeout(() => setShowSaveIndicator(false), 2000);
+        setTimeout(() => setShowSaveIndicator(false), 3000);
       }
     }, 30000);
     return () => clearInterval(interval);
@@ -215,6 +214,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   }, [selectedModel]);
 
+  const handleExtractTasks = useCallback(async () => {
+    const currentText = contentRef.current;
+    if (!currentText.trim()) return;
+    setIsProcessing(true);
+    setShowAiMenu(false);
+    try {
+      // Logic for adding tasks is handled in saveJournalEntry in App.tsx 
+      // when the entry is saved. For immediate feedback, we trigger save.
+      handleManualSave();
+    } catch (e) {
+      console.error("Task extraction trigger error:", e);
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [handleManualSave]);
+
   const toolbarBtnClass = (active: boolean = false) => `
     p-2.5 rounded-xl transition-all duration-200 active:scale-90 flex items-center justify-center
     ${active ? 'bg-accent text-accent-fg shadow-sm' : 'text-secondary hover:bg-surface-highlight hover:text-primary'}
@@ -243,9 +258,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-3">
-            <div className={`transition-all duration-500 flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 rounded-full border border-emerald-500/30 ${showSaveIndicator ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'}`}>
-              <CheckCircle className="w-3 h-3 text-emerald-500" />
-              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">Draft Saved</span>
+            <div className={`transition-all duration-700 flex items-center gap-2 px-4 py-2 bg-emerald-500/10 backdrop-blur-md rounded-full border border-emerald-500/30 ${showSaveIndicator ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'}`}>
+              <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Draft Auto-Saved</span>
             </div>
             <button onClick={handleManualSave} className="px-6 py-2.5 bg-accent text-accent-fg rounded-xl text-xs font-bold shadow-xl hover:bg-accent/90 active:scale-95 transition-all flex items-center gap-2 border border-white/10 outline-none">
               <Save className="w-4 h-4" /> <span>Save</span>
@@ -277,7 +292,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <button onClick={() => execCommand('ToggleStrong')} title="Bold" className={toolbarBtnClass(activeStates.bold)}><Bold className="w-4 h-4"/></button>
             <button onClick={() => execCommand('ToggleEmphasis')} title="Italic" className={toolbarBtnClass(activeStates.italic)}><Italic className="w-4 h-4"/></button>
             <button onClick={() => execCommand('WrapInBulletList')} title="List" className={toolbarBtnClass(activeStates.bulletList)}><List className="w-4 h-4"/></button>
-            <button onClick={() => execCommand('ToggleInlineCode')} title="Inline Code" className={toolbarBtnClass(activeStates.code)}><Code className="w-4 h-4"/></button>
+            <button onClick={() => execCommand('ToggleInlineCode')} title="Code" className={toolbarBtnClass(activeStates.code)}><Code className="w-4 h-4"/></button>
           </div>
 
           <div className="hidden lg:flex items-center gap-3 text-secondary font-mono text-[9px] uppercase tracking-widest bg-surface-highlight/30 px-5 py-2 rounded-full border border-surface-highlight">
@@ -286,7 +301,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <span>{wordCount} words</span>
              </div>
              <div className="w-px h-3 bg-secondary/20"></div>
-             <span>Memory in Progress</span>
+             <span>Drafting</span>
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
@@ -302,20 +317,21 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${showAiMenu ? 'bg-accent text-accent-fg shadow-lg' : 'bg-accent/10 text-accent hover:bg-accent/20'}`}
               >
                 <Sparkles className={`w-3.5 h-3.5 ${isProcessing ? 'animate-pulse' : ''}`} />
-                <span className="hidden sm:inline">Assistant</span>
+                <span className="hidden sm:inline">AI Assistant</span>
               </button>
               
               {showAiMenu && (
                 <div className="absolute right-0 top-full mt-3 w-60 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col z-[150] animate-scale-in">
-                  <div className="px-3 py-2 text-[9px] font-bold text-secondary uppercase tracking-tighter opacity-50 border-b border-surface-highlight mb-1">AI Enhancements</div>
+                  <div className="px-3 py-2 text-[9px] font-bold text-secondary uppercase tracking-tighter opacity-50 border-b border-surface-highlight mb-1">Text Processing</div>
                   <button onClick={() => handleAIEdit('IMPROVE')} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
                     <Wand2 className="w-4 h-4 text-accent"/> Polish Flow
                   </button>
                   <button onClick={() => handleAIEdit('REPHRASE')} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
-                    <Type className="w-4 h-4 text-accent"/> Literary Style
+                    <Type className="w-4 h-4 text-accent"/> Elegant Rephrase
                   </button>
                   <div className="h-px bg-surface-highlight my-1"></div>
-                  <button onClick={() => setShowAiMenu(false)} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
+                  <div className="px-3 py-2 text-[9px] font-bold text-secondary uppercase tracking-tighter opacity-50 border-b border-surface-highlight mb-1">Organization</div>
+                  <button onClick={handleExtractTasks} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
                     <BrainCircuit className="w-4 h-4 text-accent"/> Extract Tasks
                   </button>
                 </div>
