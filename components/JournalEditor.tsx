@@ -11,7 +11,7 @@ import { gfm } from '@milkdown/preset-gfm';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, extractTasksFromJournal } from '../services/geminiService';
+import { editJournalText } from '../services/geminiService';
 
 interface JournalEditorProps {
   isOpen: boolean;
@@ -214,20 +214,11 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   }, [selectedModel]);
 
-  const handleExtractTasks = useCallback(async () => {
-    const currentText = contentRef.current;
-    if (!currentText.trim()) return;
+  const handleExtractTasks = useCallback(() => {
+    if (!contentRef.current.trim()) return;
     setIsProcessing(true);
     setShowAiMenu(false);
-    try {
-      // Logic for adding tasks is handled in saveJournalEntry in App.tsx 
-      // when the entry is saved. For immediate feedback, we trigger save.
-      handleManualSave();
-    } catch (e) {
-      console.error("Task extraction trigger error:", e);
-    } finally {
-      setIsProcessing(false);
-    }
+    handleManualSave(); // Triggers the task extraction logic in App.tsx
   }, [handleManualSave]);
 
   const toolbarBtnClass = (active: boolean = false) => `
@@ -283,7 +274,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
       </div>
 
-      <div className="shrink-0 bg-surface border-b border-surface-highlight shadow-sm z-[101] px-2 sm:px-6 py-2">
+      <div className="shrink-0 bg-surface border-b border-surface-highlight shadow-sm z-[110] px-2 sm:px-6 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-1 shrink-0">
             <button onClick={() => execCommand('Undo')} title="Undo" className={toolbarBtnClass()}><Undo className="w-4 h-4"/></button>
@@ -311,6 +302,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <div className="relative" ref={aiMenuRef}>
               <button 
                 onClick={(e) => {
+                  e.preventDefault();
                   e.stopPropagation();
                   setShowAiMenu(!showAiMenu);
                 }} 
@@ -321,7 +313,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               </button>
               
               {showAiMenu && (
-                <div className="absolute right-0 top-full mt-3 w-60 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col z-[150] animate-scale-in">
+                <div className="absolute right-0 top-full mt-3 w-60 bg-surface border border-surface-highlight rounded-2xl shadow-2xl p-2 flex flex-col z-[200] animate-scale-in">
                   <div className="px-3 py-2 text-[9px] font-bold text-secondary uppercase tracking-tighter opacity-50 border-b border-surface-highlight mb-1">Text Processing</div>
                   <button onClick={() => handleAIEdit('IMPROVE')} className="flex items-center gap-3 px-3 py-3 hover:bg-accent/5 text-primary text-[10px] font-bold uppercase tracking-wider rounded-xl transition-all">
                     <Wand2 className="w-4 h-4 text-accent"/> Polish Flow

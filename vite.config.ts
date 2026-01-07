@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   define: {
-    // Vite handles process.env differently; this ensures it's available globally in the build
-    'process.env.API_KEY': JSON.stringify(process.env.API_KEY),
+    // This allows process.env.API_KEY to be replaced with the actual string value at build time.
+    // Ensure that API_KEY is set in your Netlify Environment Variables.
+    'process.env.API_KEY': JSON.stringify(process.env.API_KEY || ''),
   },
   build: {
     outDir: 'dist',
