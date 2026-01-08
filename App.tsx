@@ -7,6 +7,8 @@ import { TodoView } from './components/TodoView';
 import { JournalView } from './components/JournalView';
 import { JournalEditor } from './components/JournalEditor';
 import { SettingsModal } from './components/SettingsModal';
+import { OnboardingModal } from './components/OnboardingModal';
+import { AddModal } from './components/AddModal';
 import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
@@ -18,6 +20,8 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [focusInputSignal, setFocusInputSignal] = useState(0); 
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   
@@ -25,7 +29,8 @@ const App: React.FC = () => {
     theme: 'light',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
-    model: 'gemini-3-flash-preview'
+    model: 'gemini-3-flash-preview',
+    apiKey: ''
   });
 
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -56,14 +61,20 @@ const App: React.FC = () => {
     
     if (savedSettings) {
       try {
-        setSettings(prev => ({ ...prev, ...JSON.parse(savedSettings) }));
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(prev => ({ ...prev, ...parsedSettings }));
+        if (!parsedSettings.apiKey) {
+          setShowOnboarding(true);
+        }
       } catch (e) {
         console.error("Failed to parse settings", e);
+        setShowOnboarding(true);
       }
     } else {
       // Auto-detect theme on first run
       const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
       setSettings(prev => ({ ...prev, theme: isDarkMode ? 'midnight' : 'light' }));
+      setShowOnboarding(true);
     }
     setLoaded(true);
   }, []);
@@ -124,6 +135,37 @@ const App: React.FC = () => {
     setTasks(prev => [newTask, ...prev]);
   };
 
+  const handleAddDataFromAI = (newTasks: string[], journal: string | null, mood: string | null) => {
+    if (newTasks.length > 0) {
+       const taskObjects = newTasks.map(t => ({
+          id: Math.random().toString(36).substr(2, 9),
+          text: t,
+          completed: false,
+          priority: 'medium' as const,
+          createdAt: Date.now(),
+          aiAnalysis: 'AI Generated'
+       }));
+       setTasks(prev => [...taskObjects, ...prev]);
+       if (activeTab !== Tab.TODO) setActiveTab(Tab.TODO);
+    }
+    
+    if (journal) {
+       const entryId = Math.random().toString(36).substr(2, 9);
+       const newEntry: JournalEntry = {
+          id: entryId,
+          content: journal,
+          mood: mood || undefined,
+          createdAt: Date.now(),
+          aiInsight: mood ? `Feeling ${mood}` : undefined
+       };
+       setJournalEntries(prev => [newEntry, ...prev]);
+       // Generate better insight in background
+       generateJournalInsight(journal, settings.model).then(insight => {
+         if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
+       });
+    }
+  };
+
   const saveJournalEntry = (content: string, image: string | undefined) => {
     let entryId = editingEntry?.id;
     let isNew = false;
@@ -170,9 +212,14 @@ const App: React.FC = () => {
           <h1 className="text-4xl font-display font-bold text-primary">Zournel</h1>
           <span className="text-accent italic font-grotesk text-sm">Reflect & Execute</span>
         </div>
-        <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90">
-          <Settings className="w-6 h-6" />
-        </button>
+        <div className="flex gap-2">
+           <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90 text-accent">
+            <Sparkles className="w-6 h-6" />
+           </button>
+           <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90">
+            <Settings className="w-6 h-6" />
+           </button>
+        </div>
       </header>
       <main className="relative flex-grow min-h-[80vh] w-full max-w-4xl mx-auto">
         <div className={`transition-all duration-300 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
@@ -193,6 +240,7 @@ const App: React.FC = () => {
         <button onClick={handlePlusClick} title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} className="w-16 h-16 bg-accent text-accent-fg rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"><Plus className="w-8 h-8" /></button>
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      
       <JournalEditor 
         key={editingEntry ? editingEntry.id : 'new-entry'}
         isOpen={isEditorOpen} 
@@ -203,7 +251,28 @@ const App: React.FC = () => {
         initialImage={editingEntry?.image} 
         selectedModel={settings.model} 
       />
-      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onUpdateSettings={setSettings} />
+      
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        settings={settings} 
+        onUpdateSettings={setSettings} 
+      />
+
+      <AddModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddData={handleAddDataFromAI}
+      />
+
+      {showOnboarding && (
+        <OnboardingModal 
+          onSave={(key) => {
+            setSettings(prev => ({ ...prev, apiKey: key }));
+            setShowOnboarding(false);
+          }} 
+        />
+      )}
     </div>
   );
 };

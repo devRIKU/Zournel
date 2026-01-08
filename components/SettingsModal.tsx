@@ -1,7 +1,14 @@
 
 import React from 'react';
-import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, Monitor, Sparkles } from 'lucide-react';
+import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, Monitor, Sparkles, Key } from 'lucide-react';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
+
+interface SettingsModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  settings: AppSettings;
+  onUpdateSettings: (s: AppSettings) => void;
+}
 
 const MODELS = [
   { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Ultra', desc: 'Expert reasoning & coding' },
@@ -38,6 +45,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
         </div>
 
         <div className="overflow-y-auto p-8 space-y-10 no-scrollbar">
+          
+          <section>
+            <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+              <Key className="w-4 h-4" /> API Configuration
+            </h3>
+            <div className="p-5 bg-surface-highlight rounded-[1.5rem] border border-surface-highlight">
+               <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2">Gemini API Key</label>
+               <input 
+                 type="password" 
+                 value={settings.apiKey}
+                 onChange={(e) => onUpdateSettings({ ...settings, apiKey: e.target.value })}
+                 placeholder="Enter your API Key..."
+                 className="w-full bg-surface p-4 rounded-xl border-none outline-none text-primary font-mono text-sm focus:ring-2 focus:ring-accent/50 transition-all"
+               />
+               <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
+                 Your key is stored locally on this device. We use it to communicate directly with Google's Gemini API for task analysis and journaling insights.
+               </p>
+            </div>
+          </section>
+
           <section>
             <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
               <Palette className="w-4 h-4" /> Aesthetics
@@ -100,10 +127,3 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     </div>
   );
 };
-
-interface SettingsModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  settings: AppSettings;
-  onUpdateSettings: (s: AppSettings) => void;
-}

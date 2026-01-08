@@ -1,3 +1,4 @@
+
 export enum Tab {
   TODO = 'TODO',
   JOURNAL = 'JOURNAL'
@@ -15,6 +16,7 @@ export interface AppSettings {
   completionAnimation: CompletionAnimation;
   deleteAnimation: DeleteAnimation;
   model: string;
+  apiKey: string;
 }
 
 export interface SubTask {
