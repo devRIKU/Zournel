@@ -1,18 +1,16 @@
-
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { 
   ArrowLeft, Sparkles, Wand2, Save, X, 
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
   History, CheckCircle2, XCircle, Heading1, Heading2, Quote, Minus,
-  Terminal, ListChecks, Link as LinkIcon
+  Link as LinkIcon
 } from 'lucide-react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
 import { 
   commonmark, 
-  // Fix: toggleHeadingCommand is deprecated/removed in newer Milkdown versions; use turnIntoHeadingCommand
-  turnIntoHeadingCommand, 
+  wrapInHeadingCommand, 
   insertHrCommand, 
   wrapInBlockquoteCommand,
   toggleStrongCommand, 
@@ -354,9 +352,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           </div>
 
           <div className="flex items-center gap-0.5 px-1 shrink-0">
-            {/* Fix: use turnIntoHeadingCommand.key instead of toggleHeadingCommand.key */}
-            <button onClick={() => callCommand(turnIntoHeadingCommand.key, 1)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1"><Heading1 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(turnIntoHeadingCommand.key, 2)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2"><Heading2 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            {/* Fix: use wrapInHeadingCommand for headings */}
+            <button onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1"><Heading1 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2"><Heading2 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
             
             <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
             
