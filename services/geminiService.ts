@@ -1,7 +1,8 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIProcessedInput, Priority } from "../types";
 
-const imageModelName = 'gemini-3-pro-image-preview';
+const imageModelName = 'gemini-2.5-flash-image';
 const STORAGE_KEY = 'zournel_api_key';
 
 const getApiKey = (): string => {
@@ -168,16 +169,16 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 
   const ai = new GoogleGenAI({ apiKey });
   const prompts = { 
-    IMPROVE: "Enhance the flow, vocabulary, and clarity of this text while maintaining its original meaning and personal tone:", 
-    REPHRASE: "Rewrite this entry in a more elegant and literary style, keeping the first-person perspective and emotional honesty:", 
-    SUMMARIZE: "Condense this journal entry into a brief, powerful summary that highlights the core events and feelings mentioned:" 
+    IMPROVE: "You are a professional editor. Improve the following journal entry for better clarity, grammar, and vocabulary while keeping the personal tone. Return ONLY the improved text. NO headers, NO conversational filler, NO quotes around the text.", 
+    REPHRASE: "You are a literary writer. Rewrite the following journal entry in an elegant, poetic, and literary style. Maintain the original emotional honesty and first-person perspective. Return ONLY the rephrased text. NO headers, NO conversational filler, NO quotes around the text.", 
+    SUMMARIZE: "Summarize this journal entry into a single powerful paragraph that captures the heart of the experience. Return ONLY the summary. NO headers, NO conversational filler, NO quotes around the text." 
   };
   try {
     const response = await ai.models.generateContent({
       model: model,
-      contents: `${prompts[type]} "${text}"`,
+      contents: `${prompts[type]}\n\nInput Text: "${text}"`,
     });
-    return response.text || text;
+    return response.text?.trim() || text;
   } catch (error) {
     handleAiError(error);
     return text;
@@ -196,7 +197,7 @@ export const generateCoverImage = async (context: string): Promise<string | null
         parts: [{ text: `A minimalist, soothing, and atmospheric abstract digital art piece that visually represents the mood and themes of this journal entry: ${context}. Focus on soft colors and simple compositions.` }]
       },
       config: {
-        imageConfig: { aspectRatio: "16:9", imageSize: "1K" }
+        imageConfig: { aspectRatio: "16:9" }
       }
     });
 
