@@ -4,7 +4,7 @@ import {
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
   History, CheckCircle2, XCircle, Heading1, Heading2, Quote, Minus,
-  Link as LinkIcon
+  MoreHorizontal
 } from 'lucide-react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
@@ -17,8 +17,7 @@ import {
   toggleEmphasisCommand, 
   toggleInlineCodeCommand, 
   wrapInBulletListCommand, 
-  wrapInOrderedListCommand,
-  toggleLinkCommand
+  wrapInOrderedListCommand
 } from '@milkdown/preset-commonmark';
 import { gfm, toggleStrikethroughCommand } from '@milkdown/preset-gfm';
 import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
@@ -126,6 +125,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [imgError, setImgError] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
+  const [showToolbarMore, setShowToolbarMore] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [previewText, setPreviewText] = useState<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -136,6 +136,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setImage(initialImage || getRandomCover());
       setShowAiMenu(false);
       setShowGallery(false);
+      setShowToolbarMore(false);
       setPreviewText(null);
       setImgLoading(true);
       setImgError(false);
@@ -155,6 +156,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   const callCommand = (command: any, payload?: any) => {
     editorRef.current?.action((ctx) => ctx.get(commandsCtx).call(command, payload));
+    // Close mobile menu after selection if open
+    if (showToolbarMore) setShowToolbarMore(false);
   };
 
   const handleAiAction = async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
@@ -344,38 +347,63 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
       <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full overflow-hidden">
         {/* Optimized Compact Toolbar */}
-        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-[1.5rem] p-1 flex items-center mb-2 md:mb-4 shrink-0 relative overflow-x-auto no-scrollbar">
+        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-[1.5rem] p-1 flex items-center mb-2 md:mb-4 shrink-0 relative z-40">
           
-          <div className="flex items-center gap-0.5 pr-2 border-r border-surface-highlight/50 mr-1 md:mr-2 shrink-0">
-            <button onClick={() => callCommand(undoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Undo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(redoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Redo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-          </div>
+          <div className="flex-1 flex items-center pr-2">
+            <div className="flex items-center gap-0.5 pr-2 border-r border-surface-highlight/50 mr-1 md:mr-2 shrink-0">
+              <button onClick={() => callCommand(undoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Undo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(redoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Redo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            </div>
 
-          <div className="flex items-center gap-0.5 px-1 shrink-0">
-            {/* Fix: use wrapInHeadingCommand for headings */}
-            <button onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1"><Heading1 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2"><Heading2 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            
-            <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
-            
-            <button onClick={() => callCommand(toggleStrongCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bold"><Bold className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Italic"><Italic className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Strikethrough"><Strikethrough className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Code"><Code className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            
-            <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
-            
-            <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bullet List"><List className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Ordered List"><ListOrdered className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Quote"><Quote className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(insertHrCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Divider"><Minus className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            <button onClick={() => callCommand(toggleLinkCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Insert Link"><LinkIcon className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-          </div>
+            {/* Primary Tools - Always Visible */}
+            <div className="flex items-center gap-0.5 px-1 shrink-0">
+              <button onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1"><Heading1 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2"><Heading2 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              
+              <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
+              
+              <button onClick={() => callCommand(toggleStrongCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bold"><Bold className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Italic"><Italic className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            </div>
 
-          <div className="flex-grow min-w-[12px]"></div>
+            {/* Secondary Tools - Desktop Only */}
+            <div className="hidden md:flex items-center gap-0.5 px-1 shrink-0">
+              <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Strikethrough"><Strikethrough className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Code"><Code className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              
+              <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
+              
+              <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bullet List"><List className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Ordered List"><ListOrdered className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Quote"><Quote className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+              <button onClick={() => callCommand(insertHrCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Divider"><Minus className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            </div>
+
+             {/* Mobile More Button */}
+             <div className="md:hidden ml-1 relative">
+                <button 
+                    onClick={() => setShowToolbarMore(!showToolbarMore)}
+                    className={`p-1.5 rounded-xl transition-colors ${showToolbarMore ? 'bg-accent text-accent-fg' : 'text-secondary hover:bg-surface-highlight'}`}
+                >
+                    <MoreHorizontal className="w-4 h-4" />
+                </button>
+                
+                {showToolbarMore && (
+                    <div className="absolute top-full left-0 mt-2 p-1.5 bg-surface border border-surface-highlight shadow-xl rounded-xl flex flex-wrap gap-1 min-w-[180px] z-50 animate-scale-in origin-top-left">
+                         <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
+                        <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Code"><Code className="w-4 h-4" /></button>
+                        <div className="w-full h-px bg-surface-highlight/50 my-1"></div>
+                        <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Bullet List"><List className="w-4 h-4" /></button>
+                        <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Ordered List"><ListOrdered className="w-4 h-4" /></button>
+                        <button onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Quote"><Quote className="w-4 h-4" /></button>
+                        <button onClick={() => callCommand(insertHrCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Divider"><Minus className="w-4 h-4" /></button>
+                    </div>
+                )}
+            </div>
+          </div>
 
           {/* Assistant Button */}
-          <div className="relative shrink-0 pr-1">
+          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
             <button 
               onClick={() => !isProcessing && setShowAiMenu(!showAiMenu)}
               disabled={isProcessing}
