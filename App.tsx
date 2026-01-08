@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, Sparkles, Key, ExternalLink, ArrowRight, ShieldCheck } from 'lucide-react';
-import { Tab, Task, JournalEntry, AppSettings, Theme } from './types';
+import { Settings, Plus, Sparkles } from 'lucide-react';
+import { Tab, Task, JournalEntry, AppSettings } from './types';
 import { BottomNav } from './components/BottomNav';
 import { TodoView } from './components/TodoView';
 import { JournalView } from './components/JournalView';
@@ -13,18 +14,12 @@ const ALL_THEME_CLASSES = [
   'theme-glass', 'theme-midnight', 'theme-synthwave', 'theme-solarized', 'theme-material'
 ];
 
-const STORAGE_KEY_API = 'zournel_api_key';
-
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [focusInputSignal, setFocusInputSignal] = useState(0); 
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
-  
-  // API Key State
-  const [hasKey, setHasKey] = useState<boolean>(false);
-  const [tempApiKey, setTempApiKey] = useState('');
   
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'light',
@@ -43,14 +38,6 @@ const App: React.FC = () => {
     const savedJournal = localStorage.getItem('mf_journal');
     const savedSettings = localStorage.getItem('mf_settings');
     
-    // Check for API Key in Local Storage or Env
-    const storedKey = localStorage.getItem(STORAGE_KEY_API);
-    const envKey = process.env.API_KEY;
-    
-    if (storedKey || (envKey && envKey.length > 0)) {
-      setHasKey(true);
-    }
-
     if (savedTasks) {
       try {
         setTasks(JSON.parse(savedTasks));
@@ -103,7 +90,7 @@ const App: React.FC = () => {
     }
   }, [tasks, journalEntries, settings, loaded]);
 
-  // Theme Applier - FIXED STICKINESS
+  // Theme Applier
   useEffect(() => {
     document.documentElement.classList.remove(...ALL_THEME_CLASSES);
     const themeClass = `theme-${settings.theme}`;
@@ -116,13 +103,6 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [settings.theme]);
-
-  const handleSaveApiKey = () => {
-    if (tempApiKey.trim()) {
-      localStorage.setItem(STORAGE_KEY_API, tempApiKey.trim());
-      setHasKey(true);
-    }
-  };
 
   const handlePlusClick = () => {
     if (activeTab === Tab.JOURNAL) {
@@ -157,7 +137,7 @@ const App: React.FC = () => {
       setJournalEntries(prev => [newEntry, ...prev]);
     }
 
-    if (entryId && hasKey) {
+    if (entryId) {
         generateJournalInsight(content, settings.model).then(insight => {
             if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
         });
@@ -182,74 +162,6 @@ const App: React.FC = () => {
     }
     setEditingEntry(null);
   };
-
-  // Callback passed to Settings to allow removing the key
-  const handleSettingsClose = () => {
-    setIsSettingsOpen(false);
-    // Re-check key status
-    const storedKey = localStorage.getItem(STORAGE_KEY_API);
-    const envKey = process.env.API_KEY;
-    if (!storedKey && (!envKey || envKey.length === 0)) {
-        setHasKey(false);
-    }
-  };
-
-  if (!hasKey) {
-    return (
-      <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center p-8 bg-bg text-primary transition-colors duration-500 overflow-y-auto">
-        <div className="max-w-md w-full text-center space-y-8 animate-scale-in my-auto">
-          <div className="w-24 h-24 bg-accent/10 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-xl shadow-accent/5">
-            <Sparkles className="w-10 h-10 text-accent" />
-          </div>
-          
-          <div className="space-y-3">
-            <h1 className="text-5xl font-display font-bold text-primary tracking-tight">Zournel</h1>
-            <p className="text-secondary font-sans font-medium">Your intelligent companion for thoughts and tasks.</p>
-          </div>
-
-          <div className="bg-surface p-8 rounded-[2rem] border border-surface-highlight shadow-2xl space-y-6 text-left">
-            <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-secondary ml-1">Google Gemini API Key</label>
-                <div className="relative group">
-                    <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-accent/50 group-focus-within:text-accent transition-colors" />
-                    <input 
-                        type="password"
-                        value={tempApiKey}
-                        onChange={(e) => setTempApiKey(e.target.value)}
-                        placeholder="Paste your key here (AIza...)"
-                        className="w-full bg-surface-highlight/50 border border-surface-highlight focus:border-accent outline-none rounded-xl py-4 pl-12 pr-4 text-sm font-mono transition-all placeholder:text-secondary/30"
-                    />
-                </div>
-            </div>
-
-            <button 
-                onClick={handleSaveApiKey}
-                disabled={!tempApiKey.trim()}
-                className={`w-full py-4 rounded-xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg ${!tempApiKey.trim() ? 'bg-surface-highlight text-secondary cursor-not-allowed opacity-50' : 'bg-accent text-accent-fg hover:bg-accent/90'}`}
-            >
-              <span>Initialize App</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <div className="pt-4 border-t border-surface-highlight/50">
-               <div className="flex gap-3 items-start p-3 bg-surface-highlight/30 rounded-xl">
-                  <ShieldCheck className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                  <p className="text-[10px] text-secondary leading-relaxed">
-                     <span className="font-bold">Privacy Note:</span> Your API key is stored locally on your device and is never sent to our servers.
-                  </p>
-               </div>
-            </div>
-
-            <div className="text-center">
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline font-medium">
-                  Get a free Gemini API Key <ExternalLink className="w-3 h-3" />
-                </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-500">
@@ -291,7 +203,7 @@ const App: React.FC = () => {
         initialImage={editingEntry?.image} 
         selectedModel={settings.model} 
       />
-      <SettingsModal isOpen={isSettingsOpen} onClose={handleSettingsClose} settings={settings} onUpdateSettings={setSettings} />
+      <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={settings} onUpdateSettings={setSettings} />
     </div>
   );
 };

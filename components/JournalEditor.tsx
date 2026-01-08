@@ -1,20 +1,33 @@
+
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { 
-  ArrowLeft, Sparkles, Wand2, RefreshCw, Save, X, 
+  ArrowLeft, Sparkles, Wand2, Save, X, 
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
-  History, CheckCircle2, XCircle
+  History, CheckCircle2, XCircle, Heading1, Heading2, Quote, Minus,
+  Terminal, ListChecks, Link as LinkIcon
 } from 'lucide-react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
-import { commonmark } from '@milkdown/preset-commonmark';
+import { 
+  commonmark, 
+  // Fix: toggleHeadingCommand is deprecated/removed in newer Milkdown versions; use turnIntoHeadingCommand
+  turnIntoHeadingCommand, 
+  insertHrCommand, 
+  wrapInBlockquoteCommand,
+  toggleStrongCommand, 
+  toggleEmphasisCommand, 
+  toggleInlineCodeCommand, 
+  wrapInBulletListCommand, 
+  wrapInOrderedListCommand,
+  toggleLinkCommand
+} from '@milkdown/preset-commonmark';
 import { gfm, toggleStrikethroughCommand } from '@milkdown/preset-gfm';
 import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
-import { toggleStrongCommand, toggleEmphasisCommand, toggleInlineCodeCommand, wrapInBulletListCommand, wrapInOrderedListCommand } from '@milkdown/preset-commonmark';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, generateCoverImage } from '../services/geminiService';
+import { editJournalText } from '../services/geminiService';
 
 interface JournalEditorProps {
   isOpen: boolean;
@@ -28,60 +41,44 @@ interface JournalEditorProps {
 
 const AESTHETIC_CATEGORIES = {
   MINIMAL: [
-    'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1499750310159-5b5f0969206b?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1507643179173-617d699f996a?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1486946255434-2466348c216a?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1516715667182-c8eec924553c?auto=format&fit=crop&q=80&w=1200',
+    'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1507643179173-617d699f996a?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1486946255434-2466348c216a?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1516715667182-c8eec924553c?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1499750310159-5b5f0969206b?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800',
   ],
   NATURE: [
-    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1518173946687-a4c88928d9fd?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1500627760314-30713bf3393c?auto=format&fit=crop&q=80&w=1200',
+    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1518173946687-a4c88928d9fd?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1500627760314-30713bf3393c?auto=format&fit=crop&q=80&w=800',
   ],
   ARCHITECTURE: [
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1518005020952-0b8748d7afb6?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1448630360428-654a65753959?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1503387762-592dea58ef23?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?auto=format&fit=crop&q=80&w=1200',
-  ],
-  OCEAN: [
-    'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1519046904884-53103b34b206?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1468413253725-0d5181091126?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1473116763249-2faaef81ccda?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1439405326854-014607f694d7?auto=format&fit=crop&q=80&w=1200',
+    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1518005020952-0b8748d7afb6?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1448630360428-654a65753959?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1503387762-592dea58ef23?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?auto=format&fit=crop&q=80&w=800',
   ],
   CITYSCAPES: [
-    'https://images.unsplash.com/photo-1449156003053-c3d8c0f71ac4?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1444723121867-7a241cacace9?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&q=80&w=1200',
+    'https://images.unsplash.com/photo-1449156003053-c3d8c0f71ac4?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1444723121867-7a241cacace9?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&q=80&w=800',
   ],
   ABSTRACT: [
-    'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1550684847-75bdda21cc95?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1541339907198-e08756edd811?auto=format&fit=crop&q=80&w=1200',
-  ],
-  COZY: [
-    'https://images.unsplash.com/photo-1517816428104-7975d5d988ff?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1516541196182-6bdb0516ed27?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1470252649378-9c29740c9fa8?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&q=80&w=1200',
-    'https://images.unsplash.com/photo-1544161515-4af6b1d8e179?auto=format&fit=crop&q=80&w=1200',
+    'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1550684847-75bdda21cc95?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=800',
+    'https://images.unsplash.com/photo-1541339907198-e08756edd811?auto=format&fit=crop&q=80&w=800',
   ]
 };
 
@@ -130,7 +127,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [isImageGenerating, setIsImageGenerating] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [previewText, setPreviewText] = useState<string | null>(null);
@@ -159,8 +155,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const updateActiveStates = useCallback((editor: Editor) => {
   }, []);
 
-  const callCommand = (command: any) => {
-    editorRef.current?.action((ctx) => ctx.get(commandsCtx).call(command));
+  const callCommand = (command: any, payload?: any) => {
+    editorRef.current?.action((ctx) => ctx.get(commandsCtx).call(command, payload));
   };
 
   const handleAiAction = async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
@@ -189,19 +185,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   const discardAiPreview = () => {
     setPreviewText(null);
-  };
-
-  const handleGenerateCover = async () => {
-    if (!content.trim()) return;
-    setIsImageGenerating(true);
-    try {
-      const newImage = await generateCoverImage(content.slice(0, 500)); 
-      if (newImage) setImage(newImage);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsImageGenerating(false);
-    }
   };
 
   const handleSave = () => {
@@ -247,21 +230,11 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           <div className="flex gap-2 md:gap-3">
              <button 
                 onClick={() => setShowGallery(true)}
-                className="flex items-center justify-center w-8 h-8 md:w-auto md:h-auto md:gap-2 px-0 md:px-4 py-0 md:py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
+                className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
                 title="Change Cover"
              >
                 <LayoutTemplate className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span className="hidden md:inline">Gallery</span>
-             </button>
-
-             <button 
-                onClick={handleGenerateCover}
-                disabled={isImageGenerating}
-                className="flex items-center justify-center w-8 h-8 md:w-auto md:h-auto md:gap-2 px-0 md:px-4 py-0 md:py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
-                title="AI Remix"
-             >
-               {isImageGenerating ? <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5 md:w-4 h-4" />}
-               <span className="hidden md:inline">{isImageGenerating ? 'Dreaming...' : 'Remix'}</span>
+                <span>Gallery</span>
              </button>
 
              <button onClick={handleSave} className="flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 bg-accent text-accent-fg rounded-full hover:bg-accent/90 shadow-lg transition-all active:scale-95 font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest">
@@ -278,7 +251,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <div className="flex justify-between items-center p-6 md:p-8 border-b border-surface-highlight sticky top-0 bg-surface z-10">
                 <div>
                    <h2 className="text-2xl font-display font-bold text-primary">Aesthetic Gallery</h2>
-                   <p className="text-secondary text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">Curated collection from Unsplash</p>
+                   <p className="text-secondary text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">Verified high-quality collection</p>
                 </div>
                 <button onClick={() => setShowGallery(false)} className="p-3 hover:bg-surface-highlight rounded-xl transition-colors">
                   <X className="w-5 h-5 text-secondary" />
@@ -295,7 +268,12 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                           onClick={() => { setImage(url); setShowGallery(false); }}
                           className={`relative aspect-video rounded-2xl overflow-hidden group border-2 transition-all ${image === url ? 'border-accent ring-4 ring-accent/10 scale-95' : 'border-transparent hover:border-surface-highlight hover:scale-[1.02]'}`}
                         >
-                          <img src={url} alt={`${category} ${idx}`} className="w-full h-full object-cover transition-transform group-hover:scale-110" />
+                          <img 
+                            src={url} 
+                            alt={`${category} ${idx}`} 
+                            className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                            loading="lazy"
+                          />
                           {image === url && (
                             <div className="absolute inset-0 bg-accent/20 flex items-center justify-center backdrop-blur-[1px]">
                               <Check className="w-8 h-8 text-white drop-shadow-md" />
@@ -367,70 +345,77 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       )}
 
       <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full overflow-hidden">
-        {/* Toolbar Container */}
-        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-[1.5rem] p-1.5 md:p-2 flex items-center gap-0.5 md:gap-1 mb-3 md:mb-6 shrink-0 relative">
+        {/* Optimized Compact Toolbar */}
+        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-[1.5rem] p-1 flex items-center mb-2 md:mb-4 shrink-0 relative overflow-x-auto no-scrollbar">
           
-          <div className="flex items-center gap-0.5 md:gap-1 overflow-x-auto no-scrollbar pr-2 border-r border-surface-highlight/50 mr-1 md:mr-2">
-            <div className="flex items-center gap-0.5 md:gap-1 pr-1.5 md:pr-2 border-r border-surface-highlight/50 shrink-0">
-              <button onClick={() => callCommand(undoCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Undo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(redoCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Redo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            </div>
-
-            <div className="flex items-center gap-0.5 md:gap-1 px-1.5 md:px-2 shrink-0">
-              <button onClick={() => callCommand(toggleStrongCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Bold className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Italic className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Strikethrough className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Code className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><List className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-2 md:p-2.5 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><ListOrdered className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            </div>
+          <div className="flex items-center gap-0.5 pr-2 border-r border-surface-highlight/50 mr-1 md:mr-2 shrink-0">
+            <button onClick={() => callCommand(undoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Undo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(redoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Redo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
           </div>
 
-          <div className="flex-grow min-w-[4px]"></div>
+          <div className="flex items-center gap-0.5 px-1 shrink-0">
+            {/* Fix: use turnIntoHeadingCommand.key instead of toggleHeadingCommand.key */}
+            <button onClick={() => callCommand(turnIntoHeadingCommand.key, 1)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1"><Heading1 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(turnIntoHeadingCommand.key, 2)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2"><Heading2 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            
+            <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
+            
+            <button onClick={() => callCommand(toggleStrongCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bold"><Bold className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Italic"><Italic className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Strikethrough"><Strikethrough className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Code"><Code className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            
+            <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
+            
+            <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bullet List"><List className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Ordered List"><ListOrdered className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Quote"><Quote className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(insertHrCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Divider"><Minus className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <button onClick={() => callCommand(toggleLinkCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Insert Link"><LinkIcon className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+          </div>
+
+          <div className="flex-grow min-w-[12px]"></div>
 
           {/* Assistant Button */}
-          <div className="relative shrink-0">
+          <div className="relative shrink-0 pr-1">
             <button 
               onClick={() => !isProcessing && setShowAiMenu(!showAiMenu)}
               disabled={isProcessing}
-              className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-xl transition-all border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition-all border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
             >
               {isProcessing ? (
                 <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 animate-spin text-accent" />
               ) : (
                 <Sparkles className={`w-3.5 h-3.5 md:w-4 h-4 ${showAiMenu ? 'text-accent' : ''}`} />
               )}
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden xs:inline">Assistant</span>
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline">Assistant</span>
               <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showAiMenu ? 'rotate-180' : ''}`} />
             </button>
 
             {showAiMenu && (
-              <div className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1.5 md:p-2 animate-scale-in z-50 flex flex-col gap-1">
-                <button onClick={() => handleAiAction('IMPROVE')} className="flex items-center gap-3 w-full p-2.5 md:p-3 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
-                  <div className="p-1.5 md:p-2 bg-emerald-500/10 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
-                    <Wand2 className="w-3.5 h-3.5 md:w-4 h-4" />
+              <div className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 animate-scale-in z-50 flex flex-col gap-0.5">
+                <button onClick={() => handleAiAction('IMPROVE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                  <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
+                    <Wand2 className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <span className="block text-xs md:text-sm font-semibold text-primary">Polish Flow</span>
-                    <span className="hidden xs:block text-[9px] md:text-[10px] text-secondary opacity-70">Fix grammar</span>
+                    <span className="block text-xs font-semibold text-primary">Polish Flow</span>
                   </div>
                 </button>
-                <button onClick={() => handleAiAction('REPHRASE')} className="flex items-center gap-3 w-full p-2.5 md:p-3 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
-                  <div className="p-1.5 md:p-2 bg-purple-500/10 text-purple-600 rounded-lg group-hover:scale-110 transition-transform">
-                    <Feather className="w-3.5 h-3.5 md:w-4 h-4" />
+                <button onClick={() => handleAiAction('REPHRASE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                  <div className="p-1.5 bg-purple-500/10 text-purple-600 rounded-lg group-hover:scale-110 transition-transform">
+                    <Feather className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <span className="block text-xs md:text-sm font-semibold text-primary">Poetic Style</span>
-                    <span className="hidden xs:block text-[9px] md:text-[10px] text-secondary opacity-70">Elegant rewrite</span>
+                    <span className="block text-xs font-semibold text-primary">Poetic Style</span>
                   </div>
                 </button>
-                <button onClick={() => handleAiAction('SUMMARIZE')} className="flex items-center gap-3 w-full p-2.5 md:p-3 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
-                  <div className="p-1.5 md:p-2 bg-amber-500/10 text-amber-600 rounded-lg group-hover:scale-110 transition-transform">
-                    <FileText className="w-3.5 h-3.5 md:w-4 h-4" />
+                <button onClick={() => handleAiAction('SUMMARIZE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                  <div className="p-1.5 bg-amber-500/10 text-amber-600 rounded-lg group-hover:scale-110 transition-transform">
+                    <FileText className="w-3.5 h-3.5" />
                   </div>
                   <div>
-                    <span className="block text-xs md:text-sm font-semibold text-primary">Summarize</span>
-                    <span className="hidden xs:block text-[9px] md:text-[10px] text-secondary opacity-70">Condense info</span>
+                    <span className="block text-xs font-semibold text-primary">Summarize</span>
                   </div>
                 </button>
               </div>
@@ -449,7 +434,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           </MilkdownProvider>
         </div>
         
-        <div className="mt-2 md:mt-4 px-2 md:px-4 flex justify-between items-center text-[9px] md:text-[10px] font-mono text-secondary opacity-50 uppercase tracking-widest">
+        <div className="mt-1 md:mt-2 px-2 md:px-4 flex justify-between items-center text-[9px] font-mono text-secondary opacity-40 uppercase tracking-widest">
            <span>{content.length} characters</span>
            <span>{selectedModel?.replace('gemini-', '') || 'AI-Ready'}</span>
         </div>

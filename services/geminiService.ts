@@ -2,12 +2,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIProcessedInput, Priority } from "../types";
 
+// nano banana model name for image generation
 const imageModelName = 'gemini-2.5-flash-image';
-const STORAGE_KEY = 'zournel_api_key';
-
-const getApiKey = (): string => {
-  return localStorage.getItem(STORAGE_KEY) || process.env.API_KEY || '';
-};
 
 const handleAiError = (error: any) => {
   console.error("AI Error:", error);
@@ -19,10 +15,8 @@ const cleanJsonString = (str: string) => {
 };
 
 export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
-  const apiKey = getApiKey();
-  if (!apiKey) throw new Error("API Key missing");
-
-  const ai = new GoogleGenAI({ apiKey });
+  // Always use a new instance with the API_KEY from environment variables
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const responseSchema = {
     type: Type.OBJECT,
@@ -70,10 +64,7 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
 };
 
 export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-flash-preview'): Promise<{ text: string, priority: Priority }[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return [];
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const responseSchema = {
     type: Type.OBJECT,
     properties: {
@@ -116,10 +107,7 @@ export const extractTasksFromJournal = async (journalText: string, model: string
 };
 
 export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-flash-preview'): Promise<string[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return [];
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const responseSchema = {
     type: Type.ARRAY,
     items: { type: Type.STRING },
@@ -145,10 +133,7 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
 };
 
 export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-flash-preview'): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return "";
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: model,
@@ -164,10 +149,7 @@ export const generateJournalInsight = async (entryText: string, model: string = 
 };
 
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-flash-preview'): Promise<string> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return text;
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const prompts = { 
     IMPROVE: "You are a professional editor. Improve the following journal entry for better clarity, grammar, and vocabulary while keeping the personal tone. Return ONLY the improved text. NO headers, NO conversational filler, NO quotes around the text.", 
     REPHRASE: "You are a literary writer. Rewrite the following journal entry in an elegant, poetic, and literary style. Maintain the original emotional honesty and first-person perspective. Return ONLY the rephrased text. NO headers, NO conversational filler, NO quotes around the text.", 
@@ -186,10 +168,7 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 };
 
 export const generateCoverImage = async (context: string): Promise<string | null> => {
-  const apiKey = getApiKey();
-  if (!apiKey) return null;
-
-  const ai = new GoogleGenAI({ apiKey });
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   try {
     const response = await ai.models.generateContent({
       model: imageModelName,
