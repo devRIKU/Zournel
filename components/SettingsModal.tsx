@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, Monitor, Sparkles, Key } from 'lucide-react';
+import { X, Moon, Sun, Leaf, CheckCircle2, Cpu, Palette, Zap, Box, Wind, Droplets, Monitor, Sparkles, Key, Coffee } from 'lucide-react';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 
 interface SettingsModalProps {
@@ -70,6 +70,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               <Palette className="w-4 h-4" /> Aesthetics
             </h3>
             <div className="grid grid-cols-3 gap-3">
+              <ThemeButton theme="cozy" icon={Coffee} label="Cozy" colorClass="bg-[#C69C6D]" />
               <ThemeButton theme="light" icon={Sun} label="Default" colorClass="bg-gray-400" />
               <ThemeButton theme="nord" icon={Wind} label="Nord" colorClass="bg-blue-400" />
               <ThemeButton theme="cyberpunk" icon={Zap} label="Cyber" colorClass="bg-yellow-400" />

@@ -4,7 +4,7 @@ export enum Tab {
   JOURNAL = 'JOURNAL'
 }
 
-export type Theme = 'light' | 'nord' | 'cyberpunk' | 'botanist' | 'glass' | 'midnight' | 'synthwave' | 'solarized' | 'material';
+export type Theme = 'cozy' | 'light' | 'nord' | 'cyberpunk' | 'botanist' | 'glass' | 'midnight' | 'synthwave' | 'solarized' | 'material';
 
 export type CompletionAnimation = 'none' | 'confetti' | 'bounce' | 'slide-right';
 export type DeleteAnimation = 'none' | 'shrink' | 'slide-left';

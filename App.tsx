@@ -8,15 +8,17 @@ import { JournalView } from './components/JournalView';
 import { JournalEditor } from './components/JournalEditor';
 import { SettingsModal } from './components/SettingsModal';
 import { OnboardingModal } from './components/OnboardingModal';
+import { LandingPage } from './components/LandingPage';
 import { AddModal } from './components/AddModal';
 import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
-  'theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 
+  'theme-cozy', 'theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 
   'theme-glass', 'theme-midnight', 'theme-synthwave', 'theme-solarized', 'theme-material'
 ];
 
 const App: React.FC = () => {
+  const [hasEntered, setHasEntered] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -26,7 +28,7 @@ const App: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   
   const [settings, setSettings] = useState<AppSettings>({
-    theme: 'light',
+    theme: 'cozy',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
     model: 'gemini-3-flash-preview',
@@ -71,21 +73,18 @@ const App: React.FC = () => {
         setShowOnboarding(true);
       }
     } else {
-      // Auto-detect theme on first run
-      const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setSettings(prev => ({ ...prev, theme: isDarkMode ? 'midnight' : 'light' }));
       setShowOnboarding(true);
     }
     setLoaded(true);
   }, []);
 
-  // System theme detection listener
+  // System theme detection listener (only if user hasn't set a preference, or if they are on a "default" like cozy/light)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
-      // Only auto-switch if the user is on light or midnight (the "default" dark)
-      if (settings.theme === 'light' || settings.theme === 'midnight') {
-        setSettings(prev => ({ ...prev, theme: e.matches ? 'midnight' : 'light' }));
+      // Only auto-switch if the user is on cozy, light or midnight
+      if (['cozy', 'light', 'midnight'].includes(settings.theme)) {
+        setSettings(prev => ({ ...prev, theme: e.matches ? 'midnight' : 'cozy' }));
       }
     };
     mediaQuery.addEventListener('change', handleChange);
@@ -205,8 +204,12 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
+  if (!hasEntered) {
+    return <LandingPage onEnter={() => setHasEntered(true)} tasks={tasks} journalEntries={journalEntries} />;
+  }
+
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-500">
+    <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-500 animate-fade-in">
       <header className="pt-12 px-8 pb-6 flex justify-between items-start">
         <div>
           <h1 className="text-4xl font-display font-bold text-primary">Zournel</h1>
