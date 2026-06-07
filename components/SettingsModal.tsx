@@ -11,8 +11,9 @@ interface SettingsModalProps {
 }
 
 const MODELS = [
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', badge: 'Recommended', desc: 'Default for Polishing & Summarizing' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite', badge: 'Fast', desc: 'Default for Todo & Extraction' },
   { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Ultra', desc: 'Expert reasoning & coding' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash', badge: 'Lite', desc: 'Fast & responsive daily tasks' },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {

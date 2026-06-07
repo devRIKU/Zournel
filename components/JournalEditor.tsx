@@ -29,10 +29,11 @@ import { editJournalText } from '../services/geminiService';
 interface JournalEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: string, image: string | undefined) => void;
+  onSave: (content: string, image: string | undefined, mood?: string) => void;
   initialContent?: string;
   initialImage?: string;
   initialId?: string;
+  initialMood?: string;
   selectedModel?: string;
 }
 
@@ -117,10 +118,12 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
 });
 
 export const JournalEditor: React.FC<JournalEditorProps> = ({ 
-  isOpen, onClose, onSave, initialContent = '', initialImage, initialId, selectedModel 
+  isOpen, onClose, onSave, initialContent = '', initialImage, initialId, initialMood, selectedModel 
 }) => {
   const [content, setContent] = useState(() => initialContent);
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
+  const [mood, setMood] = useState<string | undefined>(() => initialMood);
+  const [showMoodMenu, setShowMoodMenu] = useState(false);
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -134,6 +137,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     if (isOpen) {
       setContent(initialContent || '');
       setImage(initialImage || getRandomCover());
+      setMood(initialMood);
+      setShowMoodMenu(false);
       setShowAiMenu(false);
       setShowGallery(false);
       setShowToolbarMore(false);
@@ -141,7 +146,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setImgLoading(true);
       setImgError(false);
     }
-  }, [isOpen, initialContent, initialImage]);
+  }, [isOpen, initialContent, initialImage, initialMood]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
@@ -189,7 +194,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   const handleSave = () => {
-    onSave(content, image);
+    onSave(content, image, mood);
     onClose();
   };
 
@@ -312,13 +317,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                <div className="flex gap-6">
                   <div className="flex-1 space-y-4">
                      <span className="text-[9px] font-bold uppercase tracking-widest text-secondary/50 flex items-center gap-2"><History className="w-3 h-3" /> Current</span>
-                     <div className="p-6 bg-surface-highlight rounded-2xl text-secondary text-sm leading-relaxed line-clamp-[12] opacity-50 italic">
+                     <div className="p-6 bg-surface-highlight rounded-2xl text-primary text-sm leading-relaxed line-clamp-[12] font-medium italic border border-secondary/20 bg-surface/30 shadow-inner">
                         {content || "(Empty)" }
                      </div>
                   </div>
                   <div className="flex-1 space-y-4">
                      <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2"><Sparkles className="w-3 h-3" /> AI Suggestion</span>
-                     <div className="p-6 bg-accent/5 border border-accent/10 rounded-2xl text-primary text-sm leading-relaxed font-medium">
+                     <div className="p-6 bg-accent/15 border-2 border-accent/45 rounded-2xl text-primary text-sm leading-relaxed font-semibold shadow-inner">
                         {previewText}
                      </div>
                   </div>
@@ -400,6 +405,67 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                     </div>
                 )}
             </div>
+          </div>
+
+          {/* Mood Selector Button & Dropdown */}
+          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
+            <button 
+              onClick={() => setShowMoodMenu(!showMoodMenu)}
+              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition-all border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              title="Add current emotional state/mood"
+            >
+              <span className="text-sm md:text-base leading-none select-none">{mood ? mood.split(' ')[0] : '😊'}</span>
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline select-none">
+                {mood ? mood.split(' ')[1] : 'Mood'}
+              </span>
+              <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showMoodMenu ? 'rotate-180' : ''}`} />
+            </button>
+
+            {showMoodMenu && (
+              <div className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 animate-scale-in z-50 flex flex-col gap-0.5">
+                {[
+                  { emoji: '😊', label: 'Happy' },
+                  { emoji: '😌', label: 'Calm' },
+                  { emoji: '⚡', label: 'Energetic' },
+                  { emoji: '😢', label: 'Reflective' },
+                  { emoji: '🤯', label: 'Stressed' },
+                  { emoji: '😠', label: 'Tense' }
+                ].map((item) => {
+                  const itemString = `${item.emoji} ${item.label}`;
+                  const isSelected = mood === itemString;
+                  return (
+                    <button 
+                      key={item.label}
+                      onClick={() => {
+                        setMood(itemString);
+                        setShowMoodMenu(false);
+                      }} 
+                      className={`flex items-center gap-3 w-full p-2 rounded-xl text-left group transition-colors ${isSelected ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-surface-highlight'}`}
+                    >
+                      <span className="text-lg md:text-xl group-hover:scale-125 transition-transform">{item.emoji}</span>
+                      <span className={`text-xs font-semibold ${isSelected ? 'text-accent' : 'text-primary'}`}>{item.label}</span>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-accent ml-auto shrink-0 animate-scale-in" />
+                      )}
+                    </button>
+                  );
+                })}
+                {mood && (
+                  <>
+                    <div className="h-px bg-surface-highlight/50 my-1"></div>
+                    <button 
+                      onClick={() => {
+                        setMood(undefined);
+                        setShowMoodMenu(false);
+                      }}
+                      className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl hover:bg-red-500/10 text-red-600 text-xs font-semibold transition-colors"
+                    >
+                      Clear Mood
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Assistant Button */}

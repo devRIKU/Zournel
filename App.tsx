@@ -31,7 +31,7 @@ const App: React.FC = () => {
     theme: 'cozy',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-3.5-flash',
     apiKey: ''
   });
 
@@ -64,6 +64,9 @@ const App: React.FC = () => {
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
+        if (parsedSettings.model === 'gemini-3-flash-preview' || !parsedSettings.model) {
+          parsedSettings.model = 'gemini-3.5-flash';
+        }
         setSettings(prev => ({ ...prev, ...parsedSettings }));
         if (!parsedSettings.apiKey) {
           setShowOnboarding(true);
@@ -165,16 +168,16 @@ const App: React.FC = () => {
     }
   };
 
-  const saveJournalEntry = (content: string, image: string | undefined) => {
+  const saveJournalEntry = (content: string, image: string | undefined, mood?: string) => {
     let entryId = editingEntry?.id;
     let isNew = false;
     
     if (entryId) {
-      setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, content, image } : e));
+      setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, content, image, mood: mood !== undefined ? mood : e.mood } : e));
     } else {
       isNew = true;
       entryId = Math.random().toString(36).substr(2, 9);
-      const newEntry: JournalEntry = { id: entryId, content, image, createdAt: Date.now(), tasksExtracted: false };
+      const newEntry: JournalEntry = { id: entryId, content, image, mood, createdAt: Date.now(), tasksExtracted: false };
       setJournalEntries(prev => [newEntry, ...prev]);
     }
 
@@ -252,6 +255,7 @@ const App: React.FC = () => {
         initialId={editingEntry?.id}
         initialContent={editingEntry?.content} 
         initialImage={editingEntry?.image} 
+        initialMood={editingEntry?.mood}
         selectedModel={settings.model} 
       />
       

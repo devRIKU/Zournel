@@ -85,7 +85,11 @@ const TaskItem: React.FC<{
                 const next: Record<Priority, Priority> = { 'high': 'medium', 'medium': 'low', 'low': 'high' };
                 onUpdate({ ...task, priority: next[task.priority] });
             }} />
-            {task.aiAnalysis && <span className="text-[9px] text-accent/60 font-medium italic">{task.aiAnalysis}</span>}
+            {task.aiAnalysis && (
+              <span className="text-[9px] font-bold uppercase tracking-wider text-accent bg-accent/10 border border-accent/20 px-2 py-0.5 rounded-full italic animate-fade-in select-none">
+                ✨ {task.aiAnalysis}
+              </span>
+            )}
           </div>
         </div>
         <div className="flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

@@ -5,6 +5,16 @@ import { AIProcessedInput, Priority } from "../types";
 // nano banana model name for image generation
 const imageModelName = 'gemini-2.5-flash-image';
 
+const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
+  // Gracefully route models based on specialization requested:
+  // - Gemini 3.5 flash for polishing / summarizing and general insights
+  // - Gemini 3.1 flash lite for Todo AI & extraction tasks
+  if (model === 'gemini-3-flash-preview' || model === 'gemini-3.5-flash' || model === 'gemini-3.1-flash-lite') {
+    return type === 'POLISH' ? 'gemini-3.5-flash' : 'gemini-3.1-flash-lite';
+  }
+  return model;
+};
+
 const handleAiError = (error: any) => {
   console.error("AI Error:", error);
 };
@@ -23,9 +33,10 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const processUserInput = async (input: string, model: string = 'gemini-3-flash-preview'): Promise<AIProcessedInput> => {
+export const processUserInput = async (input: string, model: string = 'gemini-3.1-flash-lite'): Promise<AIProcessedInput> => {
   try {
     const ai = getAiClient();
+    const activeModel = routeModel(model, 'TODO');
     
     const responseSchema = {
       type: Type.OBJECT,
@@ -48,7 +59,7 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
     };
 
     const response = await ai.models.generateContent({
-      model: model,
+      model: activeModel,
       contents: `You are an intelligent assistant for a personal journal and task manager. I will provide you with a stream of consciousness input that might contain both things to do and personal reflections. 
       Please carefully separate them. 
       - Extract any actionable items into the 'tasks' array.
@@ -71,9 +82,10 @@ export const processUserInput = async (input: string, model: string = 'gemini-3-
   }
 };
 
-export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3-flash-preview'): Promise<{ text: string, priority: Priority }[]> => {
+export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3.1-flash-lite'): Promise<{ text: string, priority: Priority }[]> => {
   try {
     const ai = getAiClient();
+    const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
       type: Type.OBJECT,
       properties: {
@@ -92,7 +104,7 @@ export const extractTasksFromJournal = async (journalText: string, model: string
     };
 
     const response = await ai.models.generateContent({
-      model: model,
+      model: activeModel,
       contents: `Act as a personal organizer. Read the following journal entry and identify any implicit or explicit tasks, errands, or future commitments mentioned by the user. 
       Assign a priority ('high', 'medium', or 'low') to each task based on the urgency or importance suggested by the context. 
       Return an empty list if no tasks are found.
@@ -114,16 +126,17 @@ export const extractTasksFromJournal = async (journalText: string, model: string
   }
 };
 
-export const generateSubtasks = async (taskText: string, model: string = 'gemini-3-flash-preview'): Promise<string[]> => {
+export const generateSubtasks = async (taskText: string, model: string = 'gemini-3.1-flash-lite'): Promise<string[]> => {
   try {
     const ai = getAiClient();
+    const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
       type: Type.ARRAY,
       items: { type: Type.STRING },
     };
 
     const response = await ai.models.generateContent({
-      model: model,
+      model: activeModel,
       contents: `Break down the following task into 3 to 5 logical, small, and actionable steps to help the user get started and maintain momentum: "${taskText}"`,
       config: {
         responseMimeType: "application/json",
@@ -140,11 +153,12 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
   }
 };
 
-export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3-flash-preview'): Promise<string> => {
+export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3.5-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
+    const activeModel = routeModel(model, 'POLISH');
     const response = await ai.models.generateContent({
-      model: model,
+      model: activeModel,
       contents: `You are a wise and empathetic companion. Read this journal entry: "${entryText}". 
       Provide exactly one single, deeply reflective, and encouraging sentence that captures the emotional essence, a key insight, or a positive growth moment from the user's thoughts. 
       Keep it poetic but grounded. Do not use generic self-help clichés.`,
@@ -156,9 +170,10 @@ export const generateJournalInsight = async (entryText: string, model: string = 
   }
 };
 
-export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3-flash-preview'): Promise<string> => {
+export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3.5-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
+    const activeModel = routeModel(model, 'POLISH');
     const prompts = { 
       IMPROVE: "You are a professional editor. Improve the following journal entry for better clarity, grammar, and vocabulary while keeping the personal tone. Return ONLY the improved text. NO headers, NO conversational filler, NO quotes around the text.", 
       REPHRASE: "You are a literary writer. Rewrite the following journal entry in an elegant, poetic, and literary style. Maintain the original emotional honesty and first-person perspective. Return ONLY the rephrased text. NO headers, NO conversational filler, NO quotes around the text.", 
@@ -166,7 +181,7 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
     };
     
     const response = await ai.models.generateContent({
-      model: model,
+      model: activeModel,
       contents: `${prompts[type]}\n\nInput Text: "${text}"`,
     });
     return response.text?.trim() || text;

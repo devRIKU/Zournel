@@ -127,9 +127,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
                         </div>
 
                         {entry.aiInsight && (
-                          <div className="mt-auto pt-8 border-t border-surface-highlight flex gap-4 opacity-60 group-hover:opacity-100 transition-opacity duration-500">
+                          <div className="mt-auto pt-8 border-t border-surface-highlight flex gap-4 transition-all duration-300">
                             <Sparkles className="w-4 h-4 text-accent shrink-0 mt-1" />
-                            <p className="font-display text-lg text-secondary leading-relaxed italic">
+                            <p className="font-display text-[15px] text-primary/80 leading-relaxed italic text-left">
                               {entry.aiInsight}
                             </p>
                           </div>
