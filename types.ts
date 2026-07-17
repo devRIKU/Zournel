@@ -4,7 +4,7 @@ export enum Tab {
   JOURNAL = 'JOURNAL'
 }
 
-export type Theme = 'apple-light' | 'apple-dark' | 'graph-light' | 'graph-dark' | 'evergreen-light' | 'evergreen-dark' | 'cat-light' | 'cat-dark';
+export type Theme = 'cozy-light' | 'cozy-dark' | 'evergreen-light' | 'evergreen-dark' | 'catppuccin-light' | 'catppuccin-dark' | 'gruvbox-light' | 'gruvbox-dark';
 
 export type CompletionAnimation = 'none' | 'confetti' | 'bounce' | 'slide-right';
 export type DeleteAnimation = 'none' | 'shrink' | 'slide-left';

@@ -13,8 +13,8 @@ import { AddModal } from './components/AddModal';
 import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
-  'theme-apple-light', 'theme-apple-dark', 'theme-graph-light', 'theme-graph-dark', 
-  'theme-evergreen-light', 'theme-evergreen-dark', 'theme-cat-light', 'theme-cat-dark'
+  'theme-cozy-light', 'theme-cozy-dark', 'theme-evergreen-light', 'theme-evergreen-dark', 
+  'theme-catppuccin-light', 'theme-catppuccin-dark', 'theme-gruvbox-light', 'theme-gruvbox-dark'
 ];
 
 const App: React.FC = () => {
@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   
   const [settings, setSettings] = useState<AppSettings>({
-    theme: 'apple-light',
+    theme: 'cozy-light',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
     model: 'gemini-3.5-flash',
@@ -69,9 +69,9 @@ const App: React.FC = () => {
         }
         
         // Migrate older theme preferences gracefully to new premium options
-        const validThemes = ['apple-light', 'apple-dark', 'graph-light', 'graph-dark', 'evergreen-light', 'evergreen-dark', 'cat-light', 'cat-dark'];
+        const validThemes = ['cozy-light', 'cozy-dark', 'evergreen-light', 'evergreen-dark', 'catppuccin-light', 'catppuccin-dark', 'gruvbox-light', 'gruvbox-dark'];
         if (!validThemes.includes(parsedSettings.theme)) {
-          parsedSettings.theme = 'apple-light';
+          parsedSettings.theme = 'cozy-light';
         }
         
         setSettings(prev => ({ ...prev, ...parsedSettings }));
@@ -88,12 +88,12 @@ const App: React.FC = () => {
     setLoaded(true);
   }, []);
 
-  // System theme detection listener (only if user hasn't set a custom theme scheme, auto-switches Apple theme)
+  // System theme detection listener (only if user hasn't set a custom theme scheme, auto-switches default cozy theme)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
-      if (['apple-light', 'apple-dark'].includes(settings.theme)) {
-        setSettings(prev => ({ ...prev, theme: e.matches ? 'apple-dark' : 'apple-light' }));
+      if (['cozy-light', 'cozy-dark'].includes(settings.theme)) {
+        setSettings(prev => ({ ...prev, theme: e.matches ? 'cozy-dark' : 'cozy-light' }));
       }
     };
     mediaQuery.addEventListener('change', handleChange);
@@ -116,7 +116,7 @@ const App: React.FC = () => {
     document.documentElement.classList.add(themeClass);
     
     // Also toggle dark mode attribute for Tailwind
-    const darkThemes = ['apple-dark', 'graph-dark', 'evergreen-dark', 'cat-dark'];
+    const darkThemes = ['cozy-dark', 'evergreen-dark', 'catppuccin-dark', 'gruvbox-dark'];
     if (darkThemes.includes(settings.theme)) {
       document.documentElement.classList.add('dark');
     } else {

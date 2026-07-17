@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle } from 'lucide-react';
+import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee } from 'lucide-react';
 import { AppSettings, Theme } from '../types';
 
 interface SettingsModalProps {
@@ -84,34 +84,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
-                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Minimal (Apple / Google)</span>
+                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Cozy (Warm Coffee)</span>
                     <div className="flex gap-2">
-                      <ThemeButton theme="apple-light" icon={Sun} label="Light" colorClass="bg-zinc-200 text-zinc-800" />
-                      <ThemeButton theme="apple-dark" icon={Moon} label="Dark" colorClass="bg-zinc-950 text-zinc-100" />
+                      <ThemeButton theme="cozy-light" icon={Coffee} label="Light" colorClass="bg-[#C49158] text-white" />
+                      <ThemeButton theme="cozy-dark" icon={Coffee} label="Dark" colorClass="bg-[#3D2E24] text-[#EFE7E1]" />
                     </div>
                   </div>
                   
                   <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
-                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Graph Box (GitHub)</span>
+                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Evergreen (Botanical Sage)</span>
                     <div className="flex gap-2">
-                      <ThemeButton theme="graph-light" icon={Grid} label="Light" colorClass="bg-emerald-100 text-emerald-800" />
-                      <ThemeButton theme="graph-dark" icon={Grid} label="Dark" colorClass="bg-emerald-950 text-emerald-300" />
+                      <ThemeButton theme="evergreen-light" icon={TreePine} label="Light" colorClass="bg-[#DCE7DC] text-[#2A5C3C]" />
+                      <ThemeButton theme="evergreen-dark" icon={TreePine} label="Dark" colorClass="bg-[#132016] text-[#34D399]" />
                     </div>
                   </div>
                   
                   <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
-                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Evergreen (Botanical)</span>
+                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Catppuccin (Soothing Pastel)</span>
                     <div className="flex gap-2">
-                      <ThemeButton theme="evergreen-light" icon={TreePine} label="Light" colorClass="bg-green-100 text-green-800" />
-                      <ThemeButton theme="evergreen-dark" icon={TreePine} label="Dark" colorClass="bg-green-950 text-emerald-300" />
+                      <ThemeButton theme="catppuccin-light" icon={Cat} label="Light" colorClass="bg-[#CCD0DA] text-[#8839EF]" />
+                      <ThemeButton theme="catppuccin-dark" icon={Cat} label="Dark" colorClass="bg-[#1E1E2E] text-[#CBA6F7]" />
                     </div>
                   </div>
                   
                   <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
-                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Cat Watching (Cozy stars)</span>
+                    <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Gruvbox (Retro Editorial)</span>
                     <div className="flex gap-2">
-                      <ThemeButton theme="cat-light" icon={Cat} label="Light" colorClass="bg-amber-100 text-amber-800" />
-                      <ThemeButton theme="cat-dark" icon={Cat} label="Dark" colorClass="bg-amber-950 text-amber-300" />
+                      <ThemeButton theme="gruvbox-light" icon={Palette} label="Light" colorClass="bg-[#EBDBB2] text-[#D65D0E]" />
+                      <ThemeButton theme="gruvbox-dark" icon={Palette} label="Dark" colorClass="bg-[#282828] text-[#FE8019]" />
                     </div>
                   </div>
                 </div>

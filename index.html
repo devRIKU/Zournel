@@ -45,120 +45,124 @@
     </script>
     <style>
       :root { 
-        /* APPLE LIGHT DEFAULT */
-        --color-bg: #F5F5F7; 
+        /* COZY LIGHT DEFAULT */
+        --color-bg: #FAF8F4; 
         --color-surface: #FFFFFF; 
-        --color-surface-highlight: #E8E8ED; 
-        --color-primary: #1D1D1F; 
-        --color-secondary: #86868B; 
-        --color-accent: #0071E3; 
+        --color-surface-highlight: #EFEAD8; 
+        --color-primary: #3D352E; 
+        --color-secondary: #786C60; 
+        --color-accent: #C69C6D; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #E8F2FC; 
+        --color-accent-dim: #F7EFE1; 
       }
 
-      .theme-apple-light { 
-        --color-bg: #F5F5F7; 
+      .theme-cozy-light { 
+        --color-bg: #FAF8F4; 
         --color-surface: #FFFFFF; 
-        --color-surface-highlight: #E8E8ED; 
-        --color-primary: #1D1D1F; 
-        --color-secondary: #86868B; 
-        --color-accent: #0071E3; 
+        --color-surface-highlight: #EFEAD8; 
+        --color-primary: #3D352E; 
+        --color-secondary: #786C60; 
+        --color-accent: #C69C6D; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #E8F2FC; 
+        --color-accent-dim: #F7EFE1; 
       }
       
-      .theme-apple-dark { 
-        --color-bg: #000000; 
-        --color-surface: #121212; 
-        --color-surface-highlight: #222225; 
-        --color-primary: #F5F5F7; 
-        --color-secondary: #86868B; 
-        --color-accent: #2997FF; 
-        --color-accent-fg: #000000; 
-        --color-accent-dim: #112335; 
-      }
-      
-      .theme-graph-light { 
-        --color-bg: #F6F8FA; 
-        --color-surface: #FFFFFF; 
-        --color-surface-highlight: #D0D7DE; 
-        --color-primary: #24292F; 
-        --color-secondary: #57606A; 
-        --color-accent: #1F883D; 
-        --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #E6F4EA; 
-      }
-      
-      .theme-graph-dark { 
-        --color-bg: #0D1117; 
-        --color-surface: #161B22; 
-        --color-surface-highlight: #30363D; 
-        --color-primary: #C9D1D9; 
-        --color-secondary: #8B949E; 
-        --color-accent: #39D353; 
-        --color-accent-fg: #0D1117; 
-        --color-accent-dim: #102A16; 
+      .theme-cozy-dark { 
+        --color-bg: #1B1512; 
+        --color-surface: #261F1A; 
+        --color-surface-highlight: #3B312A; 
+        --color-primary: #F2EAE4; 
+        --color-secondary: #9E8E83; 
+        --color-accent: #D9AB7E; 
+        --color-accent-fg: #1B1512; 
+        --color-accent-dim: #2E221A; 
       }
       
       .theme-evergreen-light { 
-        --color-bg: #F4F6F4; 
+        --color-bg: #F2F5F2; 
         --color-surface: #FFFFFF; 
-        --color-surface-highlight: #E2ECE2; 
-        --color-primary: #1A2F1D; 
-        --color-secondary: #5C7A5E; 
+        --color-surface-highlight: #DFE6DF; 
+        --color-primary: #1C2E1F; 
+        --color-secondary: #59735C; 
         --color-accent: #2A5C3C; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #EAF4EC; 
+        --color-accent-dim: #E6EFE6; 
       }
-
+      
       .theme-evergreen-dark { 
-        --color-bg: #0F1A12; 
-        --color-surface: #16251A; 
-        --color-surface-highlight: #24392A; 
-        --color-primary: #ECFDF5; 
-        --color-secondary: #72977B; 
+        --color-bg: #0C140E; 
+        --color-surface: #132016; 
+        --color-surface-highlight: #213526; 
+        --color-primary: #ECF5ED; 
+        --color-secondary: #7E9B82; 
         --color-accent: #34D399; 
-        --color-accent-fg: #064E3B; 
-        --color-accent-dim: #0F2D1F; 
+        --color-accent-fg: #052414; 
+        --color-accent-dim: #112E1B; 
+      }
+      
+      .theme-catppuccin-light { 
+        --color-bg: #EFF1F5; 
+        --color-surface: #E6E9EF; 
+        --color-surface-highlight: #CCD0DA; 
+        --color-primary: #4C4F69; 
+        --color-secondary: #6C6F85; 
+        --color-accent: #8839EF; 
+        --color-accent-fg: #EFF1F5; 
+        --color-accent-dim: #E8DBFC; 
       }
 
-      .theme-cat-light { 
-        --color-bg: #FDFBF7; 
-        --color-surface: #FFFFFF; 
-        --color-surface-highlight: #F3EBE1; 
-        --color-primary: #4A3C31; 
-        --color-secondary: #927E6E; 
-        --color-accent: #D97706; 
-        --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #FEF3C7; 
+      .theme-catppuccin-dark { 
+        --color-bg: #1E1E2E; 
+        --color-surface: #181825; 
+        --color-surface-highlight: #313244; 
+        --color-primary: #CDD6F4; 
+        --color-secondary: #A6ADC8; 
+        --color-accent: #CBA6F7; 
+        --color-accent-fg: #11111B; 
+        --color-accent-dim: #2A203F; 
       }
 
-      .theme-cat-dark { 
-        --color-bg: #0E0D13; 
-        --color-surface: #161520; 
-        --color-surface-highlight: #292736; 
-        --color-primary: #F3F0FA; 
-        --color-secondary: #9B94B5; 
-        --color-accent: #FBBF24; 
-        --color-accent-fg: #110E03; 
-        --color-accent-dim: #2D2305; 
+      .theme-gruvbox-light { 
+        --color-bg: #FBF1C7; 
+        --color-surface: #F9F5D7; 
+        --color-surface-highlight: #EBDBB2; 
+        --color-primary: #282828; 
+        --color-secondary: #665C54; 
+        --color-accent: #D65D0E; 
+        --color-accent-fg: #FBF1C7; 
+        --color-accent-dim: #F5E0B8; 
+      }
+
+      .theme-gruvbox-dark { 
+        --color-bg: #1D2021; 
+        --color-surface: #282828; 
+        --color-surface-highlight: #3C3836; 
+        --color-primary: #FBF1C7; 
+        --color-secondary: #A89984; 
+        --color-accent: #FE8019; 
+        --color-accent-fg: #1D2021; 
+        --color-accent-dim: #3A2312; 
       }
 
       /* Custom background subtle micro-textures for added premium feel */
-      .theme-graph-light body {
-        background-image: radial-gradient(#D0D7DE 1px, transparent 1px);
-        background-size: 20px 20px;
-      }
-      .theme-graph-dark body {
-        background-image: radial-gradient(#30363D 1.5px, transparent 1.5px);
+      .theme-cozy-light body {
+        background-image: radial-gradient(rgba(198, 156, 109, 0.05) 1.5px, transparent 1.5px);
         background-size: 24px 24px;
       }
-      .theme-cat-dark body {
-        background-image: radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.12) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.08) 0px, transparent 50%);
+      .theme-cozy-dark body {
+        background-image: radial-gradient(rgba(217, 171, 126, 0.04) 1.5px, transparent 1.5px);
+        background-size: 24px 24px;
+      }
+      .theme-gruvbox-dark body {
+        background-image: radial-gradient(rgba(251, 241, 199, 0.03) 1.5px, transparent 1.5px);
+        background-size: 24px 24px;
+      }
+      .theme-catppuccin-dark body {
+        background-image: radial-gradient(at 0% 0%, rgba(136, 57, 239, 0.06) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(203, 166, 247, 0.04) 0px, transparent 50%);
         background-attachment: fixed;
       }
       .theme-evergreen-dark body {
-        background-image: radial-gradient(at 0% 0%, rgba(52, 211, 153, 0.08) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.04) 0px, transparent 50%);
+        background-image: radial-gradient(at 0% 0%, rgba(52, 211, 153, 0.06) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.03) 0px, transparent 50%);
         background-attachment: fixed;
       }
 
