@@ -9,20 +9,22 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
     "@google/genai": "^1.34.0",
-    "lucide-react": "^0.562.0",
-    "canvas-confetti": "^1.9.2",
     "@milkdown/core": "^7.5.1",
     "@milkdown/ctx": "^7.5.1",
+    "@milkdown/plugin-history": "^7.5.1",
+    "@milkdown/plugin-listener": "^7.5.1",
     "@milkdown/preset-commonmark": "^7.5.1",
     "@milkdown/preset-gfm": "^7.5.1",
-    "@milkdown/plugin-history": "^7.5.1",
     "@milkdown/react": "^7.5.1",
     "@milkdown/theme-nord": "^7.5.1",
-    "@milkdown/plugin-listener": "^7.5.1",
-    "@milkdown/utils": "^7.18.0"
+    "@milkdown/utils": "^7.18.0",
+    "canvas-confetti": "^1.9.2",
+    "lucide-react": "^0.562.0",
+    "motion": "^12.42.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.9.2"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

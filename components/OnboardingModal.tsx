@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Key, ArrowRight, ExternalLink } from 'lucide-react';
 
 interface OnboardingModalProps {
@@ -17,8 +18,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-bg/90 backdrop-blur-xl animate-fade-in">
-      <div className="bg-surface rounded-[2.5rem] w-full max-w-md shadow-2xl p-8 border border-surface-highlight relative animate-scale-in">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-bg/90 backdrop-blur-xl">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95, y: 15 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+        className="bg-surface rounded-[2.5rem] w-full max-w-md shadow-2xl p-8 border border-surface-highlight relative overflow-hidden"
+      >
         <div className="absolute -top-12 -left-12 w-48 h-48 bg-accent/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
         
@@ -70,7 +76,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave }) => {
             </a>
           </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

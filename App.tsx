@@ -13,8 +13,8 @@ import { AddModal } from './components/AddModal';
 import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
-  'theme-cozy', 'theme-light', 'theme-nord', 'theme-cyberpunk', 'theme-botanist', 
-  'theme-glass', 'theme-midnight', 'theme-synthwave', 'theme-solarized', 'theme-material'
+  'theme-apple-light', 'theme-apple-dark', 'theme-graph-light', 'theme-graph-dark', 
+  'theme-evergreen-light', 'theme-evergreen-dark', 'theme-cat-light', 'theme-cat-dark'
 ];
 
 const App: React.FC = () => {
@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
   
   const [settings, setSettings] = useState<AppSettings>({
-    theme: 'cozy',
+    theme: 'apple-light',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
     model: 'gemini-3.5-flash',
@@ -67,6 +67,13 @@ const App: React.FC = () => {
         if (parsedSettings.model === 'gemini-3-flash-preview' || !parsedSettings.model) {
           parsedSettings.model = 'gemini-3.5-flash';
         }
+        
+        // Migrate older theme preferences gracefully to new premium options
+        const validThemes = ['apple-light', 'apple-dark', 'graph-light', 'graph-dark', 'evergreen-light', 'evergreen-dark', 'cat-light', 'cat-dark'];
+        if (!validThemes.includes(parsedSettings.theme)) {
+          parsedSettings.theme = 'apple-light';
+        }
+        
         setSettings(prev => ({ ...prev, ...parsedSettings }));
         if (!parsedSettings.apiKey) {
           setShowOnboarding(true);
@@ -81,13 +88,12 @@ const App: React.FC = () => {
     setLoaded(true);
   }, []);
 
-  // System theme detection listener (only if user hasn't set a preference, or if they are on a "default" like cozy/light)
+  // System theme detection listener (only if user hasn't set a custom theme scheme, auto-switches Apple theme)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
-      // Only auto-switch if the user is on cozy, light or midnight
-      if (['cozy', 'light', 'midnight'].includes(settings.theme)) {
-        setSettings(prev => ({ ...prev, theme: e.matches ? 'midnight' : 'cozy' }));
+      if (['apple-light', 'apple-dark'].includes(settings.theme)) {
+        setSettings(prev => ({ ...prev, theme: e.matches ? 'apple-dark' : 'apple-light' }));
       }
     };
     mediaQuery.addEventListener('change', handleChange);
@@ -110,7 +116,8 @@ const App: React.FC = () => {
     document.documentElement.classList.add(themeClass);
     
     // Also toggle dark mode attribute for Tailwind
-    if (['midnight', 'nord', 'cyberpunk', 'synthwave'].includes(settings.theme)) {
+    const darkThemes = ['apple-dark', 'graph-dark', 'evergreen-dark', 'cat-dark'];
+    if (darkThemes.includes(settings.theme)) {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');

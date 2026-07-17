@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { Tab } from '../types';
 import { ListTodo, Library } from 'lucide-react';
 
@@ -9,34 +10,52 @@ interface BottomNavProps {
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
   return (
-    <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-8 animate-slide-up">
+    <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-8">
       <div className="w-full flex justify-center items-end px-4">
-        <div className="pointer-events-auto flex items-center bg-surface/90 backdrop-blur-2xl shadow-2xl rounded-full p-1.5 border border-surface-highlight">
+        <div className="pointer-events-auto flex items-center bg-surface/90 backdrop-blur-2xl shadow-2xl rounded-full p-1.5 border border-surface-highlight relative overflow-hidden">
           
           <button 
             onClick={() => onTabChange(Tab.TODO)}
             title="Switch to Tasks View"
-            className={`px-6 sm:px-8 py-3 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-90 flex items-center gap-2 ${
+            className={`relative px-6 sm:px-8 py-3.5 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
                 activeTab === Tab.TODO 
-                ? 'bg-primary text-bg shadow-lg scale-105' 
-                : 'text-secondary hover:text-primary hover:bg-surface-highlight/50'
+                ? 'text-bg font-extrabold' 
+                : 'text-secondary hover:text-primary'
             }`}
           >
-            <ListTodo className={`w-4 h-4 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-40'}`} />
-            <span>Tasks</span>
+            {activeTab === Tab.TODO && (
+              <motion.div 
+                layoutId="active-tab-indicator"
+                className="absolute inset-0 bg-primary rounded-full z-0"
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              <ListTodo className="w-4 h-4" />
+              <span>Tasks</span>
+            </span>
           </button>
 
           <button 
             onClick={() => onTabChange(Tab.JOURNAL)}
             title="Switch to Memories View"
-            className={`px-6 sm:px-8 py-3 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-90 flex items-center gap-2 ${
+            className={`relative px-6 sm:px-8 py-3.5 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
                 activeTab === Tab.JOURNAL 
-                ? 'bg-primary text-bg shadow-lg scale-105' 
-                : 'text-secondary hover:text-primary hover:bg-surface-highlight/50'
+                ? 'text-bg font-extrabold' 
+                : 'text-secondary hover:text-primary'
             }`}
           >
-             <Library className={`w-4 h-4 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-40'}`} />
-             <span>Memories</span>
+             {activeTab === Tab.JOURNAL && (
+              <motion.div 
+                layoutId="active-tab-indicator"
+                className="absolute inset-0 bg-primary rounded-full z-0"
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              />
+             )}
+             <span className="relative z-10 flex items-center gap-2">
+               <Library className="w-4 h-4" />
+               <span>Memories</span>
+             </span>
           </button>
 
         </div>

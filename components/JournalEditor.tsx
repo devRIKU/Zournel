@@ -3,9 +3,10 @@ import {
   ArrowLeft, Sparkles, Wand2, Save, X, 
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
-  History, CheckCircle2, XCircle, Heading1, Heading2, Quote, Minus,
+  History, CheckCircle, XCircle, Heading1, Heading2, Quote, Minus,
   MoreHorizontal
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
 import { 
@@ -39,48 +40,35 @@ interface JournalEditorProps {
 
 const AESTHETIC_CATEGORIES = {
   MINIMAL: [
-    'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1507643179173-617d699f996a?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1486946255434-2466348c216a?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1516715667182-c8eec924553c?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1499750310159-5b5f0969206b?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=800',
+    'https://picsum.photos/id/343/800/600',
+    'https://picsum.photos/id/364/800/600',
+    'https://picsum.photos/id/505/800/600',
+    'https://picsum.photos/id/684/800/600',
+    'https://picsum.photos/id/744/800/600',
+    'https://picsum.photos/id/10/800/600',
   ],
   NATURE: [
-    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1518173946687-a4c88928d9fd?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1500627760314-30713bf3393c?auto=format&fit=crop&q=80&w=800',
+    'https://picsum.photos/id/29/800/600',
+    'https://picsum.photos/id/175/800/600',
+    'https://picsum.photos/id/815/800/600',
+    'https://picsum.photos/id/1015/800/600',
+    'https://picsum.photos/id/1025/800/600',
+    'https://picsum.photos/id/1035/800/600',
   ],
-  ARCHITECTURE: [
-    'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1511818966892-d7d671e672a2?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1518005020952-0b8748d7afb6?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1448630360428-654a65753959?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1503387762-592dea58ef23?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1479839672679-a46483c0e7c8?auto=format&fit=crop&q=80&w=800',
-  ],
-  CITYSCAPES: [
-    'https://images.unsplash.com/photo-1449156003053-c3d8c0f71ac4?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1444723121867-7a241cacace9?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&q=80&w=800',
-  ],
-  ABSTRACT: [
-    'https://images.unsplash.com/photo-1541701494587-cb58502866ab?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1550684847-75bdda21cc95?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80&w=800',
-    'https://images.unsplash.com/photo-1541339907198-e08756edd811?auto=format&fit=crop&q=80&w=800',
+  ATMOSPHERE: [
+    'https://picsum.photos/id/443/800/600',
+    'https://picsum.photos/id/824/800/600',
+    'https://picsum.photos/id/1043/800/600',
+    'https://picsum.photos/id/1050/800/600',
+    'https://picsum.photos/id/1069/800/600',
+    'https://picsum.photos/id/1084/800/600',
   ]
 };
 
-const getRandomCover = () => AESTHETIC_CATEGORIES.MINIMAL[0];
+const getRandomCover = () => {
+  const all = [...AESTHETIC_CATEGORIES.MINIMAL, ...AESTHETIC_CATEGORIES.NATURE, ...AESTHETIC_CATEGORIES.ATMOSPHERE];
+  return all[Math.floor(Math.random() * all.length)];
+};
 
 const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, onStateChange }: { 
   defaultValue: string; 
@@ -198,12 +186,18 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] bg-bg flex flex-col animate-fade-in overflow-hidden">
-      {/* Cover Image Header */}
-      <div className="relative h-48 md:h-64 w-full shrink-0 group bg-surface-highlight overflow-hidden">
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0, y: 35, scale: 0.99 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 35, scale: 0.99 }}
+          transition={{ type: 'spring', damping: 26, stiffness: 220 }}
+          className="fixed inset-0 z-[100] bg-bg flex flex-col overflow-hidden"
+        >
+          {/* Cover Image Header */}
+          <div className="relative h-48 md:h-64 w-full shrink-0 group bg-surface-highlight overflow-hidden">
         {imgLoading && (
           <div className="absolute inset-0 bg-surface-highlight animate-pulse flex items-center justify-center z-0">
              <Loader2 className="w-8 h-8 text-accent animate-spin opacity-50" />
@@ -251,104 +245,130 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         </div>
 
         {/* Gallery Modal */}
-        {showGallery && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-            <div className="bg-surface rounded-[2rem] md:rounded-[3rem] w-full max-w-2xl shadow-2xl relative animate-scale-in flex flex-col max-h-[85vh] overflow-hidden border border-white/10">
-              <div className="flex justify-between items-center p-6 md:p-8 border-b border-surface-highlight sticky top-0 bg-surface z-10">
-                <div>
-                   <h2 className="text-2xl font-display font-bold text-primary">Aesthetic Gallery</h2>
-                   <p className="text-secondary text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">Verified high-quality collection</p>
-                </div>
-                <button onClick={() => setShowGallery(false)} className="p-3 hover:bg-surface-highlight rounded-xl transition-colors">
-                  <X className="w-5 h-5 text-secondary" />
-                </button>
-              </div>
-              <div className="overflow-y-auto p-6 md:p-8 space-y-12 no-scrollbar">
-                {Object.entries(AESTHETIC_CATEGORIES).map(([category, urls]) => (
-                  <div key={category}>
-                    <h4 className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-4 pl-1 border-l-2 border-accent/20">{category}</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {urls.map((url, idx) => (
-                        <button 
-                          key={idx}
-                          onClick={() => { setImage(url); setShowGallery(false); }}
-                          className={`relative aspect-video rounded-2xl overflow-hidden group border-2 transition-all ${image === url ? 'border-accent ring-4 ring-accent/10 scale-95' : 'border-transparent hover:border-surface-highlight hover:scale-[1.02]'}`}
-                        >
-                          <img 
-                            src={url} 
-                            alt={`${category} ${idx}`} 
-                            className="w-full h-full object-cover transition-transform group-hover:scale-110" 
-                            loading="lazy"
-                          />
-                          {image === url && (
-                            <div className="absolute inset-0 bg-accent/20 flex items-center justify-center backdrop-blur-[1px]">
-                              <Check className="w-8 h-8 text-white drop-shadow-md" />
-                            </div>
-                          )}
-                        </button>
-                      ))}
-                    </div>
+        <AnimatePresence>
+          {showGallery && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+            >
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+                className="bg-surface rounded-[2rem] md:rounded-[3rem] w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden border border-white/10"
+              >
+                <div className="flex justify-between items-center p-6 md:p-8 border-b border-surface-highlight sticky top-0 bg-surface z-10">
+                  <div>
+                     <h2 className="text-2xl font-display font-bold text-primary">Aesthetic Gallery</h2>
+                     <p className="text-secondary text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">Verified high-quality collection</p>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+                  <button onClick={() => setShowGallery(false)} className="p-3 hover:bg-surface-highlight rounded-xl transition-colors">
+                    <X className="w-5 h-5 text-secondary" />
+                  </button>
+                </div>
+                <div className="overflow-y-auto p-6 md:p-8 space-y-12 no-scrollbar">
+                  {Object.entries(AESTHETIC_CATEGORIES).map(([category, urls]) => (
+                    <div key={category}>
+                      <h4 className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-4 pl-1 border-l-2 border-accent/20">{category}</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                        {urls.map((url, idx) => (
+                          <button 
+                            key={idx}
+                            onClick={() => { setImage(url); setShowGallery(false); }}
+                            className={`relative aspect-video rounded-2xl overflow-hidden group border-2 transition-all ${image === url ? 'border-accent ring-4 ring-accent/10 scale-95' : 'border-transparent hover:border-surface-highlight hover:scale-[1.02]'}`}
+                          >
+                            <img 
+                              src={url} 
+                              alt={`${category} ${idx}`} 
+                              className="w-full h-full object-cover transition-transform group-hover:scale-110" 
+                              loading="lazy"
+                            />
+                            {image === url && (
+                              <div className="absolute inset-0 bg-accent/20 flex items-center justify-center backdrop-blur-[1px]">
+                                <Check className="w-8 h-8 text-white drop-shadow-md" />
+                              </div>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* AI Preview Modal */}
-      {previewText && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
-          <div className="bg-surface rounded-[2.5rem] w-full max-w-2xl shadow-2xl animate-scale-in flex flex-col max-h-[85vh] overflow-hidden border border-accent/20">
-            <div className="p-8 border-b border-surface-highlight flex justify-between items-center bg-accent/5">
-               <div className="flex items-center gap-4">
-                  <div className="p-3 bg-accent rounded-2xl">
-                    <Sparkles className="w-6 h-6 text-accent-fg" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-display font-bold text-primary">Preview AI Changes</h3>
-                    <p className="text-[10px] text-secondary font-bold uppercase tracking-widest mt-1">Review the suggested rewrite below</p>
-                  </div>
-               </div>
-               <button onClick={discardAiPreview} className="p-2 hover:bg-surface-highlight rounded-xl"><X className="w-5 h-5 text-secondary" /></button>
-            </div>
-            
-            <div className="flex-grow overflow-y-auto p-8 bg-surface">
-               <div className="flex gap-6">
-                  <div className="flex-1 space-y-4">
-                     <span className="text-[9px] font-bold uppercase tracking-widest text-secondary/50 flex items-center gap-2"><History className="w-3 h-3" /> Current</span>
-                     <div className="p-6 bg-surface-highlight rounded-2xl text-primary text-sm leading-relaxed line-clamp-[12] font-medium italic border border-secondary/20 bg-surface/30 shadow-inner">
-                        {content || "(Empty)" }
-                     </div>
-                  </div>
-                  <div className="flex-1 space-y-4">
-                     <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2"><Sparkles className="w-3 h-3" /> AI Suggestion</span>
-                     <div className="p-6 bg-accent/15 border-2 border-accent/45 rounded-2xl text-primary text-sm leading-relaxed font-semibold shadow-inner">
-                        {previewText}
-                     </div>
-                  </div>
-               </div>
-            </div>
+      <AnimatePresence>
+        {previewText && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 240 }}
+              className="bg-surface rounded-[2.5rem] w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-accent/20"
+            >
+              <div className="p-8 border-b border-surface-highlight flex justify-between items-center bg-accent/5">
+                 <div className="flex items-center gap-4">
+                    <div className="p-3 bg-accent rounded-2xl">
+                      <Sparkles className="w-6 h-6 text-accent-fg" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-display font-bold text-primary">Preview AI Changes</h3>
+                      <p className="text-[10px] text-secondary font-bold uppercase tracking-widest mt-1">Review the suggested rewrite below</p>
+                    </div>
+                 </div>
+                 <button onClick={discardAiPreview} className="p-2 hover:bg-surface-highlight rounded-xl"><X className="w-5 h-5 text-secondary" /></button>
+              </div>
+              
+              <div className="flex-grow overflow-y-auto p-8 bg-surface">
+                 <div className="flex gap-6">
+                    <div className="flex-1 space-y-4">
+                       <span className="text-[9px] font-bold uppercase tracking-widest text-secondary/50 flex items-center gap-2"><History className="w-3 h-3" /> Current</span>
+                       <div className="p-6 bg-surface-highlight rounded-2xl text-primary text-sm leading-relaxed line-clamp-[12] font-medium italic border border-secondary/20 bg-surface/30 shadow-inner">
+                          {content || "(Empty)" }
+                       </div>
+                    </div>
+                    <div className="flex-1 space-y-4">
+                       <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2"><Sparkles className="w-3 h-3" /> AI Suggestion</span>
+                       <div className="p-6 bg-accent/15 border-2 border-accent/45 rounded-2xl text-primary text-sm leading-relaxed font-semibold shadow-inner">
+                          {previewText}
+                       </div>
+                    </div>
+                 </div>
+              </div>
 
-            <div className="p-8 border-t border-surface-highlight flex gap-4 bg-surface-highlight/10">
-               <button 
-                  onClick={discardAiPreview}
-                  className="flex-1 py-4 px-6 rounded-2xl border border-surface-highlight text-secondary font-bold text-xs uppercase tracking-widest hover:bg-surface-highlight transition-all active:scale-95 flex items-center justify-center gap-2"
-               >
-                  <XCircle className="w-4 h-4" />
-                  Discard
-               </button>
-               <button 
-                  onClick={applyAiPreview}
-                  className="flex-[2] py-4 px-6 rounded-2xl bg-accent text-accent-fg font-bold text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition-all active:scale-95 flex items-center justify-center gap-2"
-               >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Apply Changes
-               </button>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="p-8 border-t border-surface-highlight flex gap-4 bg-surface-highlight/10">
+                 <button 
+                    onClick={discardAiPreview}
+                    className="flex-1 py-4 px-6 rounded-2xl border border-surface-highlight text-secondary font-bold text-xs uppercase tracking-widest hover:bg-surface-highlight transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                    <XCircle className="w-4 h-4" />
+                    Discard
+                 </button>
+                 <button 
+                    onClick={applyAiPreview}
+                    className="flex-[2] py-4 px-6 rounded-2xl bg-accent text-accent-fg font-bold text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition-all active:scale-95 flex items-center justify-center gap-2"
+                 >
+                    <CheckCircle className="w-4 h-4" />
+                    Apply Changes
+                 </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full overflow-hidden">
         {/* Optimized Compact Toolbar */}
@@ -421,51 +441,59 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showMoodMenu ? 'rotate-180' : ''}`} />
             </button>
 
-            {showMoodMenu && (
-              <div className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 animate-scale-in z-50 flex flex-col gap-0.5">
-                {[
-                  { emoji: '😊', label: 'Happy' },
-                  { emoji: '😌', label: 'Calm' },
-                  { emoji: '⚡', label: 'Energetic' },
-                  { emoji: '😢', label: 'Reflective' },
-                  { emoji: '🤯', label: 'Stressed' },
-                  { emoji: '😠', label: 'Tense' }
-                ].map((item) => {
-                  const itemString = `${item.emoji} ${item.label}`;
-                  const isSelected = mood === itemString;
-                  return (
-                    <button 
-                      key={item.label}
-                      onClick={() => {
-                        setMood(itemString);
-                        setShowMoodMenu(false);
-                      }} 
-                      className={`flex items-center gap-3 w-full p-2 rounded-xl text-left group transition-colors ${isSelected ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-surface-highlight'}`}
-                    >
-                      <span className="text-lg md:text-xl group-hover:scale-125 transition-transform">{item.emoji}</span>
-                      <span className={`text-xs font-semibold ${isSelected ? 'text-accent' : 'text-primary'}`}>{item.label}</span>
-                      {isSelected && (
-                        <Check className="w-3.5 h-3.5 text-accent ml-auto shrink-0 animate-scale-in" />
-                      )}
-                    </button>
-                  );
-                })}
-                {mood && (
-                  <>
-                    <div className="h-px bg-surface-highlight/50 my-1"></div>
-                    <button 
-                      onClick={() => {
-                        setMood(undefined);
-                        setShowMoodMenu(false);
-                      }}
-                      className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl hover:bg-red-500/10 text-red-600 text-xs font-semibold transition-colors"
-                    >
-                      Clear Mood
-                    </button>
-                  </>
-                )}
-              </div>
-            )}
+            <AnimatePresence>
+              {showMoodMenu && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ type: 'spring', damping: 22, stiffness: 200 }}
+                  className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
+                >
+                  {[
+                    { emoji: '😊', label: 'Happy' },
+                    { emoji: '😌', label: 'Calm' },
+                    { emoji: '⚡', label: 'Energetic' },
+                    { emoji: '😢', label: 'Reflective' },
+                    { emoji: '🤯', label: 'Stressed' },
+                    { emoji: '😠', label: 'Tense' }
+                  ].map((item) => {
+                    const itemString = `${item.emoji} ${item.label}`;
+                    const isSelected = mood === itemString;
+                    return (
+                      <button 
+                        key={item.label}
+                        onClick={() => {
+                          setMood(itemString);
+                          setShowMoodMenu(false);
+                        }} 
+                        className={`flex items-center gap-3 w-full p-2 rounded-xl text-left group transition-colors ${isSelected ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-surface-highlight'}`}
+                      >
+                        <span className="text-lg md:text-xl group-hover:scale-125 transition-transform">{item.emoji}</span>
+                        <span className={`text-xs font-semibold ${isSelected ? 'text-accent' : 'text-primary'}`}>{item.label}</span>
+                        {isSelected && (
+                          <Check className="w-3.5 h-3.5 text-accent ml-auto shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })}
+                  {mood && (
+                    <>
+                      <div className="h-px bg-surface-highlight/50 my-1"></div>
+                      <button 
+                        onClick={() => {
+                          setMood(undefined);
+                          setShowMoodMenu(false);
+                        }}
+                        className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl hover:bg-red-500/10 text-red-600 text-xs font-semibold transition-colors"
+                      >
+                        Clear Mood
+                      </button>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Assistant Button */}
@@ -484,34 +512,42 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showAiMenu ? 'rotate-180' : ''}`} />
             </button>
 
-            {showAiMenu && (
-              <div className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 animate-scale-in z-50 flex flex-col gap-0.5">
-                <button onClick={() => handleAiAction('IMPROVE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
-                  <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
-                    <Wand2 className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-semibold text-primary">Polish Flow</span>
-                  </div>
-                </button>
-                <button onClick={() => handleAiAction('REPHRASE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
-                  <div className="p-1.5 bg-purple-500/10 text-purple-600 rounded-lg group-hover:scale-110 transition-transform">
-                    <Feather className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-semibold text-primary">Poetic Style</span>
-                  </div>
-                </button>
-                <button onClick={() => handleAiAction('SUMMARIZE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
-                  <div className="p-1.5 bg-amber-500/10 text-amber-600 rounded-lg group-hover:scale-110 transition-transform">
-                    <FileText className="w-3.5 h-3.5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-semibold text-primary">Summarize</span>
-                  </div>
-                </button>
-              </div>
-            )}
+            <AnimatePresence>
+              {showAiMenu && (
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                  transition={{ type: 'spring', damping: 22, stiffness: 200 }}
+                  className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
+                >
+                  <button onClick={() => handleAiAction('IMPROVE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                    <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <Wand2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-primary">Polish Flow</span>
+                    </div>
+                  </button>
+                  <button onClick={() => handleAiAction('REPHRASE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                    <div className="p-1.5 bg-purple-500/10 text-purple-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <Feather className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-primary">Poetic Style</span>
+                    </div>
+                  </button>
+                  <button onClick={() => handleAiAction('SUMMARIZE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                    <div className="p-1.5 bg-amber-500/10 text-amber-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <FileText className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-primary">Summarize</span>
+                    </div>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -531,6 +567,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
            <span>{selectedModel?.replace('gemini-', '') || 'AI-Ready'}</span>
         </div>
       </div>
-    </div>
+    </motion.div>
+    )}
+    </AnimatePresence>
   );
 };
