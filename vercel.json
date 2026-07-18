@@ -1,6 +1,7 @@
 {
-  "cleanUrls": true,
   "rewrites": [
+    { "source": "/p/:username", "destination": "/index.html" },
+    { "source": "/share/:entryId", "destination": "/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
