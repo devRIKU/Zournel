@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile } from '../types';
 import { motion } from 'motion/react';
-import { Camera, Copy, Check, Share, ExternalLink, User } from 'lucide-react';
+import { Camera, Copy, Check, Share, ExternalLink, User, Key, Eye, EyeOff } from 'lucide-react';
+import { getLocalUserId, setLocalUserId } from '../services/authService';
 
 interface ProfileViewProps {
   profile: UserProfile | undefined;
@@ -17,6 +18,28 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
   const [sharedEntryIds, setSharedEntryIds] = useState<string[]>(profile?.sharedEntries?.map(e => e.id) || []);
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [copiedKey, setCopiedKey] = useState(false);
+  const [showKey, setShowKey] = useState(false);
+  const [inputKey, setInputKey] = useState('');
+  const currentKey = getLocalUserId();
+
+  const handleRestoreSession = () => {
+    if (!inputKey.trim()) {
+      alert("Please enter a device key.");
+      return;
+    }
+    if (confirm("Are you sure you want to restore this session? This will replace your current session credentials and reload the application.")) {
+      setLocalUserId(inputKey.trim());
+      window.location.reload();
+    }
+  };
+
+  const handleCopyKey = () => {
+    navigator.clipboard.writeText(currentKey);
+    setCopiedKey(true);
+    setTimeout(() => setCopiedKey(false), 2000);
+  };
 
   const [isPublishing, setIsPublishing] = useState(false);
   const [username, setUsername] = useState(profile?.username || '');
@@ -236,7 +259,70 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
           </div>
         </div>
       </div>
+
+      {/* Device Credentials & Recovery Section */}
+      <div className="mt-8 bg-surface border border-surface-highlight rounded-[2rem] p-8 sm:p-12 shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <Key className="w-6 h-6 text-accent" />
+          <h3 className="text-lg font-bold text-primary tracking-tight">Access & Session Recovery</h3>
+        </div>
+        <p className="text-xs sm:text-sm text-secondary leading-relaxed mb-6">
+          Zournel is completely anonymous and does not use passwords. Your claimed username and shared entries are secured using a unique, random <strong>Device Key</strong>. Save your key in a secure place so you can recover your session on another browser or device.
+        </p>
+
+        <div className="space-y-6">
+          <div>
+            <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Your Device Key</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="flex-grow bg-bg border border-surface-highlight rounded-xl px-4 py-3 flex items-center justify-between font-mono text-xs overflow-x-auto min-h-[46px]">
+                {showKey ? (
+                  <span className="text-primary break-all select-all">{currentKey}</span>
+                ) : (
+                  <span className="text-secondary/50">••••••••-••••-••••-••••-••••••••••••</span>
+                )}
+                <button 
+                  onClick={() => setShowKey(!showKey)} 
+                  className="ml-2 text-secondary hover:text-accent transition-colors shrink-0"
+                  title={showKey ? "Hide key" : "Show key"}
+                >
+                  {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <button 
+                onClick={handleCopyKey}
+                className="px-6 py-3 bg-surface-highlight text-primary hover:bg-surface-highlight/80 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 text-xs sm:text-sm shrink-0"
+              >
+                {copiedKey ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4" />}
+                <span>{copiedKey ? "Copied!" : "Copy Key"}</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t border-surface-highlight">
+            <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Restore Existing Session</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input 
+                type="text"
+                value={inputKey}
+                onChange={(e) => setInputKey(e.target.value.trim())}
+                placeholder="Paste your saved Device Key here"
+                className="flex-grow bg-bg border border-surface-highlight rounded-xl px-4 py-3 text-primary focus:outline-none focus:border-accent transition-colors font-mono text-xs text-center sm:text-left"
+              />
+              <button 
+                onClick={handleRestoreSession}
+                className="px-6 py-3 bg-accent text-accent-fg hover:opacity-90 rounded-xl font-bold flex items-center justify-center gap-2 transition-opacity active:scale-95 text-xs sm:text-sm shrink-0"
+              >
+                Restore Session
+              </button>
+            </div>
+            <p className="text-[10px] text-secondary mt-2 text-center sm:text-left">
+              Warning: This will reload the page and overwrite your current browser session.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
+
   );
 };
 
