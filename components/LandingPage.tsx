@@ -34,7 +34,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
   const nextTask = pendingTasks.sort((a, b) => (a.priority === 'high' ? -1 : 1))[0];
 
   return (
-    <div className={`min-h-screen bg-bg text-primary font-sans transition-all duration-1000 flex flex-col items-center justify-center p-6 ${isExiting ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'}`}>
+    <div className={`min-h-screen bg-bg text-primary font-sans transition-all duration-1000 flex flex-col items-center justify-center p-4 sm:p-6 ${isExiting ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'}`}>
       
       {/* Texture Overlay */}
       <div className="fixed inset-0 opacity-[0.02] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
@@ -42,16 +42,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
       <div className={`relative z-10 w-full max-w-4xl transition-all duration-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
         
         {/* Header Section */}
-        <header className="text-center mb-16 space-y-4">
+        <header className="text-center mb-10 sm:mb-16 space-y-4">
            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface/50 border border-surface-highlight shadow-sm mb-4">
               {greeting.includes('Morning') ? <Sun className="w-4 h-4 text-accent" /> : greeting.includes('Afternoon') ? <Cloud className="w-4 h-4 text-accent" /> : <Moon className="w-4 h-4 text-accent" />}
-              <span className="text-xs font-grotesk font-medium tracking-[0.2em] text-secondary uppercase">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+              <span className="text-[10px] sm:text-xs font-grotesk font-medium tracking-[0.2em] text-secondary uppercase">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
            </div>
            
-           <h1 className="text-6xl md:text-8xl font-display font-bold text-primary tracking-tight">
+           <h1 className="text-5xl sm:text-6xl md:text-8xl font-display font-bold text-primary tracking-tight">
              {greeting}.
            </h1>
-           <p className="text-xl text-secondary font-light max-w-lg mx-auto leading-relaxed">
+           <p className="text-lg sm:text-xl text-secondary font-light max-w-lg mx-auto leading-relaxed">
              Your digital sanctuary is ready. You have <strong className="font-semibold text-accent">{pendingTasks.length} pending tasks</strong> waiting for you.
            </p>
         </header>

@@ -138,12 +138,12 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
   const completedTasks = sortedTasks.filter(t => t.completed);
 
   return (
-    <div className="pb-32 px-6 max-w-3xl mx-auto w-full animate-fade-in">
+    <div className="pb-32 px-4 sm:px-6 max-w-3xl mx-auto w-full animate-fade-in">
       <div className="mb-12 mt-4 flex items-center gap-4">
         <div className="p-3 bg-accent/10 rounded-2xl">
           <ClipboardList className="w-8 h-8 text-accent" />
         </div>
-        <h2 className="text-5xl font-display font-bold text-primary tracking-tight">Tasks</h2>
+        <h2 className="text-4xl sm:text-5xl font-display font-bold text-primary tracking-tight">Tasks</h2>
       </div>
       <div className="relative mb-12">
         <input 
@@ -154,7 +154,7 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
           onKeyDown={handleKeyDown} 
           placeholder="What's on your list?" 
           title="Type a task and press Enter"
-          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-2xl py-4 transition-all duration-300 placeholder:opacity-30"
+          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl py-4 transition-all duration-300 placeholder:opacity-30"
         />
       </div>
       {tasks.length === 0 ? (

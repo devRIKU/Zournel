@@ -5,15 +5,18 @@ import { Key, ArrowRight, ExternalLink } from 'lucide-react';
 
 interface OnboardingModalProps {
   onSave: (apiKey: string) => void;
+  onSkip: () => void;
 }
 
-export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave }) => {
+export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave, onSkip }) => {
   const [key, setKey] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (key.trim()) {
       onSave(key.trim());
+    } else {
+      onSkip();
     }
   };
 
@@ -35,7 +38,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave }) => {
           
           <h2 className="text-3xl font-display font-bold text-center text-primary mb-2">Welcome to Zournel</h2>
           <p className="text-center text-secondary text-sm leading-relaxed mb-8">
-            To power the AI features like task analysis and journaling insights, Zournel connects directly to Google Gemini. Please enter your API key to get started.
+            Zournel can optionally connect to Google Gemini for AI insights. You can enter an API key now, or skip this step and add it later in Preferences.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -44,24 +47,34 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave }) => {
                  type="password" 
                  value={key}
                  onChange={(e) => setKey(e.target.value)}
-                 placeholder="Paste your Gemini API Key here"
+                 placeholder="Paste your Gemini API Key here (Optional)"
                  className="w-full bg-surface-highlight p-4 rounded-xl border-2 border-transparent focus:border-accent outline-none text-primary font-mono text-center transition-all placeholder:text-secondary/40"
                  autoFocus
                />
              </div>
 
-             <button 
-               type="submit"
-               disabled={!key.trim()}
-               className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg ${
-                 key.trim() 
-                 ? 'bg-accent text-accent-fg hover:bg-accent/90 hover:scale-[1.02] active:scale-95 shadow-accent/25' 
-                 : 'bg-surface-highlight text-secondary cursor-not-allowed shadow-none opacity-50'
-               }`}
-             >
-               <span>Start Journaling</span>
-               <ArrowRight className="w-4 h-4" />
-             </button>
+             <div className="flex gap-2">
+               <button 
+                 type="button"
+                 onClick={onSkip}
+                 className="flex-1 py-4 rounded-xl font-bold text-sm uppercase tracking-widest text-secondary bg-surface-highlight hover:bg-surface-highlight/80 transition-all active:scale-95"
+               >
+                 Skip
+               </button>
+               <button 
+                 type="submit"
+                 disabled={!key.trim()}
+                 className={`flex-2 py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg ${
+                   key.trim() 
+                   ? 'bg-accent text-accent-fg hover:bg-accent/90 hover:scale-[1.02] active:scale-95 shadow-accent/25' 
+                   : 'bg-surface-highlight text-secondary cursor-not-allowed shadow-none opacity-50'
+                 }`}
+                 style={{ flex: 2 }}
+               >
+                 <span>Save</span>
+                 <ArrowRight className="w-4 h-4" />
+               </button>
+             </div>
           </form>
 
           <div className="mt-8 pt-6 border-t border-surface-highlight/50 text-center">

@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /profiles/{username} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if true;
+    }
+    match /shared_entries/{entryId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if true;
+    }
+  }
+}

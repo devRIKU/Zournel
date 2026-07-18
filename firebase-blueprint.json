@@ -1,0 +1,70 @@
+{
+  "rules": {
+    "profiles": {
+      "__description__": "Public profiles claimed by users",
+      "__id__": "username",
+      "ownerId": {
+        "type": "string",
+        "description": "The localUserId of the creator"
+      },
+      "name": {
+        "type": "string"
+      },
+      "bio": {
+        "type": "string",
+        "optional": true
+      },
+      "thought": {
+        "type": "string",
+        "optional": true
+      },
+      "picture": {
+        "type": "string",
+        "optional": true
+      },
+      "__security__": {
+        "read": "true",
+        "create": "true",
+        "update": "request.resource.data.ownerId == resource.data.ownerId",
+        "delete": "true"
+      }
+    },
+    "shared_entries": {
+      "__description__": "Individual shared journal entries",
+      "__id__": "entryId",
+      "ownerId": {
+        "type": "string",
+        "description": "The localUserId of the creator"
+      },
+      "title": {
+        "type": "string",
+        "optional": true
+      },
+      "content": {
+        "type": "string"
+      },
+      "createdAt": {
+        "type": "string"
+      },
+      "mood": {
+        "type": "string",
+        "optional": true
+      },
+      "image": {
+        "type": "string",
+        "optional": true
+      },
+      "username": {
+        "type": "string",
+        "optional": true,
+        "description": "The vanity username of the creator"
+      },
+      "__security__": {
+        "read": "true",
+        "create": "true",
+        "update": "request.resource.data.ownerId == resource.data.ownerId",
+        "delete": "true"
+      }
+    }
+  }
+}

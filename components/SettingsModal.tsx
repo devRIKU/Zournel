@@ -13,8 +13,8 @@ interface SettingsModalProps {
 
 const MODELS = [
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', badge: 'Recommended', desc: 'Default for Polishing & Summarizing' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite', badge: 'Fast', desc: 'Default for Todo & Extraction' },
-  { id: 'gemini-3-pro-preview', label: 'Gemini 3 Pro', badge: 'Ultra', desc: 'Expert reasoning & coding' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', badge: 'Fast', desc: 'Default for Todo & Extraction' },
+  { id: 'gemma-4-31b-it', label: 'Gemma 4', badge: 'Ultra', desc: 'Expert reasoning & coding' },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
@@ -37,17 +37,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-md"
         >
           <motion.div 
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', damping: 28, stiffness: 240 }}
-            className="bg-surface rounded-[3rem] w-full max-w-xl shadow-2xl relative flex flex-col max-h-[90vh] overflow-hidden border border-white/10"
+            className="bg-surface rounded-[2rem] sm:rounded-[3rem] w-full max-w-xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border border-white/10"
           >
             
-            <div className="flex justify-between items-center p-8 border-b border-surface-highlight shrink-0">
+            <div className="flex justify-between items-center p-6 sm:p-8 border-b border-surface-highlight shrink-0">
               <div>
                 <h2 className="text-3xl font-display font-bold text-primary">Preferences</h2>
                 <p className="text-secondary text-[10px] font-grotesk tracking-widest uppercase mt-1">Refine your environment</p>

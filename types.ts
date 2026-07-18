@@ -1,7 +1,8 @@
 
 export enum Tab {
   TODO = 'TODO',
-  JOURNAL = 'JOURNAL'
+  JOURNAL = 'JOURNAL',
+  PROFILE = 'PROFILE'
 }
 
 export type Theme = 'cozy-light' | 'cozy-dark' | 'evergreen-light' | 'evergreen-dark' | 'catppuccin-light' | 'catppuccin-dark' | 'gruvbox-light' | 'gruvbox-dark';
@@ -11,12 +12,22 @@ export type DeleteAnimation = 'none' | 'shrink' | 'slide-left';
 
 export type Priority = 'high' | 'medium' | 'low';
 
+export interface UserProfile {
+  name: string;
+  bio: string;
+  picture: string; 
+  thought: string;
+  sharedEntries?: JournalEntry[];
+  username?: string;
+}
+
 export interface AppSettings {
   theme: Theme;
   completionAnimation: CompletionAnimation;
   deleteAnimation: DeleteAnimation;
   model: string;
   apiKey: string;
+  profile?: UserProfile;
 }
 
 export interface SubTask {

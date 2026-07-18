@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Settings, Plus, Sparkles } from 'lucide-react';
-import { Tab, Task, JournalEntry, AppSettings } from './types';
+import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
 import { BottomNav } from './components/BottomNav';
 import { TodoView } from './components/TodoView';
 import { JournalView } from './components/JournalView';
@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LandingPage } from './components/LandingPage';
 import { AddModal } from './components/AddModal';
+import { ProfileView, PublicProfileView } from './components/ProfileView';
 import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
@@ -31,16 +32,61 @@ const App: React.FC = () => {
     theme: 'cozy-light',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
-    model: 'gemini-3.5-flash',
+    model: 'gemini-3.1-flash-lite',
     apiKey: ''
   });
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [publicProfile, setPublicProfile] = useState<UserProfile | null>(null);
 
   // Initial load and settings hydration
   useEffect(() => {
+    const path = window.location.pathname;
+    
+    // Check for share link (e.g., /share/entry_uuid)
+    if (path.startsWith('/share/')) {
+      const entryId = path.split('/share/')[1];
+      if (entryId) {
+        import('./services/dbService').then(({ getSharedEntry }) => {
+          getSharedEntry(entryId).then(entry => {
+            if (entry) {
+              setPublicProfile({ name: 'Shared Memory', bio: '', picture: '', thought: '', sharedEntries: [entry] });
+            }
+          });
+        });
+        return; // Wait for async fetch
+      }
+    }
+    
+    // Check for public profile (e.g., /p/username)
+    if (path.startsWith('/p/')) {
+      const username = path.split('/p/')[1];
+      if (username) {
+        import('./services/dbService').then(({ getPublicProfile, getSharedEntriesForUsername }) => {
+          Promise.all([getPublicProfile(username), getSharedEntriesForUsername(username)]).then(([profile, entries]) => {
+            if (profile) {
+              setPublicProfile({ ...profile, sharedEntries: entries });
+            }
+          });
+        });
+        return; // Wait for async fetch
+      }
+    }
+
+    // Fallback for old base64 encoded URL parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const profileData = urlParams.get('profile');
+    if (profileData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(atob(profileData)));
+        setPublicProfile(decoded);
+      } catch (e) {
+        console.error("Failed to parse public profile", e);
+      }
+    }
+
     const savedTasks = localStorage.getItem('mf_tasks');
     const savedJournal = localStorage.getItem('mf_journal');
     const savedSettings = localStorage.getItem('mf_settings');
@@ -65,7 +111,7 @@ const App: React.FC = () => {
       try {
         const parsedSettings = JSON.parse(savedSettings);
         if (parsedSettings.model === 'gemini-3-flash-preview' || !parsedSettings.model) {
-          parsedSettings.model = 'gemini-3.5-flash';
+          parsedSettings.model = 'gemini-3.1-flash';
         }
         
         // Migrate older theme preferences gracefully to new premium options
@@ -75,9 +121,6 @@ const App: React.FC = () => {
         }
         
         setSettings(prev => ({ ...prev, ...parsedSettings }));
-        if (!parsedSettings.apiKey) {
-          setShowOnboarding(true);
-        }
       } catch (e) {
         console.error("Failed to parse settings", e);
         setShowOnboarding(true);
@@ -214,6 +257,10 @@ const App: React.FC = () => {
     setEditingEntry(null);
   };
 
+  if (publicProfile) {
+    return <PublicProfileView profile={publicProfile} />;
+  }
+
   if (!hasEntered) {
     return <LandingPage onEnter={() => setHasEntered(true)} tasks={tasks} journalEntries={journalEntries} />;
   }
@@ -248,8 +295,11 @@ const App: React.FC = () => {
         <div className={`transition-all duration-300 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <JournalView entries={journalEntries} onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} />
         </div>
+        <div className={`transition-all duration-300 ${activeTab === Tab.PROFILE ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
+           <ProfileView profile={settings.profile} journalEntries={journalEntries} onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))} />
+        </div>
       </main>
-      <div className="fixed bottom-24 right-6 z-50">
+      <div className={`fixed bottom-24 right-6 z-50 transition-opacity duration-300 ${activeTab === Tab.PROFILE ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <button onClick={handlePlusClick} title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} className="w-16 h-16 bg-accent text-accent-fg rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"><Plus className="w-8 h-8" /></button>
       </div>
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
@@ -285,6 +335,7 @@ const App: React.FC = () => {
             setSettings(prev => ({ ...prev, apiKey: key }));
             setShowOnboarding(false);
           }} 
+          onSkip={() => setShowOnboarding(false)}
         />
       )}
     </div>

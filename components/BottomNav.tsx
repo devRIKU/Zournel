@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Tab } from '../types';
-import { ListTodo, Library } from 'lucide-react';
+import { ListTodo, Library, User } from 'lucide-react';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -17,7 +17,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           <button 
             onClick={() => onTabChange(Tab.TODO)}
             title="Switch to Tasks View"
-            className={`relative px-6 sm:px-8 py-3.5 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
                 activeTab === Tab.TODO 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -31,7 +31,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               />
             )}
             <span className="relative z-10 flex items-center gap-2">
-              <ListTodo className="w-4 h-4" />
+              <ListTodo className="w-4 h-4 hidden sm:block" />
               <span>Tasks</span>
             </span>
           </button>
@@ -39,7 +39,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           <button 
             onClick={() => onTabChange(Tab.JOURNAL)}
             title="Switch to Memories View"
-            className={`relative px-6 sm:px-8 py-3.5 rounded-full font-grotesk text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
                 activeTab === Tab.JOURNAL 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -53,8 +53,30 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               />
              )}
              <span className="relative z-10 flex items-center gap-2">
-               <Library className="w-4 h-4" />
+               <Library className="w-4 h-4 hidden sm:block" />
                <span>Memories</span>
+             </span>
+          </button>
+
+          <button 
+            onClick={() => onTabChange(Tab.PROFILE)}
+            title="Switch to Profile View"
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
+                activeTab === Tab.PROFILE 
+                ? 'text-bg font-extrabold' 
+                : 'text-secondary hover:text-primary'
+            }`}
+          >
+             {activeTab === Tab.PROFILE && (
+              <motion.div 
+                layoutId="active-tab-indicator"
+                className="absolute inset-0 bg-primary rounded-full z-0"
+                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              />
+             )}
+             <span className="relative z-10 flex items-center gap-2">
+               <User className="w-4 h-4 hidden sm:block" />
+               <span>Profile</span>
              </span>
           </button>
 

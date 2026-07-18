@@ -227,6 +227,20 @@
       .hover-lift:hover {
         transform: translateY(-4px);
       }
+
+      /* Soften borders in dark mode */
+      html.dark .border, 
+      html.dark .border-b, 
+      html.dark .border-t, 
+      html.dark .border-l, 
+      html.dark .border-r {
+        border-color: rgba(255, 255, 255, 0.05) !important;
+      }
+      
+      html.dark input.border,
+      html.dark textarea.border {
+         border-color: rgba(255, 255, 255, 0.08) !important;
+      }
     </style>
   <script type="importmap">
 {
