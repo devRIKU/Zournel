@@ -41,10 +41,20 @@ const App: React.FC = () => {
   const [loaded, setLoaded] = useState(false);
   const [publicProfile, setPublicProfile] = useState<UserProfile | null>(null);
 
+  const [isPublicRoute] = useState(() => {
+    const path = window.location.pathname;
+    return path.startsWith('/p/') || path.startsWith('/share/') || new URLSearchParams(window.location.search).has('profile');
+  });
+  const [isRouteLoading, setIsRouteLoading] = useState(isPublicRoute);
+
   // Initial load and settings hydration
   useEffect(() => {
     const path = window.location.pathname;
     
+    const finishRouteLoading = () => {
+      setIsRouteLoading(false);
+    };
+
     // Check for share link (e.g., /share/entry_uuid)
     if (path.startsWith('/share/')) {
       const entryId = path.split('/share/')[1];
@@ -52,16 +62,24 @@ const App: React.FC = () => {
         import('./services/dbService').then(({ getSharedEntry }) => {
           getSharedEntry(entryId).then(entry => {
             if (entry) {
-              setPublicProfile({ name: 'Shared Memory', bio: '', picture: '', thought: '', sharedEntries: [entry] });
+              setPublicProfile({ name: 'Shared Memory', bio: '', picture: '', thought: '', sharedEntries: [entry], isSingleEntry: true });
             }
+            finishRouteLoading();
+          }).catch((err) => {
+            console.error("Failed to load shared entry", err);
+            finishRouteLoading();
           });
+        }).catch((err) => {
+          console.error("Failed to load dbService", err);
+          finishRouteLoading();
         });
-        return; // Wait for async fetch
+      } else {
+        finishRouteLoading();
       }
     }
     
     // Check for public profile (e.g., /p/username)
-    if (path.startsWith('/p/')) {
+    else if (path.startsWith('/p/')) {
       const username = path.split('/p/')[1];
       if (username) {
         import('./services/dbService').then(({ getPublicProfile, getSharedEntriesForUsername }) => {
@@ -69,22 +87,33 @@ const App: React.FC = () => {
             if (profile) {
               setPublicProfile({ ...profile, sharedEntries: entries });
             }
+            finishRouteLoading();
+          }).catch((err) => {
+            console.error("Failed to load public profile", err);
+            finishRouteLoading();
           });
+        }).catch((err) => {
+          console.error("Failed to load dbService", err);
+          finishRouteLoading();
         });
-        return; // Wait for async fetch
+      } else {
+        finishRouteLoading();
       }
     }
 
     // Fallback for old base64 encoded URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const profileData = urlParams.get('profile');
-    if (profileData) {
-      try {
-        const decoded = JSON.parse(decodeURIComponent(atob(profileData)));
-        setPublicProfile(decoded);
-      } catch (e) {
-        console.error("Failed to parse public profile", e);
+    else {
+      const urlParams = new URLSearchParams(window.location.search);
+      const profileData = urlParams.get('profile');
+      if (profileData) {
+        try {
+          const decoded = JSON.parse(decodeURIComponent(atob(profileData)));
+          setPublicProfile(decoded);
+        } catch (e) {
+          console.error("Failed to parse public profile", e);
+        }
       }
+      finishRouteLoading();
     }
 
     const savedTasks = localStorage.getItem('mf_tasks');
@@ -256,6 +285,20 @@ const App: React.FC = () => {
     }
     setEditingEntry(null);
   };
+
+  if (isRouteLoading) {
+    return (
+      <div className="min-h-screen bg-bg text-primary flex items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative w-16 h-16">
+            <div className="absolute inset-0 rounded-full border border-accent/20 animate-ping" />
+            <div className="absolute inset-2 rounded-full border-2 border-accent border-t-transparent animate-spin" />
+          </div>
+          <span className="text-xs font-grotesk tracking-[0.2em] uppercase text-secondary/60 animate-pulse">Entering Sanctuary...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (publicProfile) {
     return <PublicProfileView profile={publicProfile} />;

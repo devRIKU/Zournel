@@ -16,7 +16,7 @@ const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
 };
 
 const handleAiError = (error: any) => {
-  console.error("AI Error:", error);
+  console.warn("AI Warning/Error:", error.message || error);
 };
 
 // Utility to clean model output that might include markdown code blocks
@@ -28,7 +28,7 @@ const getAiClient = () => {
   const settingsStr = localStorage.getItem('mf_settings');
   const apiKey = settingsStr ? JSON.parse(settingsStr).apiKey : '';
   if (!apiKey) {
-    throw new Error("API Key is missing. Please add it in settings.");
+    return null;
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -36,6 +36,10 @@ const getAiClient = () => {
 export const processUserInput = async (input: string, model: string = 'gemini-3.1-flash-lite'): Promise<AIProcessedInput> => {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return { tasks: [], journalContent: null, mood: null };
+    }
     const activeModel = routeModel(model, 'TODO');
     
     const responseSchema = {
@@ -85,6 +89,10 @@ export const processUserInput = async (input: string, model: string = 'gemini-3.
 export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3.1-flash-lite'): Promise<{ text: string, priority: Priority }[]> => {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return [];
+    }
     const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
       type: Type.OBJECT,
@@ -129,6 +137,10 @@ export const extractTasksFromJournal = async (journalText: string, model: string
 export const generateSubtasks = async (taskText: string, model: string = 'gemini-3.1-flash-lite'): Promise<string[]> => {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return [];
+    }
     const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
       type: Type.ARRAY,
@@ -156,6 +168,10 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
 export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3.5-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return "";
+    }
     const activeModel = routeModel(model, 'POLISH');
     const response = await ai.models.generateContent({
       model: activeModel,
@@ -173,6 +189,10 @@ export const generateJournalInsight = async (entryText: string, model: string = 
 export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3.5-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return text;
+    }
     const activeModel = routeModel(model, 'POLISH');
     const prompts = { 
       IMPROVE: "You are a professional editor. Improve the following journal entry for better clarity, grammar, and vocabulary while keeping the personal tone. Return ONLY the improved text. NO headers, NO conversational filler, NO quotes around the text.", 
@@ -194,6 +214,10 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
 export const generateCoverImage = async (context: string): Promise<string | null> => {
   try {
     const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return null;
+    }
     const response = await ai.models.generateContent({
       model: imageModelName,
       contents: {
