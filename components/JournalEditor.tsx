@@ -3,8 +3,9 @@ import {
   ArrowLeft, Sparkles, Wand2, Save, X, 
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
-  History, CheckCircle, XCircle, Heading1, Heading2, Quote, Minus,
-  MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search
+  History, CheckCircle, XCircle, Heading1, Heading2, Heading3, Heading4, Quote, Minus,
+  MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search,
+  CheckSquare, MessageSquareCode, Table as TableIcon, Lightbulb
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
@@ -65,9 +66,10 @@ const AESTHETIC_CATEGORIES = {
   ]
 };
 
+// Picks from the entire Picsum catalogue using a unique seed
 const getRandomCover = () => {
-  const all = [...AESTHETIC_CATEGORIES.MINIMAL, ...AESTHETIC_CATEGORIES.NATURE, ...AESTHETIC_CATEGORIES.ATMOSPHERE];
-  return all[Math.floor(Math.random() * all.length)];
+  const seed = `${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+  return `https://picsum.photos/seed/${seed}/1200/400`;
 };
 
 const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, onStateChange }: { 
@@ -133,6 +135,42 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [previewText, setPreviewText] = useState<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const [slashMenuPos, setSlashMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  const updateSlashMenuPosition = useCallback(() => {
+    if (!editorContainerRef.current) return;
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0).cloneRange();
+      const rect = range.getBoundingClientRect();
+      const containerRect = editorContainerRef.current.getBoundingClientRect();
+
+      if (rect && (rect.top !== 0 || rect.left !== 0)) {
+        let left = rect.left - containerRect.left + editorContainerRef.current.scrollLeft;
+        let top = rect.bottom - containerRect.top + editorContainerRef.current.scrollTop + 6;
+
+        // Ensure menu fits within container boundaries
+        const menuWidth = 310;
+        const menuHeight = 310;
+
+        if (left + menuWidth > containerRect.width - 16) {
+          left = Math.max(8, containerRect.width - menuWidth - 16);
+        }
+        if (left < 8) left = 8;
+
+        if (top + menuHeight > containerRect.height + editorContainerRef.current.scrollTop - 16) {
+          const aboveTop = (rect.top - containerRect.top + editorContainerRef.current.scrollTop) - menuHeight - 6;
+          if (aboveTop >= 8) {
+            top = aboveTop;
+          }
+        }
+        if (top < 8) top = 8;
+
+        setSlashMenuPos({ top, left });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -160,15 +198,18 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     setContent(md);
     
     // Detect slash command at current input or line end
-    const match = md.match(/(?:\n|^|\s)\/([a-zA-Z0-9]*)$/);
+    const match = md.match(/(?:^|\n|\s)\/([a-zA-Z0-9\s_-]*)$/);
     if (match) {
       setShowSlashMenu(true);
       setSlashQuery(match[1].toLowerCase());
+      requestAnimationFrame(() => {
+        updateSlashMenuPosition();
+      });
     } else {
       setShowSlashMenu(false);
       setSlashQuery('');
     }
-  }, []);
+  }, [updateSlashMenuPosition]);
 
   const updateActiveStates = useCallback((editor: Editor) => {
   }, []);
@@ -216,7 +257,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     setSlashQuery('');
 
     // Clean slash query from content
-    const clean = content.replace(/(?:\n|^|\s)\/([a-zA-Z0-9\s]*)$/, (match) => {
+    const clean = content.replace(/(?:^|\n|\s)\/([a-zA-Z0-9\s_-]*)$/, (match) => {
       const leadingChar = match.charAt(0);
       return (leadingChar === '\n' || leadingChar === ' ') ? leadingChar : '';
     });
@@ -237,14 +278,24 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         lines[targetIdx] = `# ${strippedText}`;
       } else if (cmdId === 'h2') {
         lines[targetIdx] = `## ${strippedText}`;
+      } else if (cmdId === 'h3') {
+        lines[targetIdx] = `### ${strippedText}`;
+      } else if (cmdId === 'h4') {
+        lines[targetIdx] = `#### ${strippedText}`;
       } else if (cmdId === 'bullet') {
         lines[targetIdx] = `- ${strippedText}`;
       } else if (cmdId === 'number') {
         lines[targetIdx] = `1. ${strippedText}`;
+      } else if (cmdId === 'todo') {
+        lines[targetIdx] = `- [ ] ${strippedText || 'New task'}`;
       } else if (cmdId === 'quote') {
         lines[targetIdx] = `> ${strippedText}`;
+      } else if (cmdId === 'callout') {
+        lines[targetIdx] = `> 💡 **Note:** ${strippedText || 'Important highlight'}`;
       } else if (cmdId === 'code') {
-        lines[targetIdx] = strippedText ? `\`${strippedText}\`` : '```\n\n```';
+        lines[targetIdx] = strippedText ? `\`\`\`\n${strippedText}\n\`\`\`` : '```\n\n```';
+      } else if (cmdId === 'table') {
+        lines[targetIdx] = `| Topic | Details |\n| --- | --- |\n| ${strippedText || 'Item 1'} | Value 1 |\n| Item 2 | Value 2 |`;
       } else if (cmdId === 'hr') {
         lines[targetIdx] = strippedText ? `${strippedText}\n\n---` : '---';
       }
@@ -271,20 +322,25 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   const ALL_SLASH_COMMANDS = [
-    { id: 'h1', label: 'Heading 1', desc: 'Large title heading', cat: 'Styling', icon: Heading1 },
-    { id: 'h2', label: 'Heading 2', desc: 'Medium section heading', cat: 'Styling', icon: Heading2 },
-    { id: 'bullet', label: 'Bullet List', desc: 'Simple bulleted list', cat: 'Styling', icon: List },
-    { id: 'number', label: 'Numbered List', desc: 'Ordered list sequence', cat: 'Styling', icon: ListOrdered },
-    { id: 'quote', label: 'Blockquote', desc: 'Emphasized quote text block', cat: 'Styling', icon: Quote },
-    { id: 'code', label: 'Code Snippet', desc: 'Monospaced inline code', cat: 'Styling', icon: Code },
-    { id: 'hr', label: 'Divider Line', desc: 'Horizontal line break', cat: 'Styling', icon: Minus },
-    { id: 'proofread', label: 'Proofread & Fix', desc: 'Correct grammar & typos', cat: 'AI Assistant', icon: CheckCheck },
-    { id: 'rewrite', label: 'Rewrite & Rephrase', desc: 'Improve structure & flow', cat: 'AI Assistant', icon: RefreshCw },
-    { id: 'improve', label: 'Polish Flow', desc: 'Enhance vocabulary & clarity', cat: 'AI Assistant', icon: Wand2 },
-    { id: 'poetic', label: 'Poetic Style', desc: 'Literary & lyrical tone', cat: 'AI Assistant', icon: Feather },
-    { id: 'summarize', label: 'Summarize', desc: 'Key insight paragraph', cat: 'AI Assistant', icon: FileText },
-    { id: 'expand', label: 'Expand Reflection', desc: 'Deepen thoughts & details', cat: 'AI Assistant', icon: Maximize2 },
-    { id: 'random', label: 'Random Cover Photo', desc: 'Shuffle aesthetic cover image', cat: 'Media', icon: Shuffle },
+    { id: 'h1', label: 'Heading 1', desc: 'Large title heading', cat: 'Styling', icon: Heading1, keywords: ['title', 'h1', 'heading', 'large', 'header'] },
+    { id: 'h2', label: 'Heading 2', desc: 'Medium section heading', cat: 'Styling', icon: Heading2, keywords: ['subheading', 'h2', 'heading', 'medium', 'section'] },
+    { id: 'h3', label: 'Heading 3', desc: 'Small section title', cat: 'Styling', icon: Heading3, keywords: ['subheading', 'h3', 'heading', 'small'] },
+    { id: 'h4', label: 'Heading 4', desc: 'Minor topic title', cat: 'Styling', icon: Heading4, keywords: ['h4', 'heading', 'minor', 'label'] },
+    { id: 'bullet', label: 'Bullet List', desc: 'Simple bulleted list', cat: 'Styling', icon: List, keywords: ['bullet', 'list', 'unordered', 'point', 'dot'] },
+    { id: 'number', label: 'Numbered List', desc: 'Ordered list sequence', cat: 'Styling', icon: ListOrdered, keywords: ['number', 'list', 'ordered', 'sequence', '1.'] },
+    { id: 'todo', label: 'Task Checkbox', desc: 'Interactive task item', cat: 'Styling', icon: CheckSquare, keywords: ['task', 'todo', 'checkbox', 'check', 'list'] },
+    { id: 'quote', label: 'Blockquote', desc: 'Emphasized quote block', cat: 'Styling', icon: Quote, keywords: ['quote', 'blockquote', 'cite'] },
+    { id: 'callout', label: 'Callout Box', desc: 'Highlighted note box', cat: 'Styling', icon: Lightbulb, keywords: ['callout', 'note', 'box', 'highlight', 'tip', 'notice'] },
+    { id: 'code', label: 'Code Snippet', desc: 'Monospaced block', cat: 'Styling', icon: Code, keywords: ['code', 'snippet', 'block', 'programming', 'pre'] },
+    { id: 'table', label: 'Table', desc: 'Structured grid table', cat: 'Styling', icon: TableIcon, keywords: ['table', 'grid', 'column', 'row', 'data'] },
+    { id: 'hr', label: 'Divider Line', desc: 'Horizontal line break', cat: 'Styling', icon: Minus, keywords: ['divider', 'line', 'hr', 'break', 'separator'] },
+    { id: 'proofread', label: 'Proofread & Fix', desc: 'Correct grammar & typos', cat: 'AI Assistant', icon: CheckCheck, keywords: ['proofread', 'grammar', 'fix', 'ai', 'check'] },
+    { id: 'rewrite', label: 'Rewrite & Rephrase', desc: 'Improve structure & flow', cat: 'AI Assistant', icon: RefreshCw, keywords: ['rewrite', 'rephrase', 'tone', 'ai', 'structure'] },
+    { id: 'improve', label: 'Polish Flow', desc: 'Enhance vocabulary & clarity', cat: 'AI Assistant', icon: Wand2, keywords: ['polish', 'improve', 'flow', 'ai', 'clarity'] },
+    { id: 'poetic', label: 'Poetic Style', desc: 'Literary & lyrical tone', cat: 'AI Assistant', icon: Feather, keywords: ['poetic', 'lyrical', 'style', 'ai', 'creative'] },
+    { id: 'summarize', label: 'Summarize', desc: 'Key insight paragraph', cat: 'AI Assistant', icon: FileText, keywords: ['summarize', 'summary', 'overview', 'ai', 'insights'] },
+    { id: 'expand', label: 'Expand Reflection', desc: 'Deepen thoughts & details', cat: 'AI Assistant', icon: Maximize2, keywords: ['expand', 'elaborate', 'detail', 'ai', 'more'] },
+    { id: 'random', label: 'Random Cover Photo', desc: 'Shuffle full Picsum catalogue', cat: 'Media', icon: Shuffle, keywords: ['cover', 'photo', 'image', 'shuffle', 'random', 'background', 'picsum'] },
   ];
 
   const COMMAND_CATEGORIES = ['All', 'Styling', 'AI Assistant', 'Media'];
@@ -292,11 +348,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const filteredSlashCommands = ALL_SLASH_COMMANDS.filter(cmd => {
     const matchesCat = selectedCategory === 'All' || cmd.cat === selectedCategory;
     const q = slashQuery.trim().toLowerCase();
-    const matchesQuery = !q || 
+    if (!q) return matchesCat;
+    const matchesQuery = 
       cmd.id.toLowerCase().includes(q) || 
       cmd.label.toLowerCase().includes(q) || 
       cmd.desc.toLowerCase().includes(q) ||
-      cmd.cat.toLowerCase().includes(q);
+      cmd.cat.toLowerCase().includes(q) ||
+      cmd.keywords.some(k => k.toLowerCase().includes(q));
     return matchesCat && matchesQuery;
   });
 
@@ -316,7 +374,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedIndex((prev) => (filteredSlashCommands.length ? (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length : 0));
-      } else if (e.key === 'Enter') {
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
         if (filteredSlashCommands.length > 0) {
           e.preventDefault();
           e.stopPropagation();
@@ -764,123 +822,129 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
         </div>
 
-        <div className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm relative">
-          {/* Floating Slash Commands Popover / Mobile Sheet */}
+        <div 
+          ref={editorContainerRef} 
+          className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm relative min-h-[350px]"
+        >
+          {/* Compact Floating Slash Commands Popover anchored to cursor position */}
           <AnimatePresence>
             {showSlashMenu && (
-              <>
-                {/* Mobile Backdrop */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setShowSlashMenu(false)}
-                  className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden"
-                  aria-hidden="true"
-                />
-
-                <motion.div
-                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 15, scale: 0.98 }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 280 }}
-                  className="fixed inset-x-3 bottom-3 md:absolute md:inset-auto md:top-3 md:left-8 md:w-88 z-50 bg-surface/95 backdrop-blur-2xl border border-accent/30 shadow-2xl rounded-2xl md:rounded-3xl p-3 max-h-[82vh] md:max-h-96 flex flex-col no-scrollbar"
-                  role="dialog"
-                  aria-label="Slash Commands Palette"
-                >
-                  {/* Header & Close */}
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-highlight/60 shrink-0">
-                    <div className="flex items-center gap-2 text-xs font-bold text-accent uppercase tracking-wider">
-                      <Command className="w-4 h-4" />
-                      <span>Commands</span>
-                      <span className="px-1.5 py-0.5 rounded-full bg-accent/10 text-[10px] font-mono text-accent">
-                        {filteredSlashCommands.length}
-                      </span>
-                    </div>
-                    <button 
-                      onClick={() => setShowSlashMenu(false)} 
-                      className="p-1.5 hover:bg-surface-highlight rounded-xl text-secondary transition-colors"
-                      aria-label="Close menu"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                style={{
+                  position: 'absolute',
+                  top: slashMenuPos ? `${slashMenuPos.top}px` : '16px',
+                  left: slashMenuPos ? `${slashMenuPos.left}px` : '16px',
+                  zIndex: 50,
+                }}
+                className="w-[280px] sm:w-[310px] max-h-[320px] bg-surface/95 backdrop-blur-2xl border border-accent/35 shadow-2xl rounded-2xl p-2.5 flex flex-col font-sans"
+                role="dialog"
+                aria-label="Slash Commands Palette"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between pb-1.5 mb-1.5 border-b border-surface-highlight/60 shrink-0">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-accent uppercase tracking-wider">
+                    <Command className="w-3.5 h-3.5" />
+                    <span>Commands</span>
+                    <span className="px-1.5 py-0.2 rounded-full bg-accent/10 text-[9px] font-mono text-accent">
+                      {filteredSlashCommands.length}
+                    </span>
                   </div>
+                  <button 
+                    onClick={() => setShowSlashMenu(false)} 
+                    className="p-1 hover:bg-surface-highlight rounded-lg text-secondary hover:text-primary transition-colors"
+                    aria-label="Close menu"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
 
-                  {/* Integrated Search Input */}
-                  <div className="relative mb-2 shrink-0">
-                    <Search className="w-3.5 h-3.5 text-secondary/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {/* Filter Search Input & Categories */}
+                <div className="space-y-1 mb-1.5 shrink-0">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-secondary/60 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       value={slashQuery}
                       onChange={(e) => setSlashQuery(e.target.value)}
-                      placeholder="Type command or search..."
-                      className="w-full bg-surface-highlight/40 focus:bg-surface-highlight text-xs font-medium pl-8 pr-3 py-2 rounded-xl border border-transparent focus:border-accent/40 text-primary outline-none transition-all placeholder:text-secondary/50"
-                      aria-label="Search slash commands"
+                      placeholder="Type to search..."
+                      className="w-full bg-surface-highlight/50 focus:bg-surface-highlight text-xs font-medium pl-8 pr-2.5 py-1 rounded-lg border border-transparent focus:border-accent/40 text-primary outline-none transition-all placeholder:text-secondary/50"
+                      autoFocus
                     />
                   </div>
 
-                  {/* Category Chips */}
-                  <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-surface-highlight/40 overflow-x-auto no-scrollbar shrink-0">
+                  <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
                     {COMMAND_CATEGORIES.map((cat) => (
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${
+                        className={`px-2 py-0.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition-all ${
                           selectedCategory === cat 
-                            ? 'bg-accent text-accent-fg shadow-xs' 
-                            : 'bg-surface-highlight/50 hover:bg-surface-highlight text-secondary hover:text-primary'
+                            ? 'bg-accent text-accent-fg shadow-2xs' 
+                            : 'bg-surface-highlight/40 hover:bg-surface-highlight text-secondary hover:text-primary'
                         }`}
                       >
                         {cat}
                       </button>
                     ))}
                   </div>
+                </div>
 
-                  {/* Commands List */}
-                  <div className="overflow-y-auto no-scrollbar space-y-1 pr-0.5" role="listbox">
-                    {filteredSlashCommands.length === 0 ? (
-                      <div className="py-6 text-center text-xs text-secondary opacity-60">
-                        No matching commands found
-                      </div>
-                    ) : (
-                      filteredSlashCommands.map((cmd, idx) => {
-                        const IconComp = cmd.icon;
-                        const isSelected = idx === selectedIndex;
-                        return (
-                          <button
-                            key={cmd.id}
-                            id={`cmd-item-${cmd.id}`}
-                            onClick={() => runSlashCommand(cmd.id)}
-                            onMouseEnter={() => setSelectedIndex(idx)}
-                            role="option"
-                            aria-selected={isSelected}
-                            className={`flex items-center gap-3 w-full p-2.5 sm:p-2 rounded-xl text-left transition-all min-h-[44px] ${
-                              isSelected 
-                                ? 'bg-accent/15 border border-accent/30 shadow-sm' 
-                                : 'hover:bg-surface-highlight border border-transparent'
-                            }`}
-                          >
-                            <div className={`p-2 rounded-lg transition-transform shrink-0 ${
-                              isSelected ? 'bg-accent text-accent-fg scale-105' : 'bg-accent/10 text-accent group-hover:scale-110'
-                            }`}>
-                              <IconComp className="w-4 h-4" />
+                {/* Vertical Scrollable Menu Items */}
+                <div className="flex flex-col space-y-0.5 max-h-[190px] overflow-y-auto no-scrollbar pr-0.5" role="listbox">
+                  {filteredSlashCommands.length === 0 ? (
+                    <div className="py-4 text-center text-[11px] text-secondary opacity-60">
+                      No matching commands found
+                    </div>
+                  ) : (
+                    filteredSlashCommands.map((cmd, idx) => {
+                      const IconComp = cmd.icon;
+                      const isSelected = idx === selectedIndex;
+                      return (
+                        <button
+                          key={cmd.id}
+                          id={`cmd-item-${cmd.id}`}
+                          onClick={() => runSlashCommand(cmd.id)}
+                          onMouseEnter={() => setSelectedIndex(idx)}
+                          role="option"
+                          aria-selected={isSelected}
+                          className={`flex items-center gap-2.5 w-full p-1.5 rounded-xl text-left transition-all border ${
+                            isSelected 
+                              ? 'bg-accent/15 border-accent/40 text-accent font-semibold shadow-2xs' 
+                              : 'bg-transparent border-transparent hover:bg-surface-highlight text-primary'
+                          }`}
+                        >
+                          <div className={`p-1.5 rounded-lg shrink-0 transition-transform ${
+                            isSelected ? 'bg-accent text-accent-fg scale-105' : 'bg-accent/10 text-accent'
+                          }`}>
+                            <IconComp className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className={`block text-[11px] font-semibold truncate ${isSelected ? 'text-accent font-bold' : 'text-primary'}`}>
+                                {cmd.label}
+                              </span>
+                              <span className="text-[8px] font-mono text-secondary/50 uppercase tracking-tight shrink-0">{cmd.cat}</span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <span className={`block text-xs font-semibold truncate ${isSelected ? 'text-accent font-bold' : 'text-primary'}`}>
-                                  {cmd.label}
-                                </span>
-                                <span className="text-[9px] font-mono text-secondary/50 uppercase tracking-tight">{cmd.cat}</span>
-                              </div>
-                              <span className="block text-[10px] text-secondary truncate opacity-70 mt-0.5">{cmd.desc}</span>
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
-                </motion.div>
-              </>
+                            <span className="block text-[9px] text-secondary truncate opacity-75">{cmd.desc}</span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer Keyboard Shortcuts Legend */}
+                <div className="pt-1.5 mt-1.5 border-t border-surface-highlight/50 flex items-center justify-between text-[9px] text-secondary/60 shrink-0 font-mono">
+                  <span><kbd className="px-1 py-0.2 rounded bg-surface-highlight border border-surface-highlight">↑↓</kbd> navigate</span>
+                  <span><kbd className="px-1 py-0.2 rounded bg-surface-highlight border border-surface-highlight">↵</kbd> select</span>
+                  <span><kbd className="px-1 py-0.2 rounded bg-surface-highlight border border-surface-highlight">esc</kbd> close</span>
+                </div>
+
+              </motion.div>
             )}
           </AnimatePresence>
 

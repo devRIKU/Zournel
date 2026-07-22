@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee } from 'lucide-react';
+import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type } from 'lucide-react';
 import { AppSettings, Theme } from '../types';
 
 interface SettingsModalProps {
@@ -114,6 +114,50 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       <ThemeButton theme="gruvbox-dark" icon={Palette} label="Dark" colorClass="bg-[#282828] text-[#FE8019]" />
                     </div>
                   </div>
+                </div>
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
+                    <Type className="w-4 h-4" /> Typography & Body Font
+                  </h3>
+                  <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent font-semibold">
+                    Headings fixed to Playfair Display
+                  </span>
+                </div>
+                <p className="text-[11px] text-secondary/70 mb-4 leading-relaxed">
+                  Choose your preferred editor and body text font. Headings remain consistently styled in Playfair Display for classic editorial elegance.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { id: 'inter', name: 'Inter', desc: 'Modern Sans', previewStyle: { fontFamily: "'Inter', sans-serif" } },
+                    { id: 'plus-jakarta', name: 'Plus Jakarta', desc: 'Geometric Sans', previewStyle: { fontFamily: "'Plus Jakarta Sans', sans-serif" } },
+                    { id: 'lora', name: 'Lora', desc: 'Warm Serif', previewStyle: { fontFamily: "'Lora', serif" } },
+                    { id: 'merriweather', name: 'Merriweather', desc: 'Book Serif', previewStyle: { fontFamily: "'Merriweather', serif" } },
+                    { id: 'space-grotesk', name: 'Space Grotesk', desc: 'Tech Minimalist', previewStyle: { fontFamily: "'Space Grotesk', sans-serif" } },
+                    { id: 'jetbrains-mono', name: 'JetBrains Mono', desc: 'Code Monospace', previewStyle: { fontFamily: "'JetBrains Mono', monospace" } },
+                  ].map((f) => {
+                    const isSelected = (settings.fontFamily || 'inter') === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        onClick={() => onUpdateSettings({ ...settings, fontFamily: f.id })}
+                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all duration-200 ${
+                          isSelected 
+                            ? 'border-accent bg-accent/10 text-primary shadow-xs' 
+                            : 'border-surface-highlight/70 bg-surface hover:bg-surface-highlight/50 text-secondary'
+                        }`}
+                      >
+                        <span className="text-sm font-bold text-primary truncate" style={f.previewStyle}>
+                          Aa {f.name}
+                        </span>
+                        <span className="text-[10px] text-secondary/70 font-mono mt-0.5">
+                          {f.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
 

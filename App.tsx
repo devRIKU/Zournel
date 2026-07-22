@@ -30,6 +30,7 @@ const App: React.FC = () => {
   
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'cozy-light',
+    fontFamily: 'inter',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
     model: 'gemini-3.5-flash-lite',
@@ -195,6 +196,20 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [settings.theme]);
+
+  // Font Applier (Headings kept consistent in Playfair Display, Body & Editor updated dynamically)
+  useEffect(() => {
+    const fontMap: Record<string, string> = {
+      'inter': "'Inter', sans-serif",
+      'plus-jakarta': "'Plus Jakarta Sans', sans-serif",
+      'lora': "'Lora', serif",
+      'merriweather': "'Merriweather', serif",
+      'space-grotesk': "'Space Grotesk', sans-serif",
+      'jetbrains-mono': "'JetBrains Mono', monospace"
+    };
+    const selectedFontCss = fontMap[settings.fontFamily || 'inter'] || "'Inter', sans-serif";
+    document.documentElement.style.setProperty('--font-body', selectedFontCss);
+  }, [settings.fontFamily]);
 
   const handlePlusClick = () => {
     if (activeTab === Tab.JOURNAL) {

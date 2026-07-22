@@ -24,6 +24,7 @@ export interface UserProfile {
 
 export interface AppSettings {
   theme: Theme;
+  fontFamily?: string;
   completionAnimation: CompletionAnimation;
   deleteAnimation: DeleteAnimation;
   model: string;

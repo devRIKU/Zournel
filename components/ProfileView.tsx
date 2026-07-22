@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, JournalEntry } from '../types';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   Camera, Copy, Check, Share, ExternalLink, User, Key, Eye, EyeOff, 
-  Sparkles, Lock, Globe, Calendar, ArrowRight, Heart, Cloud, Compass
+  Sparkles, Lock, Globe, Calendar, ArrowRight, Heart, Cloud, Compass,
+  MessageSquare, Edit3, Shield, BookOpen, Layers, Zap, X
 } from 'lucide-react';
 import { getLocalUserId, setLocalUserId } from '../services/authService';
 
@@ -12,6 +13,55 @@ interface ProfileViewProps {
   journalEntries: JournalEntry[];
   onUpdateProfile: (profile: UserProfile) => void;
 }
+
+const QUICK_NOTE_PRESETS = [
+  '☕ Quiet morning',
+  '🌧️ Rain & focus',
+  '⚡ Deep work mode',
+  '✨ Feeling peaceful',
+  '📚 Reading & writing',
+  '🌿 Nature break'
+];
+
+export const AnimateThoughtBubble: React.FC<{ 
+  thought: string; 
+  onEditClick?: () => void;
+  isEditable?: boolean;
+}> = ({ thought, onEditClick, isEditable = true }) => {
+  return (
+    <div className="absolute -top-9 sm:-top-10 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center pointer-events-auto">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.85, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.85, y: 6 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 220 }}
+        onClick={onEditClick}
+        className={`relative group bg-surface/95 dark:bg-surface/95 border border-accent/35 shadow-lg px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-2xl max-w-[210px] text-center backdrop-blur-md cursor-pointer transition-all hover:scale-105 active:scale-95 ${
+          !thought ? 'border-dashed border-accent/40 bg-accent/5' : ''
+        }`}
+        title={isEditable ? "Click to edit note" : undefined}
+      >
+        <span className="text-xs font-semibold text-primary line-clamp-2 leading-tight block select-none">
+          {thought ? `"${thought}"` : '+ Note'}
+        </span>
+        
+        {isEditable && (
+          <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-accent text-accent-fg rounded-full flex items-center justify-center text-[8px] opacity-0 group-hover:opacity-100 transition-opacity shadow-xs font-bold">
+            ✎
+          </div>
+        )}
+
+        {/* Instagram Notes style tail dots starting from top-left of PFP leading up to big bubble */}
+        <div className="absolute -bottom-3 left-2 sm:left-3 pointer-events-none flex items-center">
+          {/* Smallest dot near top-left of PFP */}
+          <div className="w-1.5 h-1.5 bg-surface border border-accent/35 rounded-full shadow-2xs -translate-x-2 translate-y-1.5" />
+          {/* Medium dot ascending towards main bubble */}
+          <div className="w-2.5 h-2.5 bg-surface border border-accent/35 rounded-full shadow-2xs -translate-x-1 translate-y-0.5" />
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntries, onUpdateProfile }) => {
   const [name, setName] = useState(profile?.name || '');
@@ -22,6 +72,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
   const [copiedProfileLink, setCopiedProfileLink] = useState(false);
   const [copiedMemoryId, setCopiedMemoryId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const thoughtInputRef = useRef<HTMLInputElement>(null);
 
   const [copiedKey, setCopiedKey] = useState(false);
   const [showKey, setShowKey] = useState(false);
@@ -65,7 +116,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
       const sharedEntries = journalEntries.filter(e => sharedEntryIds.includes(e.id));
       await claimPublicProfile(username, { name, bio, thought, picture, sharedEntries, username });
       
-      // Persist any entries that are checked as shared
       for (const entry of sharedEntries) {
         await shareJournalEntry(entry, username);
       }
@@ -86,7 +136,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
       const { shareJournalEntry } = await import('../services/dbService');
       const entry = journalEntries.find(e => e.id === entryId);
       if (entry) {
-        // Upload the shared memory to firestore as shared
         await shareJournalEntry(entry, username || undefined);
         const link = `${window.location.origin}/share/${entryId}`;
         await navigator.clipboard.writeText(link);
@@ -113,25 +162,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
     setSharedEntryIds(prev => prev.includes(id) ? prev.filter(eId => eId !== id) : [...prev, id]);
   };
 
-  return (
-    <div className="w-full max-w-2xl mx-auto pb-32 pt-8 px-4 sm:px-0">
-      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-12 shadow-sm relative overflow-hidden">
-        
-        {/* Soft atmospheric glow inside editor */}
-        <div className="absolute top-0 right-0 w-48 h-48 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+  // Stats calculation
+  const totalWords = journalEntries.reduce((acc, curr) => acc + (curr.content ? curr.content.trim().split(/\s+/).length : 0), 0);
 
-        <div className="text-center mb-10">
-          <h2 className="text-2xl font-display font-bold text-primary tracking-tight">Digital Sanctuary Identity</h2>
-          <p className="text-xs sm:text-sm text-secondary mt-1">Customize how your thoughts and memories look to others.</p>
-        </div>
+  return (
+    <div className="w-full max-w-3xl mx-auto pb-32 pt-6 px-4 sm:px-6">
+      
+      {/* Primary Creator Profile Card */}
+      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm relative overflow-hidden mb-8">
         
-        <div className="flex flex-col items-center mb-12">
-          {/* Avatar Container with Thought Bubble */}
-          <div className="relative mb-12">
-            <AnimateThoughtBubble thought={thought} />
+        {/* Soft decorative background radial glow */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex flex-col items-center mb-8 relative z-10 pt-8">
+          
+          {/* Avatar Container with Instagram Notes Thought Bubble */}
+          <div className="relative mb-6">
+            <AnimateThoughtBubble 
+              thought={thought} 
+              onEditClick={() => thoughtInputRef.current?.focus()} 
+            />
             
             <div 
-              className="w-32 h-32 rounded-full bg-bg border-4 border-surface shadow-xl overflow-hidden relative group cursor-pointer flex items-center justify-center transition-transform hover:scale-[1.02]"
+              className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-bg border-4 border-surface shadow-2xl overflow-hidden relative group cursor-pointer flex items-center justify-center transition-transform hover:scale-[1.02]"
               onClick={() => fileInputRef.current?.click()}
             >
               {picture ? (
@@ -150,7 +204,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
             <button 
               onClick={() => fileInputRef.current?.click()}
               className="absolute bottom-0 right-1 p-2.5 bg-accent text-accent-fg rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all"
-              title="Upload Photo"
+              title="Upload Avatar Photo"
             >
               <Camera className="w-4 h-4" />
             </button>
@@ -164,131 +218,190 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
             />
           </div>
 
-          <div className="w-full space-y-6">
-            {/* Display Name */}
-            <div>
-              <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Display Name</label>
-              <input 
-                type="text" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 transition-colors"
-                placeholder="What should we call you?"
-              />
-            </div>
-            
-            {/* Current Thought */}
-            <div>
-              <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2 flex items-center justify-between">
-                <span>Current Thought</span>
-                <span className="text-[10px] font-mono font-medium lowercase tracking-normal text-secondary/55">floats as a cloud bubble above your avatar</span>
-              </label>
-              <input 
-                type="text" 
-                value={thought}
-                onChange={(e) => setThought(e.target.value)}
-                className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 transition-colors"
-                placeholder="What is drifting through your mind right now?"
-                maxLength={60}
-              />
-            </div>
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight text-center">
+            {name || 'Digital Creator'}
+          </h2>
+          
+          {username ? (
+            <span className="text-xs font-mono text-accent bg-accent/10 border border-accent/20 px-3 py-1 rounded-full mt-2">
+              @{username}
+            </span>
+          ) : (
+            <span className="text-xs text-secondary/60 mt-1">Set a username to share your public page</span>
+          )}
 
-            {/* Bio */}
-            <div>
-              <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Bio</label>
-              <textarea 
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 transition-colors resize-none min-h-[100px]"
-                placeholder="A gentle narrative about who you are..."
-              />
-            </div>
+          {bio && (
+            <p className="text-xs sm:text-sm text-secondary text-center mt-3 max-w-md font-light leading-relaxed">
+              {bio}
+            </p>
+          )}
+        </div>
 
-            {/* Public Username */}
-            <div className="pt-2">
-              <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Public Username</label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <span className="bg-bg text-secondary/70 px-4 py-3 rounded-2xl flex items-center justify-center border border-surface-highlight text-xs sm:text-sm shrink-0">
-                  {window.location.host}/p/
-                </span>
-                <input 
-                  type="text" 
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
-                  className="flex-grow bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 transition-colors text-center sm:text-left font-mono text-sm"
-                  placeholder="username"
-                />
-              </div>
-              <p className="text-[10px] text-secondary mt-2 text-center sm:text-left opacity-70">Used for your public sanctuary profile page URL. Letters, numbers, hyphens, and underscores only.</p>
-            </div>
-
-            {/* Fine-Grained Memories Sharing controls */}
-            {journalEntries.length > 0 && (
-              <div className="pt-6 border-t border-surface-highlight/60">
-                <div className="mb-4">
-                  <h3 className="text-sm font-bold text-primary tracking-tight">Memories Sharing Controls</h3>
-                  <p className="text-xs text-secondary mt-0.5">Configure who gets to see individual elements of your journey.</p>
-                </div>
-
-                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                  {journalEntries.map(entry => {
-                    const isSharedOnProfile = sharedEntryIds.includes(entry.id);
-                    const isCopied = copiedMemoryId === entry.id;
-
-                    return (
-                      <div 
-                        key={entry.id} 
-                        className={`p-4 rounded-2xl border transition-all duration-300 relative group overflow-hidden ${isSharedOnProfile ? 'bg-accent/[0.03] border-accent/30' : 'bg-bg/50 border-surface-highlight hover:border-surface-highlight/80'}`}
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
-                          <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => toggleShareEntry(entry.id)}>
-                            <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${isSharedOnProfile ? 'bg-accent border-accent text-accent-fg' : 'border-secondary/30 bg-bg'}`}>
-                              {isSharedOnProfile && <Check className="w-3.5 h-3.5 stroke-[3]" />}
-                            </div>
-                            <span className="text-xs sm:text-sm font-bold text-primary truncate max-w-[200px]">
-                              {entry.title || new Date(entry.createdAt).toLocaleDateString()}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-center">
-                            {/* Toggle visibility badge */}
-                            <button
-                              onClick={() => toggleShareEntry(entry.id)}
-                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 ${isSharedOnProfile ? 'bg-accent/10 border-accent/25 text-accent' : 'bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
-                              title={isSharedOnProfile ? "Visible on Public Profile" : "Hidden from Public Profile"}
-                            >
-                              {isSharedOnProfile ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                              <span>{isSharedOnProfile ? 'Visible' : 'Private'}</span>
-                            </button>
-
-                            {/* Copy direct link */}
-                            <button 
-                               onClick={() => copySingleMemoryLink(entry.id)}
-                               className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 ${isCopied ? 'bg-accent border-accent text-accent-fg' : 'bg-bg border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight'}`}
-                            >
-                              {isCopied ? <Check className="w-3 h-3" /> : <Share className="w-3 h-3" />}
-                              <span>{isCopied ? "Copied!" : "Direct Link"}</span>
-                            </button>
-                          </div>
-                        </div>
-                        <p className="text-xs text-secondary line-clamp-2 ml-8 cursor-pointer opacity-80" onClick={() => toggleShareEntry(entry.id)}>
-                          {entry.content}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+        {/* Quick Analytics Bar */}
+        <div className="grid grid-cols-3 gap-3 p-4 bg-bg/50 border border-surface-highlight rounded-2xl mb-8 text-center">
+          <div>
+            <span className="block text-lg sm:text-2xl font-bold font-mono text-primary">{journalEntries.length}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary/70">Memories</span>
+          </div>
+          <div className="border-x border-surface-highlight/60">
+            <span className="block text-lg sm:text-2xl font-bold font-mono text-accent">{totalWords}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary/70">Words</span>
+          </div>
+          <div>
+            <span className="block text-lg sm:text-2xl font-bold font-mono text-primary">{sharedEntryIds.length}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary/70">Shared</span>
           </div>
         </div>
 
+        {/* Form Inputs */}
+        <div className="space-y-6">
+          {/* Display Name */}
+          <div>
+            <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Display Name</label>
+            <input 
+              type="text" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-accent/50 transition-colors"
+              placeholder="What should we call you?"
+            />
+          </div>
+          
+          {/* Note Status (Instagram Notes style) */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold tracking-[0.15em] uppercase text-secondary flex items-center gap-1.5">
+                <MessageSquare className="w-3.5 h-3.5 text-accent" />
+                <span>Instagram Note / Current Status</span>
+              </label>
+              <span className="text-[10px] font-mono text-secondary/60">{thought.length}/60</span>
+            </div>
+            
+            <input 
+              ref={thoughtInputRef}
+              type="text" 
+              value={thought}
+              onChange={(e) => setThought(e.target.value)}
+              className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-accent/50 transition-colors"
+              placeholder="Post a short thought note above your avatar..."
+              maxLength={60}
+            />
+
+            {/* Note Presets */}
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-secondary/50 self-center mr-1">Presets:</span>
+              {QUICK_NOTE_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  onClick={() => setThought(preset)}
+                  className="px-2.5 py-1 bg-surface-highlight/60 hover:bg-surface-highlight rounded-lg text-[10px] font-medium text-secondary hover:text-primary transition-colors"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Bio */}
+          <div>
+            <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Bio</label>
+            <textarea 
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-accent/50 transition-colors resize-none min-h-[90px]"
+              placeholder="A gentle narrative about who you are..."
+            />
+          </div>
+
+          {/* Public Username */}
+          <div className="pt-2">
+            <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Public Username</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <span className="bg-bg text-secondary/70 px-4 py-3 rounded-2xl flex items-center justify-center border border-surface-highlight text-xs font-mono shrink-0">
+                {window.location.host}/p/
+              </span>
+              <input 
+                type="text" 
+                value={username}
+                onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                className="flex-grow bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 transition-colors text-center sm:text-left font-mono text-sm"
+                placeholder="username"
+              />
+            </div>
+            <p className="text-[10px] text-secondary mt-2 opacity-70">Letters, numbers, hyphens, and underscores only. Used for your public URL.</p>
+          </div>
+
+          {/* Fine-Grained Memories Sharing controls */}
+          {journalEntries.length > 0 && (
+            <div className="pt-6 border-t border-surface-highlight/60">
+              <div className="mb-4">
+                <h3 className="text-sm font-bold text-primary tracking-tight">Memories Sharing Showcase</h3>
+                <p className="text-xs text-secondary mt-0.5">Toggle which memories are visible on your public sanctuary page.</p>
+              </div>
+
+              <div className="space-y-3 max-h-72 overflow-y-auto pr-1 no-scrollbar">
+                {journalEntries.map(entry => {
+                  const isSharedOnProfile = sharedEntryIds.includes(entry.id);
+                  const isCopied = copiedMemoryId === entry.id;
+
+                  return (
+                    <div 
+                      key={entry.id} 
+                      className={`p-4 rounded-2xl border transition-all duration-300 relative group overflow-hidden ${
+                        isSharedOnProfile ? 'bg-accent/[0.04] border-accent/30' : 'bg-bg/50 border-surface-highlight hover:border-surface-highlight/80'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-3 cursor-pointer select-none" onClick={() => toggleShareEntry(entry.id)}>
+                          <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                            isSharedOnProfile ? 'bg-accent border-accent text-accent-fg' : 'border-secondary/30 bg-bg'
+                          }`}>
+                            {isSharedOnProfile && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                          </div>
+                          <span className="text-xs sm:text-sm font-bold text-primary truncate max-w-[220px]">
+                            {entry.title || new Date(entry.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 self-end sm:self-center">
+                          <button
+                            onClick={() => toggleShareEntry(entry.id)}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                              isSharedOnProfile ? 'bg-accent/10 border-accent/25 text-accent' : 'bg-surface-highlight border-transparent text-secondary hover:text-primary'
+                            }`}
+                          >
+                            {isSharedOnProfile ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                            <span>{isSharedOnProfile ? 'Visible' : 'Private'}</span>
+                          </button>
+
+                          <button 
+                             onClick={() => copySingleMemoryLink(entry.id)}
+                             className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5 ${
+                               isCopied ? 'bg-accent border-accent text-accent-fg' : 'bg-bg border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight'
+                             }`}
+                          >
+                            {isCopied ? <Check className="w-3 h-3" /> : <Share className="w-3 h-3" />}
+                            <span>{isCopied ? "Copied!" : "Share Link"}</span>
+                          </button>
+                        </div>
+                      </div>
+                      <p className="text-xs text-secondary line-clamp-2 ml-8 cursor-pointer opacity-80" onClick={() => toggleShareEntry(entry.id)}>
+                        {entry.content}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Publish Action Section */}
-        <div className="pt-8 border-t border-surface-highlight/60">
+        <div className="pt-8 mt-8 border-t border-surface-highlight/60">
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="text-center sm:text-left">
-              <h3 className="font-bold text-primary">Publish Entire Profile</h3>
-              <p className="text-xs sm:text-sm text-secondary">Make your profile and all selected memories accessible via your public URL.</p>
+              <h3 className="font-bold text-primary text-sm sm:text-base">Publish Sanctuary Profile</h3>
+              <p className="text-xs text-secondary">Sync your profile & memories to your custom public link.</p>
             </div>
             
             <button
@@ -316,17 +429,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
         </div>
       </div>
 
-      {/* Access & Session Recovery */}
-      <div className="mt-8 bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-12 shadow-sm">
+      {/* Access & Device Recovery Card */}
+      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-bg rounded-2xl text-accent border border-surface-highlight">
+          <div className="p-2.5 bg-bg rounded-2xl text-accent border border-surface-highlight">
             <Key className="w-5 h-5" />
           </div>
-          <h3 className="text-lg font-bold text-primary tracking-tight">Access & Session Recovery</h3>
+          <div>
+            <h3 className="text-base sm:text-lg font-bold text-primary tracking-tight">Device Credentials & Recovery</h3>
+            <p className="text-xs text-secondary">Anonymous device key authentication</p>
+          </div>
         </div>
-        <p className="text-xs sm:text-sm text-secondary leading-relaxed mb-6 opacity-90">
-          Zournel is completely anonymous and does not use passwords. Your claimed username and shared entries are secured using a unique, random <strong>Device Key</strong>. Save your key in a secure place so you can recover your session on another browser or device.
-        </p>
 
         <div className="space-y-6">
           <div>
@@ -373,42 +486,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
                 Restore Session
               </button>
             </div>
-            <p className="text-[10px] text-secondary mt-2 text-center sm:text-left opacity-70">
-              Warning: This will reload the page and overwrite your current browser session. Ensure your current key is backed up first.
-            </p>
           </div>
         </div>
       </div>
-    </div>
-  );
-};
-
-const AnimateThoughtBubble = ({ thought }: { thought: string }) => {
-  if (!thought) return null;
-  
-  return (
-    <div className="absolute bottom-[calc(100%+1.5rem)] left-1/2 -translate-x-1/2 z-20 flex flex-col items-center">
-      <motion.div 
-        initial={{ opacity: 0, y: 12, scale: 0.9 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ type: 'spring', damping: 20, stiffness: 120 }}
-        className="bg-accent/10 border border-accent/25 text-primary px-5 py-3 rounded-[2rem] shadow-sm text-center text-xs sm:text-sm font-medium leading-relaxed max-w-[240px] break-words backdrop-blur-md"
-      >
-        "{thought}"
-      </motion.div>
-      {/* Cloud-inspired thought bubbles/dots */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.1 }}
-        className="w-3.5 h-3.5 bg-accent/15 border border-accent/25 rounded-full mt-2.5 shadow-sm"
-      />
-      <motion.div 
-        initial={{ opacity: 0, scale: 0 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.2 }}
-        className="w-2 h-2 bg-accent/15 border border-accent/25 rounded-full mt-1.5 shadow-sm"
-      />
     </div>
   );
 };
@@ -428,7 +508,6 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
   if (isSingle && singleEntry) {
     return (
       <div className="min-h-screen bg-bg text-primary font-sans flex items-center justify-center p-4 sm:p-6 transition-all duration-500 animate-fade-in relative overflow-hidden">
-        {/* Soft decorative blur background */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: '2s' }} />
 
@@ -448,7 +527,6 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
             animate={{ opacity: 1, y: 0 }}
             className="bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-10 shadow-lg relative overflow-hidden backdrop-blur-md"
           >
-            {/* Header of card */}
             <div className="flex justify-between items-start border-b border-surface-highlight pb-6 mb-6">
               <div>
                 <span className="text-xs font-mono text-secondary tracking-wider block mb-1">
@@ -465,19 +543,16 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
               )}
             </div>
 
-            {/* Main image (if any) */}
             {singleEntry.image && (
               <div className="mb-6 rounded-2xl overflow-hidden shadow-sm max-h-64 border border-surface-highlight">
                 <img src={singleEntry.image} alt="Memory illustration" className="w-full h-full object-cover" />
               </div>
             )}
 
-            {/* Content text */}
             <p className="text-primary text-base sm:text-lg leading-relaxed italic opacity-95 mb-8 font-light select-text whitespace-pre-wrap">
               "{singleEntry.content}"
             </p>
 
-            {/* AI Insight (if any) */}
             {singleEntry.aiInsight && (
               <div className="bg-accent/5 border border-accent/15 rounded-2xl p-5 relative overflow-hidden">
                 <div className="flex items-center gap-2 mb-2 text-accent">
@@ -512,25 +587,24 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
     );
   }
 
-  // 2. ENTIRE USER PROFILE VIEW
+  // 2. ENTIRE USER PUBLIC PROFILE VIEW
   return (
     <div className="min-h-screen bg-bg text-primary font-sans flex items-center justify-center p-4 sm:p-6 transition-all duration-500 animate-fade-in relative overflow-hidden">
-      {/* Soft atmospheric background blur */}
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-xl bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-12 shadow-lg relative flex flex-col items-center my-8 backdrop-blur-md">
         
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-highlight border border-surface-highlight text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-10">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-highlight border border-surface-highlight text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-12">
           <Compass className="w-3.5 h-3.5 text-accent" />
           <span>Zournel Profile</span>
         </div>
         
-        {/* Profile Picture with Cloud Thought Bubble */}
-        <div className="relative mb-8">
-          <AnimateThoughtBubble thought={profile.thought} />
+        {/* Profile Picture with Instagram Notes Thought Bubble */}
+        <div className="relative mb-8 pt-4">
+          <AnimateThoughtBubble thought={profile.thought} isEditable={false} />
           
-          <div className="w-36 h-36 rounded-full bg-surface-highlight border-4 border-surface shadow-xl overflow-hidden flex items-center justify-center">
+          <div className="w-32 h-32 rounded-full bg-surface-highlight border-4 border-surface shadow-xl overflow-hidden flex items-center justify-center">
             {profile.picture ? (
               <img src={profile.picture} alt={`${profile.name}'s avatar`} className="w-full h-full object-cover" />
             ) : (
@@ -541,10 +615,10 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-display font-bold text-primary mb-3 tracking-tight text-center">{profile.name || 'Anonymous Creator'}</h1>
+        <h1 className="text-3xl font-display font-bold text-primary mb-2 tracking-tight text-center">{profile.name || 'Anonymous Creator'}</h1>
         
         {profile.username && (
-          <span className="text-xs font-mono text-accent bg-accent/5 border border-accent/15 px-3 py-1 rounded-full mb-6">
+          <span className="text-xs font-mono text-accent bg-accent/10 border border-accent/20 px-3 py-1 rounded-full mb-6">
             @{profile.username}
           </span>
         )}
@@ -601,7 +675,7 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
           </div>
         )}
 
-        <div className="mt-12 flex flex-col sm:flex-row gap-3 w-full justify-center">
+        <div className="mt-10 flex flex-col sm:flex-row gap-3 w-full justify-center">
           <button
             onClick={handleShareCurrentPage}
             className="px-6 py-3 bg-surface-highlight text-primary hover:bg-surface-highlight/80 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 text-xs sm:text-sm"
