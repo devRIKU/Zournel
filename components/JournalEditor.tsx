@@ -76,6 +76,16 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
   onEditorReady: (editor: Editor) => void;
   onStateChange: (editor: Editor) => void;
 }) => {
+  const onMarkdownUpdateRef = useRef(onMarkdownUpdate);
+  const onEditorReadyRef = useRef(onEditorReady);
+  const onStateChangeRef = useRef(onStateChange);
+
+  useEffect(() => {
+    onMarkdownUpdateRef.current = onMarkdownUpdate;
+    onEditorReadyRef.current = onEditorReady;
+    onStateChangeRef.current = onStateChange;
+  });
+
   const initialValueRef = useRef(defaultValue);
   
   useEditor((root) => {
@@ -85,11 +95,11 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
         ctx.set(defaultValueCtx, initialValueRef.current);
         const l = ctx.get(listenerCtx);
         l.markdownUpdated((_, markdown) => {
-          onMarkdownUpdate(markdown);
-          onStateChange(editor);
+          onMarkdownUpdateRef.current(markdown);
+          onStateChangeRef.current(editor);
         });
         l.updated((_) => {
-           onStateChange(editor);
+           onStateChangeRef.current(editor);
         });
       })
       .config(nord)
@@ -98,9 +108,9 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
       .use(history)
       .use(listener);
     
-    onEditorReady(editor);
+    onEditorReadyRef.current(editor);
     return editor;
-  }, [onMarkdownUpdate, onEditorReady, onStateChange]); 
+  }, []); 
 
   return <Milkdown />;
 });
@@ -805,7 +815,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       onChange={(e) => setSlashQuery(e.target.value)}
                       placeholder="Type command or search..."
                       className="w-full bg-surface-highlight/40 focus:bg-surface-highlight text-xs font-medium pl-8 pr-3 py-2 rounded-xl border border-transparent focus:border-accent/40 text-primary outline-none transition-all placeholder:text-secondary/50"
-                      autoFocus
                       aria-label="Search slash commands"
                     />
                   </div>
