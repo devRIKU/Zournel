@@ -202,38 +202,44 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   const runSlashCommand = (cmdId: string) => {
-    const clean = getCleanedContent(content);
     setShowSlashMenu(false);
     setSlashQuery('');
 
+    // Clean slash query from content
+    const clean = content.replace(/(?:\n|^|\s)\/([a-zA-Z0-9\s]*)$/, (match) => {
+      const leadingChar = match.charAt(0);
+      return (leadingChar === '\n' || leadingChar === ' ') ? leadingChar : '';
+    });
+
     if (cmdId === 'h1' || cmdId === 'h2' || cmdId === 'bullet' || cmdId === 'number' || cmdId === 'quote' || cmdId === 'code' || cmdId === 'hr') {
-      let updatedMd = clean;
       const lines = clean.split('\n');
-      const lastLineIdx = lines.length - 1;
-      const lastLine = lines[lastLineIdx] || '';
-      const strippedLastLine = lastLine.replace(/^[#*>\-\d.\s]+/, '').trim();
+      let targetIdx = lines.length - 1;
+      
+      // Target the line where the command was typed (last line or last non-empty line)
+      if (lines[targetIdx].trim() === '' && targetIdx > 0 && lines[targetIdx - 1].trim() !== '') {
+        targetIdx = targetIdx - 1;
+      }
+
+      const originalText = lines[targetIdx] || '';
+      const strippedText = originalText.replace(/^[#*>\-\d.\s]+/, '').trim();
 
       if (cmdId === 'h1') {
-        lines[lastLineIdx] = `# ${strippedLastLine}`;
-        updatedMd = lines.join('\n');
+        lines[targetIdx] = `# ${strippedText}`;
       } else if (cmdId === 'h2') {
-        lines[lastLineIdx] = `## ${strippedLastLine}`;
-        updatedMd = lines.join('\n');
+        lines[targetIdx] = `## ${strippedText}`;
       } else if (cmdId === 'bullet') {
-        lines[lastLineIdx] = `- ${strippedLastLine}`;
-        updatedMd = lines.join('\n');
+        lines[targetIdx] = `- ${strippedText}`;
       } else if (cmdId === 'number') {
-        lines[lastLineIdx] = `1. ${strippedLastLine}`;
-        updatedMd = lines.join('\n');
+        lines[targetIdx] = `1. ${strippedText}`;
       } else if (cmdId === 'quote') {
-        lines[lastLineIdx] = `> ${strippedLastLine}`;
-        updatedMd = lines.join('\n');
+        lines[targetIdx] = `> ${strippedText}`;
       } else if (cmdId === 'code') {
-        lines[lastLineIdx] = strippedLastLine ? `\`${strippedLastLine}\`` : '```\n\n```';
-        updatedMd = lines.join('\n');
+        lines[targetIdx] = strippedText ? `\`${strippedText}\`` : '```\n\n```';
       } else if (cmdId === 'hr') {
-        updatedMd = clean ? `${clean.trimEnd()}\n\n---\n\n` : '---\n\n';
+        lines[targetIdx] = strippedText ? `${strippedText}\n\n---` : '---';
       }
+
+      const updatedMd = lines.join('\n');
 
       if (editorRef.current) {
         editorRef.current.action(replaceAll(updatedMd));
@@ -745,18 +751,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             </AnimatePresence>
           </div>
 
-          {/* Slash Commands Ribbon Trigger */}
-          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
-            <button 
-              onClick={() => setShowSlashMenu(!showSlashMenu)}
-              aria-expanded={showSlashMenu}
-              aria-label="Toggle Slash Commands Palette"
-              className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-xl transition-all border ${showSlashMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
-            >
-              <Command className="w-3.5 h-3.5 md:w-4 h-4" />
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline">/ Commands</span>
-            </button>
-          </div>
+
         </div>
 
         <div className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm relative">
