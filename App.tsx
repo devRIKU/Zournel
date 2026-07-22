@@ -32,7 +32,7 @@ const App: React.FC = () => {
     theme: 'cozy-light',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
-    model: 'gemini-3.1-flash-lite',
+    model: 'gemini-3.5-flash-lite',
     apiKey: ''
   });
 
@@ -139,8 +139,8 @@ const App: React.FC = () => {
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
-        if (parsedSettings.model === 'gemini-3-flash-preview' || !parsedSettings.model) {
-          parsedSettings.model = 'gemini-3.1-flash';
+        if (parsedSettings.model === 'gemini-3-flash-preview' || parsedSettings.model === 'gemini-3.1-flash-lite' || !parsedSettings.model) {
+          parsedSettings.model = 'gemini-3.5-flash-lite';
         }
         
         // Migrate older theme preferences gracefully to new premium options

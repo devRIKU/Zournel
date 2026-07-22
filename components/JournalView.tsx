@@ -184,7 +184,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
 
   const stripMarkdownAndTruncate = (text: string) => {
     if (!text) return '';
-    const stripped = text.replace(/[#*`_~[\]()]/g, '').trim();
+    const stripped = text.replace(/^[>\s#*`_~[\]()]+/gm, '').replace(/[#*`_~[\]()]/g, '').trim();
     if (stripped.length <= TRUNCATE_LIMIT) return stripped;
     return stripped.slice(0, TRUNCATE_LIMIT) + '...';
   };

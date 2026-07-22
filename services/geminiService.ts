@@ -5,12 +5,14 @@ import { AIProcessedInput, Priority } from "../types";
 // nano banana model name for image generation
 const imageModelName = 'gemini-2.5-flash-image';
 
+export type AiActionType = 'PROOFREAD' | 'REWRITE' | 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE' | 'EXPAND';
+
 const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
   // Gracefully route models based on specialization requested:
   // - Gemini 3.5 flash for polishing / summarizing and general insights
-  // - Gemini 3.1 flash lite for Todo AI & extraction tasks
-  if (model === 'gemini-3-flash-preview' || model === 'gemini-3.5-flash' || model === 'gemini-3.1-flash-lite') {
-    return type === 'POLISH' ? 'gemini-3.5-flash' : 'gemini-3.1-flash-lite';
+  // - Gemini 3.5 flash lite for Todo AI & extraction tasks
+  if (model === 'gemini-3-flash-preview' || model === 'gemini-3.5-flash' || model === 'gemini-3.1-flash-lite' || model === 'gemini-3.5-flash-lite' || model === 'gemini-flash-lite') {
+    return type === 'POLISH' ? 'gemini-3.5-flash' : 'gemini-3.5-flash-lite';
   }
   return model;
 };
@@ -33,7 +35,7 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const processUserInput = async (input: string, model: string = 'gemini-3.1-flash-lite'): Promise<AIProcessedInput> => {
+export const processUserInput = async (input: string, model: string = 'gemini-3.5-flash-lite'): Promise<AIProcessedInput> => {
   try {
     const ai = getAiClient();
     if (!ai) {
@@ -86,7 +88,7 @@ export const processUserInput = async (input: string, model: string = 'gemini-3.
   }
 };
 
-export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3.1-flash-lite'): Promise<{ text: string, priority: Priority }[]> => {
+export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite'): Promise<{ text: string, priority: Priority }[]> => {
   try {
     const ai = getAiClient();
     if (!ai) {
@@ -134,7 +136,7 @@ export const extractTasksFromJournal = async (journalText: string, model: string
   }
 };
 
-export const generateSubtasks = async (taskText: string, model: string = 'gemini-3.1-flash-lite'): Promise<string[]> => {
+export const generateSubtasks = async (taskText: string, model: string = 'gemini-3.5-flash-lite'): Promise<string[]> => {
   try {
     const ai = getAiClient();
     if (!ai) {
@@ -186,7 +188,7 @@ export const generateJournalInsight = async (entryText: string, model: string = 
   }
 };
 
-export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE', model: string = 'gemini-3.5-flash'): Promise<string> => {
+export const editJournalText = async (text: string, type: AiActionType, model: string = 'gemini-3.5-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
     if (!ai) {
@@ -194,15 +196,18 @@ export const editJournalText = async (text: string, type: 'IMPROVE' | 'REPHRASE'
       return text;
     }
     const activeModel = routeModel(model, 'POLISH');
-    const prompts = { 
+    const prompts: Record<AiActionType, string> = { 
+      PROOFREAD: "You are a meticulous copy editor. Proofread the following journal entry. Correct any spelling, punctuation, and grammar mistakes without altering the author's voice, phrasing, or core message. Return ONLY the proofread text. NO headers, NO conversational filler, NO quotes around the text.",
+      REWRITE: "You are an expert writing consultant. Rewrite the following journal entry to improve sentence structure, rhythm, and clarity while keeping the original meaning and emotion intact. Return ONLY the rewritten text. NO headers, NO conversational filler, NO quotes around the text.",
       IMPROVE: "You are a professional editor. Improve the following journal entry for better clarity, grammar, and vocabulary while keeping the personal tone. Return ONLY the improved text. NO headers, NO conversational filler, NO quotes around the text.", 
       REPHRASE: "You are a literary writer. Rewrite the following journal entry in an elegant, poetic, and literary style. Maintain the original emotional honesty and first-person perspective. Return ONLY the rephrased text. NO headers, NO conversational filler, NO quotes around the text.", 
-      SUMMARIZE: "Summarize this journal entry into a single powerful paragraph that captures the heart of the experience. Return ONLY the summary. NO headers, NO conversational filler, NO quotes around the text." 
+      SUMMARIZE: "Summarize this journal entry into a single powerful paragraph that captures the heart of the experience. Return ONLY the summary. NO headers, NO conversational filler, NO quotes around the text.",
+      EXPAND: "You are a thoughtful writing partner. Expand the following journal entry by deepening the reflections, adding sensory details, and encouraging further self-inquiry while staying true to the author's original experience. Return ONLY the expanded text. NO headers, NO conversational filler, NO quotes around the text."
     };
     
     const response = await ai.models.generateContent({
       model: activeModel,
-      contents: `${prompts[type]}\n\nInput Text: "${text}"`,
+      contents: `${prompts[type]}\n\nInput Text:\n"${text}"`,
     });
     return response.text?.trim() || text;
   } catch (error) {

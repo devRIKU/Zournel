@@ -4,7 +4,7 @@ import {
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
   History, CheckCircle, XCircle, Heading1, Heading2, Quote, Minus,
-  MoreHorizontal
+  MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
@@ -25,7 +25,7 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText } from '../services/geminiService';
+import { editJournalText, AiActionType } from '../services/geminiService';
 
 interface JournalEditorProps {
   isOpen: boolean;
@@ -118,6 +118,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showToolbarMore, setShowToolbarMore] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
+  const [showSlashMenu, setShowSlashMenu] = useState(false);
+  const [slashQuery, setSlashQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [previewText, setPreviewText] = useState<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
 
@@ -130,6 +133,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setShowAiMenu(false);
       setShowGallery(false);
       setShowToolbarMore(false);
+      setShowSlashMenu(false);
+      setSlashQuery('');
+      setSelectedCategory('All');
       setPreviewText(null);
       setImgLoading(true);
       setImgError(false);
@@ -142,6 +148,16 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   const handleMarkdownUpdate = useCallback((md: string) => {
     setContent(md);
+    
+    // Detect slash command at current input or line end
+    const match = md.match(/(?:\n|^|\s)\/([a-zA-Z0-9]*)$/);
+    if (match) {
+      setShowSlashMenu(true);
+      setSlashQuery(match[1].toLowerCase());
+    } else {
+      setShowSlashMenu(false);
+      setSlashQuery('');
+    }
   }, []);
 
   const updateActiveStates = useCallback((editor: Editor) => {
@@ -153,13 +169,29 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     if (showToolbarMore) setShowToolbarMore(false);
   };
 
-  const handleAiAction = async (type: 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE') => {
-    if (!editorRef.current || !content.trim()) return;
+  const handleRandomCover = () => {
+    setImage(getRandomCover());
+    setImgLoading(true);
+    setImgError(false);
+  };
+
+  const getCleanedContent = (raw: string) => {
+    const match = raw.match(/(?:\n|^|\s)\/([a-zA-Z0-9]*)$/);
+    if (!match) return raw;
+    const matchIdx = match.index!;
+    const leadingChar = match[0].charAt(0);
+    const keepLeading = (leadingChar === '\n' || leadingChar === ' ');
+    return raw.slice(0, matchIdx + (keepLeading ? 1 : 0));
+  };
+
+  const handleAiAction = async (type: AiActionType, explicitText?: string) => {
+    const textToProcess = explicitText !== undefined ? explicitText : content;
+    if (!editorRef.current || !textToProcess.trim()) return;
     setIsProcessing(true);
     setShowAiMenu(false);
     try {
-      const result = await editJournalText(content, type, selectedModel);
-      if (result && result !== content) {
+      const result = await editJournalText(textToProcess, type, selectedModel);
+      if (result && result !== textToProcess) {
         setPreviewText(result);
       }
     } catch (e) {
@@ -168,6 +200,124 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setIsProcessing(false);
     }
   };
+
+  const runSlashCommand = (cmdId: string) => {
+    const clean = getCleanedContent(content);
+    setShowSlashMenu(false);
+    setSlashQuery('');
+
+    if (cmdId === 'h1' || cmdId === 'h2' || cmdId === 'bullet' || cmdId === 'number' || cmdId === 'quote' || cmdId === 'code' || cmdId === 'hr') {
+      let updatedMd = clean;
+      const lines = clean.split('\n');
+      const lastLineIdx = lines.length - 1;
+      const lastLine = lines[lastLineIdx] || '';
+      const strippedLastLine = lastLine.replace(/^[#*>\-\d.\s]+/, '').trim();
+
+      if (cmdId === 'h1') {
+        lines[lastLineIdx] = `# ${strippedLastLine}`;
+        updatedMd = lines.join('\n');
+      } else if (cmdId === 'h2') {
+        lines[lastLineIdx] = `## ${strippedLastLine}`;
+        updatedMd = lines.join('\n');
+      } else if (cmdId === 'bullet') {
+        lines[lastLineIdx] = `- ${strippedLastLine}`;
+        updatedMd = lines.join('\n');
+      } else if (cmdId === 'number') {
+        lines[lastLineIdx] = `1. ${strippedLastLine}`;
+        updatedMd = lines.join('\n');
+      } else if (cmdId === 'quote') {
+        lines[lastLineIdx] = `> ${strippedLastLine}`;
+        updatedMd = lines.join('\n');
+      } else if (cmdId === 'code') {
+        lines[lastLineIdx] = strippedLastLine ? `\`${strippedLastLine}\`` : '```\n\n```';
+        updatedMd = lines.join('\n');
+      } else if (cmdId === 'hr') {
+        updatedMd = clean ? `${clean.trimEnd()}\n\n---\n\n` : '---\n\n';
+      }
+
+      if (editorRef.current) {
+        editorRef.current.action(replaceAll(updatedMd));
+        setContent(updatedMd);
+      }
+    } else if (cmdId === 'proofread' || cmdId === 'rewrite' || cmdId === 'improve' || cmdId === 'poetic' || cmdId === 'summarize' || cmdId === 'expand') {
+      if (editorRef.current) {
+        editorRef.current.action(replaceAll(clean));
+        setContent(clean);
+      }
+      handleAiAction(cmdId as AiActionType, clean);
+    } else if (cmdId === 'random') {
+      if (editorRef.current) {
+        editorRef.current.action(replaceAll(clean));
+        setContent(clean);
+      }
+      handleRandomCover();
+    }
+  };
+
+  const ALL_SLASH_COMMANDS = [
+    { id: 'h1', label: 'Heading 1', desc: 'Large title heading', cat: 'Styling', icon: Heading1 },
+    { id: 'h2', label: 'Heading 2', desc: 'Medium section heading', cat: 'Styling', icon: Heading2 },
+    { id: 'bullet', label: 'Bullet List', desc: 'Simple bulleted list', cat: 'Styling', icon: List },
+    { id: 'number', label: 'Numbered List', desc: 'Ordered list sequence', cat: 'Styling', icon: ListOrdered },
+    { id: 'quote', label: 'Blockquote', desc: 'Emphasized quote text block', cat: 'Styling', icon: Quote },
+    { id: 'code', label: 'Code Snippet', desc: 'Monospaced inline code', cat: 'Styling', icon: Code },
+    { id: 'hr', label: 'Divider Line', desc: 'Horizontal line break', cat: 'Styling', icon: Minus },
+    { id: 'proofread', label: 'Proofread & Fix', desc: 'Correct grammar & typos', cat: 'AI Assistant', icon: CheckCheck },
+    { id: 'rewrite', label: 'Rewrite & Rephrase', desc: 'Improve structure & flow', cat: 'AI Assistant', icon: RefreshCw },
+    { id: 'improve', label: 'Polish Flow', desc: 'Enhance vocabulary & clarity', cat: 'AI Assistant', icon: Wand2 },
+    { id: 'poetic', label: 'Poetic Style', desc: 'Literary & lyrical tone', cat: 'AI Assistant', icon: Feather },
+    { id: 'summarize', label: 'Summarize', desc: 'Key insight paragraph', cat: 'AI Assistant', icon: FileText },
+    { id: 'expand', label: 'Expand Reflection', desc: 'Deepen thoughts & details', cat: 'AI Assistant', icon: Maximize2 },
+    { id: 'random', label: 'Random Cover Photo', desc: 'Shuffle aesthetic cover image', cat: 'Media', icon: Shuffle },
+  ];
+
+  const COMMAND_CATEGORIES = ['All', 'Styling', 'AI Assistant', 'Media'];
+
+  const filteredSlashCommands = ALL_SLASH_COMMANDS.filter(cmd => {
+    const matchesCat = selectedCategory === 'All' || cmd.cat === selectedCategory;
+    const q = slashQuery.trim().toLowerCase();
+    const matchesQuery = !q || 
+      cmd.id.toLowerCase().includes(q) || 
+      cmd.label.toLowerCase().includes(q) || 
+      cmd.desc.toLowerCase().includes(q) ||
+      cmd.cat.toLowerCase().includes(q);
+    return matchesCat && matchesQuery;
+  });
+
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [slashQuery, selectedCategory]);
+
+  useEffect(() => {
+    if (!showSlashMenu) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (filteredSlashCommands.length ? (prev + 1) % filteredSlashCommands.length : 0));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (filteredSlashCommands.length ? (prev - 1 + filteredSlashCommands.length) % filteredSlashCommands.length : 0));
+      } else if (e.key === 'Enter') {
+        if (filteredSlashCommands.length > 0) {
+          e.preventDefault();
+          e.stopPropagation();
+          const selectedCmd = filteredSlashCommands[selectedIndex] || filteredSlashCommands[0];
+          if (selectedCmd) {
+            runSlashCommand(selectedCmd.id);
+          }
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowSlashMenu(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [showSlashMenu, selectedIndex, filteredSlashCommands, content]);
 
   const applyAiPreview = () => {
     if (previewText && editorRef.current) {
@@ -229,6 +379,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           
           <div className="flex gap-2 md:gap-3">
              <button 
+                onClick={handleRandomCover}
+                className="flex items-center gap-2 px-3 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white active:scale-95"
+                title="Random Cover Photo"
+             >
+                <Shuffle className="w-3.5 h-3.5 md:w-4 h-4" />
+                <span className="hidden sm:inline">Random</span>
+             </button>
+
+             <button 
                 onClick={() => setShowGallery(true)}
                 className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
                 title="Change Cover"
@@ -265,9 +424,21 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                      <h2 className="text-2xl font-display font-bold text-primary">Aesthetic Gallery</h2>
                      <p className="text-secondary text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">Verified high-quality collection</p>
                   </div>
-                  <button onClick={() => setShowGallery(false)} className="p-3 hover:bg-surface-highlight rounded-xl transition-colors">
-                    <X className="w-5 h-5 text-secondary" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => {
+                        handleRandomCover();
+                        setShowGallery(false);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-accent/15 text-accent border border-accent/30 rounded-xl hover:bg-accent/25 transition-all text-xs font-bold uppercase tracking-wider"
+                    >
+                      <Shuffle className="w-4 h-4" />
+                      <span>Surprise Me</span>
+                    </button>
+                    <button onClick={() => setShowGallery(false)} className="p-3 hover:bg-surface-highlight rounded-xl transition-colors">
+                      <X className="w-5 h-5 text-secondary" />
+                    </button>
+                  </div>
                 </div>
                 <div className="overflow-y-auto p-6 md:p-8 space-y-12 no-scrollbar">
                   {Object.entries(AESTHETIC_CATEGORIES).map(([category, urls]) => (
@@ -521,6 +692,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   transition={{ type: 'spring', damping: 22, stiffness: 200 }}
                   className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
                 >
+                  <button onClick={() => handleAiAction('PROOFREAD')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                    <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <CheckCheck className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-primary">Proofread & Fix</span>
+                    </div>
+                  </button>
+                  <button onClick={() => handleAiAction('REWRITE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                    <div className="p-1.5 bg-indigo-500/10 text-indigo-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-primary">Rewrite & Rephrase</span>
+                    </div>
+                  </button>
                   <button onClick={() => handleAiAction('IMPROVE')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
                     <div className="p-1.5 bg-emerald-500/10 text-emerald-600 rounded-lg group-hover:scale-110 transition-transform">
                       <Wand2 className="w-3.5 h-3.5" />
@@ -545,13 +732,154 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       <span className="block text-xs font-semibold text-primary">Summarize</span>
                     </div>
                   </button>
+                  <button onClick={() => handleAiAction('EXPAND')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
+                    <div className="p-1.5 bg-rose-500/10 text-rose-600 rounded-lg group-hover:scale-110 transition-transform">
+                      <Maximize2 className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="block text-xs font-semibold text-primary">Expand Reflection</span>
+                    </div>
+                  </button>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
+
+          {/* Slash Commands Ribbon Trigger */}
+          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
+            <button 
+              onClick={() => setShowSlashMenu(!showSlashMenu)}
+              aria-expanded={showSlashMenu}
+              aria-label="Toggle Slash Commands Palette"
+              className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-xl transition-all border ${showSlashMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+            >
+              <Command className="w-3.5 h-3.5 md:w-4 h-4" />
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline">/ Commands</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm">
+        <div className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm relative">
+          {/* Floating Slash Commands Popover / Mobile Sheet */}
+          <AnimatePresence>
+            {showSlashMenu && (
+              <>
+                {/* Mobile Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowSlashMenu(false)}
+                  className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden"
+                  aria-hidden="true"
+                />
+
+                <motion.div
+                  initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 15, scale: 0.98 }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                  className="fixed inset-x-3 bottom-3 md:absolute md:inset-auto md:top-3 md:left-8 md:w-88 z-50 bg-surface/95 backdrop-blur-2xl border border-accent/30 shadow-2xl rounded-2xl md:rounded-3xl p-3 max-h-[82vh] md:max-h-96 flex flex-col no-scrollbar"
+                  role="dialog"
+                  aria-label="Slash Commands Palette"
+                >
+                  {/* Header & Close */}
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-surface-highlight/60 shrink-0">
+                    <div className="flex items-center gap-2 text-xs font-bold text-accent uppercase tracking-wider">
+                      <Command className="w-4 h-4" />
+                      <span>Commands</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-accent/10 text-[10px] font-mono text-accent">
+                        {filteredSlashCommands.length}
+                      </span>
+                    </div>
+                    <button 
+                      onClick={() => setShowSlashMenu(false)} 
+                      className="p-1.5 hover:bg-surface-highlight rounded-xl text-secondary transition-colors"
+                      aria-label="Close menu"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Integrated Search Input */}
+                  <div className="relative mb-2 shrink-0">
+                    <Search className="w-3.5 h-3.5 text-secondary/60 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      value={slashQuery}
+                      onChange={(e) => setSlashQuery(e.target.value)}
+                      placeholder="Type command or search..."
+                      className="w-full bg-surface-highlight/40 focus:bg-surface-highlight text-xs font-medium pl-8 pr-3 py-2 rounded-xl border border-transparent focus:border-accent/40 text-primary outline-none transition-all placeholder:text-secondary/50"
+                      autoFocus
+                      aria-label="Search slash commands"
+                    />
+                  </div>
+
+                  {/* Category Chips */}
+                  <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-surface-highlight/40 overflow-x-auto no-scrollbar shrink-0">
+                    {COMMAND_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition-all ${
+                          selectedCategory === cat 
+                            ? 'bg-accent text-accent-fg shadow-xs' 
+                            : 'bg-surface-highlight/50 hover:bg-surface-highlight text-secondary hover:text-primary'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Commands List */}
+                  <div className="overflow-y-auto no-scrollbar space-y-1 pr-0.5" role="listbox">
+                    {filteredSlashCommands.length === 0 ? (
+                      <div className="py-6 text-center text-xs text-secondary opacity-60">
+                        No matching commands found
+                      </div>
+                    ) : (
+                      filteredSlashCommands.map((cmd, idx) => {
+                        const IconComp = cmd.icon;
+                        const isSelected = idx === selectedIndex;
+                        return (
+                          <button
+                            key={cmd.id}
+                            id={`cmd-item-${cmd.id}`}
+                            onClick={() => runSlashCommand(cmd.id)}
+                            onMouseEnter={() => setSelectedIndex(idx)}
+                            role="option"
+                            aria-selected={isSelected}
+                            className={`flex items-center gap-3 w-full p-2.5 sm:p-2 rounded-xl text-left transition-all min-h-[44px] ${
+                              isSelected 
+                                ? 'bg-accent/15 border border-accent/30 shadow-sm' 
+                                : 'hover:bg-surface-highlight border border-transparent'
+                            }`}
+                          >
+                            <div className={`p-2 rounded-lg transition-transform shrink-0 ${
+                              isSelected ? 'bg-accent text-accent-fg scale-105' : 'bg-accent/10 text-accent group-hover:scale-110'
+                            }`}>
+                              <IconComp className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className={`block text-xs font-semibold truncate ${isSelected ? 'text-accent font-bold' : 'text-primary'}`}>
+                                  {cmd.label}
+                                </span>
+                                <span className="text-[9px] font-mono text-secondary/50 uppercase tracking-tight">{cmd.cat}</span>
+                              </div>
+                              <span className="block text-[10px] text-secondary truncate opacity-70 mt-0.5">{cmd.desc}</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
           <MilkdownProvider>
             <EditorInstance 
               defaultValue={initialContent || ''} 

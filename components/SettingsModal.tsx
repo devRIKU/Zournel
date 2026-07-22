@@ -13,7 +13,7 @@ interface SettingsModalProps {
 
 const MODELS = [
   { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', badge: 'Recommended', desc: 'Default for Polishing & Summarizing' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', badge: 'Fast', desc: 'Default for Todo & Extraction' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', badge: 'Fast', desc: 'Default for Todo & Extraction' },
   { id: 'gemma-4-31b-it', label: 'Gemma 4', badge: 'Ultra', desc: 'Expert reasoning & coding' },
 ];
 
