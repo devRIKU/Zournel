@@ -5,7 +5,8 @@ import {
   ChevronDown, Loader2, Feather, LayoutTemplate, ImageOff, Check, FileText,
   History, CheckCircle, XCircle, Heading1, Heading2, Heading3, Heading4, Quote, Minus,
   MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search,
-  CheckSquare, MessageSquareCode, Table as TableIcon, Lightbulb
+  CheckSquare, MessageSquareCode, Table as TableIcon, Lightbulb,
+  GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
@@ -26,12 +27,31 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, AiActionType } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType } from '../services/geminiService';
+
+const PRESET_MOODS = [
+  { emoji: '😊', label: 'Happy' },
+  { emoji: '😌', label: 'Calm' },
+  { emoji: '⚡', label: 'Energetic' },
+  { emoji: '🙏', label: 'Grateful' },
+  { emoji: '💡', label: 'Inspired' },
+  { emoji: '🎯', label: 'Focused' },
+  { emoji: '🏆', label: 'Proud' },
+  { emoji: '☕', label: 'Cozy' },
+  { emoji: '💭', label: 'Reflective' },
+  { emoji: '🌊', label: 'Nostalgic' },
+  { emoji: '😴', label: 'Tired' },
+  { emoji: '😰', label: 'Anxious' },
+  { emoji: '🤯', label: 'Stressed' },
+  { emoji: '😢', label: 'Sad' },
+  { emoji: '😠', label: 'Tense' }
+];
 
 interface JournalEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: string, image: string | undefined, mood?: string) => void;
+  onSave: (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean) => void;
+  onDelete?: (id: string) => void;
   initialContent?: string;
   initialImage?: string;
   initialId?: string;
@@ -118,12 +138,15 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
 });
 
 export const JournalEditor: React.FC<JournalEditorProps> = ({ 
-  isOpen, onClose, onSave, initialContent = '', initialImage, initialId, initialMood, selectedModel 
+  isOpen, onClose, onSave, onDelete, initialContent = '', initialImage, initialId, initialMood, selectedModel 
 }) => {
   const [content, setContent] = useState(() => initialContent);
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
   const [showMoodMenu, setShowMoodMenu] = useState(false);
+  const [customMoodInput, setCustomMoodInput] = useState('');
+  const [isAutoDetectingMood, setIsAutoDetectingMood] = useState(false);
+  const [autoMoodActive, setAutoMoodActive] = useState<boolean>(() => initialMood === '✨ Auto');
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -137,6 +160,81 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const editorRef = useRef<Editor | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [slashMenuPos, setSlashMenuPos] = useState<{ top: number; left: number } | null>(null);
+
+  // Auto-Save state & refs
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | null>(null);
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMountRef = useRef<boolean>(true);
+
+  // Notion/BlockNote Style Floating Selection Toolbar & Block Handle State
+  const [bubbleMenuPos, setBubbleMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [selectedText, setSelectedText] = useState<string>('');
+  const [blockHandlePos, setBlockHandlePos] = useState<{ top: number; node: HTMLElement } | null>(null);
+  const [showBlockMenu, setShowBlockMenu] = useState(false);
+
+  const updateSelectionBubble = useCallback(() => {
+    if (!editorContainerRef.current) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+      const text = sel.toString().trim();
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      const containerRect = editorContainerRef.current.getBoundingClientRect();
+
+      if (
+        rect.bottom >= containerRect.top &&
+        rect.top <= containerRect.bottom &&
+        rect.right >= containerRect.left &&
+        rect.left <= containerRect.right
+      ) {
+        let left = rect.left + rect.width / 2 - containerRect.left + editorContainerRef.current.scrollLeft;
+        let top = rect.top - containerRect.top + editorContainerRef.current.scrollTop - 48;
+
+        if (left < 110) left = 110;
+        if (left > containerRect.width - 110) left = containerRect.width - 110;
+        if (top < 10) top = rect.bottom - containerRect.top + editorContainerRef.current.scrollTop + 8;
+
+        setBubbleMenuPos({ top, left });
+        setSelectedText(text);
+        return;
+      }
+    }
+    setBubbleMenuPos(null);
+    setSelectedText('');
+  }, []);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      updateSelectionBubble();
+    };
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [updateSelectionBubble]);
+
+  const handleMouseMoveContainer = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!editorContainerRef.current || showBlockMenu) return;
+    if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+    
+    const containerRect = editorContainerRef.current.getBoundingClientRect();
+    const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    if (!target) return;
+
+    const blockNode = target.closest('.ProseMirror > *, .ProseMirror ul > li, .ProseMirror ol > li') as HTMLElement | null;
+    if (blockNode && editorContainerRef.current.contains(blockNode)) {
+      const nodeRect = blockNode.getBoundingClientRect();
+      const top = nodeRect.top - containerRect.top + editorContainerRef.current.scrollTop + 2;
+      setBlockHandlePos({ top, node: blockNode });
+    }
+  }, [showBlockMenu]);
+
+  const handleMouseLeaveContainer = useCallback(() => {
+    if (!showBlockMenu) {
+      setBlockHandlePos(null);
+    }
+  }, [showBlockMenu]);
 
   const updateSlashMenuPosition = useCallback(() => {
     if (!editorContainerRef.current) return;
@@ -174,9 +272,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      isInitialMountRef.current = true;
+      setSaveStatus(null);
       setContent(initialContent || '');
       setImage(initialImage || getRandomCover());
       setMood(initialMood);
+      setAutoMoodActive(initialMood === '✨ Auto');
+      setCustomMoodInput('');
+      setIsAutoDetectingMood(false);
       setShowMoodMenu(false);
       setShowAiMenu(false);
       setShowGallery(false);
@@ -187,8 +290,40 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setPreviewText(null);
       setImgLoading(true);
       setImgError(false);
+      setBubbleMenuPos(null);
+      setSelectedText('');
+      setBlockHandlePos(null);
+      setShowBlockMenu(false);
     }
   }, [isOpen, initialContent, initialImage, initialMood]);
+
+  // Debounced Auto-Save Effect
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      return;
+    }
+
+    if (!content.trim()) return;
+
+    setSaveStatus('unsaved');
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+
+    autoSaveTimerRef.current = setTimeout(() => {
+      setSaveStatus('saving');
+      onSave(content, image, mood, true);
+      setTimeout(() => {
+        setSaveStatus('saved');
+        setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      }, 300);
+    }, 1200);
+
+    return () => {
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    };
+  }, [content, image, mood, isOpen, onSave]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
@@ -250,6 +385,58 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const modifyTargetBlock = (action: 'turn' | 'duplicate' | 'delete' | 'moveUp' | 'moveDown' | 'ai', param?: string) => {
+    if (!blockHandlePos?.node) return;
+    const targetText = blockHandlePos.node.textContent || '';
+    const lines = content.split('\n');
+    
+    let lineIdx = lines.findIndex(l => targetText.trim() && l.includes(targetText.trim()));
+    if (lineIdx === -1 && targetText.trim()) {
+      lineIdx = lines.findIndex(l => targetText.trim().includes(l.trim()) && l.trim().length > 0);
+    }
+    if (lineIdx === -1) lineIdx = Math.max(0, lines.length - 1);
+
+    const currentLine = lines[lineIdx] || '';
+    const cleanLineText = currentLine.replace(/^[#*>\-\d.\[\]\s]+/, '').trim();
+
+    let newLines = [...lines];
+
+    if (action === 'turn') {
+      if (param === 'h1') newLines[lineIdx] = `# ${cleanLineText}`;
+      else if (param === 'h2') newLines[lineIdx] = `## ${cleanLineText}`;
+      else if (param === 'h3') newLines[lineIdx] = `### ${cleanLineText}`;
+      else if (param === 'bullet') newLines[lineIdx] = `- ${cleanLineText}`;
+      else if (param === 'todo') newLines[lineIdx] = `- [ ] ${cleanLineText || 'Task item'}`;
+      else if (param === 'quote') newLines[lineIdx] = `> ${cleanLineText}`;
+      else if (param === 'code') newLines[lineIdx] = `\`\`\`\n${cleanLineText}\n\`\`\``;
+      else if (param === 'text') newLines[lineIdx] = cleanLineText;
+    } else if (action === 'duplicate') {
+      newLines.splice(lineIdx + 1, 0, currentLine);
+    } else if (action === 'delete') {
+      newLines.splice(lineIdx, 1);
+    } else if (action === 'moveUp' && lineIdx > 0) {
+      const temp = newLines[lineIdx];
+      newLines[lineIdx] = newLines[lineIdx - 1];
+      newLines[lineIdx - 1] = temp;
+    } else if (action === 'moveDown' && lineIdx < newLines.length - 1) {
+      const temp = newLines[lineIdx];
+      newLines[lineIdx] = newLines[lineIdx + 1];
+      newLines[lineIdx + 1] = temp;
+    } else if (action === 'ai') {
+      handleAiAction('IMPROVE', currentLine);
+      setShowBlockMenu(false);
+      return;
+    }
+
+    const updatedMd = newLines.join('\n');
+    if (editorRef.current) {
+      editorRef.current.action(replaceAll(updatedMd));
+      setContent(updatedMd);
+    }
+    setShowBlockMenu(false);
+    setBlockHandlePos(null);
   };
 
   const runSlashCommand = (cmdId: string) => {
@@ -405,8 +592,58 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     setPreviewText(null);
   };
 
-  const handleSave = () => {
-    onSave(content, image, mood);
+  const handleAutoDetectMood = async (manualTrigger: boolean = true) => {
+    if (!content || content.trim().length < 5) {
+      if (manualTrigger) {
+        alert("Please write a few words in your entry first so AI can detect your mood!");
+      }
+      return;
+    }
+    setIsAutoDetectingMood(true);
+    try {
+      const result = await detectMoodFromJournal(content, selectedModel);
+      if (result && result.fullMood) {
+        setMood(result.fullMood);
+        setAutoMoodActive(false);
+        if (manualTrigger) {
+          setShowMoodMenu(false);
+        }
+      } else if (manualTrigger) {
+        alert("Could not detect mood. Make sure your Gemini API key is set in Settings.");
+      }
+    } catch (err) {
+      console.error("Auto mood error:", err);
+    } finally {
+      setIsAutoDetectingMood(false);
+    }
+  };
+
+  const handleAddCustomMood = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customMoodInput.trim()) return;
+    const cleanCustom = customMoodInput.trim();
+    const hasEmoji = /(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u.test(cleanCustom);
+    const formattedMood = hasEmoji ? cleanCustom : `✨ ${cleanCustom}`;
+    setMood(formattedMood);
+    setAutoMoodActive(false);
+    setCustomMoodInput('');
+    setShowMoodMenu(false);
+  };
+
+  const handleSave = async () => {
+    let finalMood = mood;
+    if (autoMoodActive || mood === '✨ Auto') {
+      if (content && content.trim().length >= 5) {
+        setIsAutoDetectingMood(true);
+        const autoRes = await detectMoodFromJournal(content, selectedModel);
+        if (autoRes?.fullMood) {
+          finalMood = autoRes.fullMood;
+          setMood(finalMood);
+        }
+        setIsAutoDetectingMood(false);
+      }
+    }
+    onSave(content, image, finalMood);
     onClose();
   };
 
@@ -446,12 +683,37 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-bg"></div>
         
-        <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-start text-white z-10">
-          <button onClick={onClose} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all active:scale-90">
-            <ArrowLeft className="w-5 h-5 md:w-6 h-6" />
-          </button>
+        <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-center text-white z-10">
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all active:scale-90" title="Back">
+              <ArrowLeft className="w-5 h-5 md:w-6 h-6" />
+            </button>
+            {/* Auto-Save Status Indicator */}
+            {saveStatus && (
+              <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-[11px] font-mono tracking-wide">
+                {saveStatus === 'saving' && (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 text-accent animate-spin" />
+                    <span className="text-white/80">Saving draft...</span>
+                  </>
+                )}
+                {saveStatus === 'saved' && (
+                  <>
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                    <span className="text-emerald-200">Auto-saved {lastSavedTime ? `at ${lastSavedTime}` : ''}</span>
+                  </>
+                )}
+                {saveStatus === 'unsaved' && (
+                  <>
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-amber-200">Editing...</span>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
           
-          <div className="flex gap-2 md:gap-3">
+          <div className="flex items-center gap-2 md:gap-3">
              <button 
                 onClick={handleRandomCover}
                 className="flex items-center gap-2 px-3 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white active:scale-95"
@@ -469,6 +731,21 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <LayoutTemplate className="w-3.5 h-3.5 md:w-4 h-4" />
                 <span>Gallery</span>
              </button>
+
+             {initialId && onDelete && (
+               <button 
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to delete this memory?")) {
+                      onDelete(initialId);
+                      onClose();
+                    }
+                  }}
+                  className="p-2 md:p-2.5 bg-red-500/20 hover:bg-red-600/90 text-white backdrop-blur-md rounded-full transition-all active:scale-90 border border-red-500/30"
+                  title="Delete Memory"
+               >
+                  <Trash2 className="w-4 h-4" />
+               </button>
+             )}
 
              <button onClick={handleSave} className="flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 bg-accent text-accent-fg rounded-full hover:bg-accent/90 shadow-lg transition-all active:scale-95 font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest">
                 <Save className="w-3.5 h-3.5 md:w-4 h-4" />
@@ -677,11 +954,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <button 
               onClick={() => setShowMoodMenu(!showMoodMenu)}
               className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition-all border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
-              title="Add current emotional state/mood"
+              title="Add current emotional state or mood"
             >
-              <span className="text-sm md:text-base leading-none select-none">{mood ? mood.split(' ')[0] : '😊'}</span>
+              {isAutoDetectingMood ? (
+                <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 text-accent animate-spin" />
+              ) : (
+                <span className="text-sm md:text-base leading-none select-none">
+                  {mood ? (mood.split(' ')[0] || '✨') : (autoMoodActive ? '✨' : '😊')}
+                </span>
+              )}
               <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline select-none">
-                {mood ? mood.split(' ')[1] : 'Mood'}
+                {isAutoDetectingMood 
+                  ? 'Detecting...' 
+                  : (mood 
+                      ? (mood.split(' ').slice(1).join(' ') || mood) 
+                      : (autoMoodActive ? 'Auto Mood' : 'Mood'))
+                }
               </span>
               <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showMoodMenu ? 'rotate-180' : ''}`} />
             </button>
@@ -693,49 +981,99 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-                  className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
+                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-3 z-50 flex flex-col gap-2.5 max-h-[80vh] overflow-y-auto no-scrollbar"
                 >
-                  {[
-                    { emoji: '😊', label: 'Happy' },
-                    { emoji: '😌', label: 'Calm' },
-                    { emoji: '⚡', label: 'Energetic' },
-                    { emoji: '😢', label: 'Reflective' },
-                    { emoji: '🤯', label: 'Stressed' },
-                    { emoji: '😠', label: 'Tense' }
-                  ].map((item) => {
-                    const itemString = `${item.emoji} ${item.label}`;
-                    const isSelected = mood === itemString;
-                    return (
-                      <button 
-                        key={item.label}
-                        onClick={() => {
-                          setMood(itemString);
-                          setShowMoodMenu(false);
-                        }} 
-                        className={`flex items-center gap-3 w-full p-2 rounded-xl text-left group transition-colors ${isSelected ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-surface-highlight'}`}
-                      >
-                        <span className="text-lg md:text-xl group-hover:scale-125 transition-transform">{item.emoji}</span>
-                        <span className={`text-xs font-semibold ${isSelected ? 'text-accent' : 'text-primary'}`}>{item.label}</span>
-                        {isSelected && (
-                          <Check className="w-3.5 h-3.5 text-accent ml-auto shrink-0" />
-                        )}
-                      </button>
-                    );
-                  })}
-                  {mood && (
-                    <>
-                      <div className="h-px bg-surface-highlight/50 my-1"></div>
+                  {/* Header */}
+                  <div className="flex items-center justify-between pb-2 border-b border-surface-highlight/50">
+                    <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-secondary">Select Emotional State</span>
+                    {(mood || autoMoodActive) && (
                       <button 
                         onClick={() => {
                           setMood(undefined);
+                          setAutoMoodActive(false);
                           setShowMoodMenu(false);
                         }}
-                        className="flex items-center justify-center gap-1.5 w-full py-1.5 rounded-xl hover:bg-red-500/10 text-red-600 text-xs font-semibold transition-colors"
+                        className="text-[10px] font-bold uppercase tracking-wider text-red-500 hover:underline"
                       >
-                        Clear Mood
+                        Clear
                       </button>
-                    </>
-                  )}
+                    )}
+                  </div>
+
+                  {/* Auto Mood Detector AI Button */}
+                  <button 
+                    onClick={() => handleAutoDetectMood(true)}
+                    disabled={isAutoDetectingMood}
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left ${
+                      autoMoodActive || mood === '✨ Auto' 
+                        ? 'bg-accent/15 border-accent text-accent font-semibold shadow-xs' 
+                        : 'bg-accent/5 border-accent/20 hover:bg-accent/10 text-primary'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-1.5 bg-accent/20 rounded-lg text-accent">
+                        {isAutoDetectingMood ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold flex items-center gap-1.5">
+                          <span>✨ Auto Detect Mood</span>
+                        </p>
+                        <p className="text-[10px] text-secondary opacity-70">Analyze text with Gemini AI</p>
+                      </div>
+                    </div>
+                    {(autoMoodActive || mood === '✨ Auto') && <Check className="w-4 h-4 text-accent" />}
+                  </button>
+
+                  {/* Preset Moods Grid */}
+                  <div>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-secondary/60 mb-1.5 block">Preset Moods</span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {PRESET_MOODS.map((item) => {
+                        const itemString = `${item.emoji} ${item.label}`;
+                        const isSelected = mood === itemString && !autoMoodActive;
+                        return (
+                          <button 
+                            key={item.label}
+                            onClick={() => {
+                              setMood(itemString);
+                              setAutoMoodActive(false);
+                              setShowMoodMenu(false);
+                            }} 
+                            className={`flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all ${
+                              isSelected 
+                                ? 'bg-accent text-accent-fg font-bold scale-105 shadow-sm' 
+                                : 'bg-surface-highlight/30 hover:bg-surface-highlight text-primary'
+                            }`}
+                          >
+                            <span className="text-xl mb-0.5 leading-none select-none">{item.emoji}</span>
+                            <span className="text-[10px] font-medium truncate w-full">{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Mood Input Form */}
+                  <div className="pt-2 border-t border-surface-highlight/50">
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-secondary/60 mb-1.5 block">Custom Mood</span>
+                    <form onSubmit={handleAddCustomMood} className="flex gap-1.5">
+                      <input
+                        type="text"
+                        placeholder="e.g. 🎨 Creative"
+                        value={customMoodInput}
+                        onChange={(e) => setCustomMoodInput(e.target.value)}
+                        className="flex-1 bg-surface-highlight/40 border border-surface-highlight px-2.5 py-1.5 rounded-xl text-xs text-primary focus:outline-none focus:border-accent"
+                      />
+                      <button 
+                        type="submit"
+                        disabled={!customMoodInput.trim()}
+                        className="p-2 bg-accent text-accent-fg rounded-xl hover:bg-accent/90 disabled:opacity-40 transition-colors"
+                        title="Add Custom Mood"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </button>
+                    </form>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -824,8 +1162,200 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
         <div 
           ref={editorContainerRef} 
+          onMouseMove={handleMouseMoveContainer}
+          onMouseLeave={handleMouseLeaveContainer}
           className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm relative min-h-[350px]"
         >
+          {/* Notion/BlockNote Style Block Handle (+ / ⋮⋮) */}
+          <AnimatePresence>
+            {blockHandlePos && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ duration: 0.1 }}
+                style={{
+                  position: 'absolute',
+                  top: `${blockHandlePos.top}px`,
+                  left: '2px',
+                  zIndex: 40,
+                }}
+                className="flex items-center gap-0.5 bg-surface/80 sm:bg-surface/90 backdrop-blur-md border border-surface-highlight/70 shadow-xs rounded-lg sm:rounded-xl p-0.5 opacity-50 sm:opacity-90 hover:opacity-100 transition-opacity"
+              >
+                <button
+                  onClick={() => {
+                    setShowSlashMenu(true);
+                    setSlashMenuPos({ top: blockHandlePos.top + 28, left: 16 });
+                  }}
+                  className="p-0.5 sm:p-1 hover:bg-accent/15 text-secondary hover:text-accent rounded-md sm:rounded-lg transition-colors"
+                  title="Add Block (/)"
+                >
+                  <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                </button>
+
+                <div className="relative">
+                  <button
+                    onClick={() => setShowBlockMenu(!showBlockMenu)}
+                    className="p-0.5 sm:p-1 hover:bg-surface-highlight text-secondary hover:text-primary rounded-md sm:rounded-lg transition-colors cursor-grab"
+                    title="Block Actions & Options"
+                  >
+                    <GripVertical className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  </button>
+
+                  {/* Block Options Popover */}
+                  <AnimatePresence>
+                    {showBlockMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: -4 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: -4 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute left-full top-0 ml-1.5 w-48 bg-surface/95 backdrop-blur-xl border border-accent/30 shadow-2xl rounded-2xl p-1.5 z-50 flex flex-col gap-0.5 text-xs font-sans"
+                      >
+                        <div className="px-2 py-1 text-[9px] font-bold text-secondary uppercase tracking-widest border-b border-surface-highlight/60">
+                          Turn Into
+                        </div>
+                        <button onClick={() => modifyTargetBlock('turn', 'text')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <FileText className="w-3.5 h-3.5 text-secondary" /> Text / Paragraph
+                        </button>
+                        <button onClick={() => modifyTargetBlock('turn', 'h1')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <Heading1 className="w-3.5 h-3.5 text-accent" /> Heading 1
+                        </button>
+                        <button onClick={() => modifyTargetBlock('turn', 'h2')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <Heading2 className="w-3.5 h-3.5 text-accent" /> Heading 2
+                        </button>
+                        <button onClick={() => modifyTargetBlock('turn', 'bullet')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <List className="w-3.5 h-3.5 text-secondary" /> Bullet List
+                        </button>
+                        <button onClick={() => modifyTargetBlock('turn', 'todo')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <CheckSquare className="w-3.5 h-3.5 text-emerald-500" /> Task Checkbox
+                        </button>
+                        <button onClick={() => modifyTargetBlock('turn', 'quote')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <Quote className="w-3.5 h-3.5 text-amber-500" /> Blockquote
+                        </button>
+                        <button onClick={() => modifyTargetBlock('turn', 'code')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <Code className="w-3.5 h-3.5 text-purple-500" /> Code Block
+                        </button>
+
+                        <div className="h-px bg-surface-highlight/60 my-1"></div>
+
+                        <div className="px-2 py-0.5 text-[9px] font-bold text-secondary uppercase tracking-widest">
+                          Block Actions
+                        </div>
+                        <button onClick={() => modifyTargetBlock('duplicate')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <Copy className="w-3.5 h-3.5 text-secondary" /> Duplicate Block
+                        </button>
+                        <button onClick={() => modifyTargetBlock('moveUp')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <ArrowUp className="w-3.5 h-3.5 text-secondary" /> Move Up
+                        </button>
+                        <button onClick={() => modifyTargetBlock('moveDown')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
+                          <ArrowDown className="w-3.5 h-3.5 text-secondary" /> Move Down
+                        </button>
+                        <button onClick={() => modifyTargetBlock('ai')} className="flex items-center gap-2 p-1.5 hover:bg-accent/15 rounded-lg text-accent text-left font-bold">
+                          <Sparkles className="w-3.5 h-3.5" /> AI Polish Line
+                        </button>
+                        <button onClick={() => modifyTargetBlock('delete')} className="flex items-center gap-2 p-1.5 hover:bg-red-500/10 rounded-lg text-red-500 text-left font-medium">
+                          <Trash2 className="w-3.5 h-3.5" /> Delete Block
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Notion/BlockNote Style Floating Selection Bubble Toolbar */}
+          <AnimatePresence>
+            {bubbleMenuPos && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 4 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 4 }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
+                style={{
+                  position: 'absolute',
+                  top: `${bubbleMenuPos.top}px`,
+                  left: `${bubbleMenuPos.left}px`,
+                  transform: 'translateX(-50%)',
+                  zIndex: 60,
+                }}
+                className="bg-surface/95 backdrop-blur-2xl border border-accent/40 shadow-2xl rounded-2xl p-1 flex items-center gap-0.5 pointer-events-auto"
+              >
+                <button
+                  onClick={() => callCommand(toggleStrongCommand.key)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="Bold"
+                >
+                  <Bold className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => callCommand(toggleEmphasisCommand.key)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="Italic"
+                >
+                  <Italic className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => callCommand(toggleStrikethroughCommand.key)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="Strikethrough"
+                >
+                  <Strikethrough className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => callCommand(toggleInlineCodeCommand.key)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="Inline Code"
+                >
+                  <Code className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5"></div>
+
+                <button
+                  onClick={() => callCommand(wrapInHeadingCommand.key, 1)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="H1"
+                >
+                  <Heading1 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => callCommand(wrapInHeadingCommand.key, 2)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="H2"
+                >
+                  <Heading2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => callCommand(wrapInBulletListCommand.key)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="Bullet List"
+                >
+                  <List className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => callCommand(wrapInBlockquoteCommand.key)}
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  title="Quote"
+                >
+                  <Quote className="w-3.5 h-3.5" />
+                </button>
+
+                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5"></div>
+
+                <button
+                  onClick={() => handleAiAction('IMPROVE', selectedText)}
+                  className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-fg hover:bg-accent/90 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider active:scale-95 shadow-2xs"
+                  title="Polish Selection with AI"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Polish</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Compact Floating Slash Commands Popover anchored to cursor position */}
           <AnimatePresence>
             {showSlashMenu && (

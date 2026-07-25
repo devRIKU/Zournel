@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>({
     theme: 'cozy-light',
     fontFamily: 'inter',
+    headingFontFamily: 'outfit',
     completionAnimation: 'confetti',
     deleteAnimation: 'shrink',
     model: 'gemini-3.5-flash-lite',
@@ -140,7 +141,8 @@ const App: React.FC = () => {
     if (savedSettings) {
       try {
         const parsedSettings = JSON.parse(savedSettings);
-        if (parsedSettings.model === 'gemini-3-flash-preview' || parsedSettings.model === 'gemini-3.1-flash-lite' || !parsedSettings.model) {
+        const validModels = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemma-4-31b-it'];
+        if (!validModels.includes(parsedSettings.model)) {
           parsedSettings.model = 'gemini-3.5-flash-lite';
         }
         
@@ -197,9 +199,9 @@ const App: React.FC = () => {
     }
   }, [settings.theme]);
 
-  // Font Applier (Headings kept consistent in Playfair Display, Body & Editor updated dynamically)
+  // Font Applier (Body & Heading fonts updated dynamically)
   useEffect(() => {
-    const fontMap: Record<string, string> = {
+    const bodyFontMap: Record<string, string> = {
       'inter': "'Inter', sans-serif",
       'plus-jakarta': "'Plus Jakarta Sans', sans-serif",
       'lora': "'Lora', serif",
@@ -207,9 +209,19 @@ const App: React.FC = () => {
       'space-grotesk': "'Space Grotesk', sans-serif",
       'jetbrains-mono': "'JetBrains Mono', monospace"
     };
-    const selectedFontCss = fontMap[settings.fontFamily || 'inter'] || "'Inter', sans-serif";
-    document.documentElement.style.setProperty('--font-body', selectedFontCss);
-  }, [settings.fontFamily]);
+    const headingFontMap: Record<string, string> = {
+      'syncopate': "'Syncopate', sans-serif",
+      'playfair': "'Playfair Display', serif",
+      'space-grotesk': "'Space Grotesk', sans-serif",
+      'outfit': "'Outfit', sans-serif",
+      'cormorant': "'Cormorant Garamond', serif",
+      'cinzel': "'Cinzel', serif"
+    };
+    const selectedBodyFont = bodyFontMap[settings.fontFamily || 'inter'] || "'Inter', sans-serif";
+    const selectedHeadingFont = headingFontMap[settings.headingFontFamily || 'outfit'] || "'Outfit', sans-serif";
+    document.documentElement.style.setProperty('--font-body', selectedBodyFont);
+    document.documentElement.style.setProperty('--font-heading', selectedHeadingFont);
+  }, [settings.fontFamily, settings.headingFontFamily]);
 
   const handlePlusClick = () => {
     if (activeTab === Tab.JOURNAL) {
@@ -262,7 +274,11 @@ const App: React.FC = () => {
     }
   };
 
-  const saveJournalEntry = (content: string, image: string | undefined, mood?: string) => {
+  const deleteJournalEntry = (id: string) => {
+    setJournalEntries(prev => prev.filter(e => e.id !== id));
+  };
+
+  const saveJournalEntry = (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean) => {
     let entryId = editingEntry?.id;
     let isNew = false;
     
@@ -273,9 +289,12 @@ const App: React.FC = () => {
       entryId = Math.random().toString(36).substr(2, 9);
       const newEntry: JournalEntry = { id: entryId, content, image, mood, createdAt: Date.now(), tasksExtracted: false };
       setJournalEntries(prev => [newEntry, ...prev]);
+      if (isAutoSave) {
+        setEditingEntry(newEntry);
+      }
     }
 
-    if (entryId) {
+    if (entryId && !isAutoSave) {
         generateJournalInsight(content, settings.model).then(insight => {
             if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
         });
@@ -298,7 +317,9 @@ const App: React.FC = () => {
             });
         }
     }
-    setEditingEntry(null);
+    if (!isAutoSave) {
+      setEditingEntry(null);
+    }
   };
 
   if (isRouteLoading) {
@@ -351,7 +372,7 @@ const App: React.FC = () => {
             />
         </div>
         <div className={`transition-all duration-300 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
-           <JournalView entries={journalEntries} onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} />
+           <JournalView entries={journalEntries} onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} onDeleteEntry={deleteJournalEntry} />
         </div>
         <div className={`transition-all duration-300 ${activeTab === Tab.PROFILE ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <ProfileView profile={settings.profile} journalEntries={journalEntries} onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))} />
@@ -367,6 +388,7 @@ const App: React.FC = () => {
         isOpen={isEditorOpen} 
         onClose={() => {setIsEditorOpen(false); setEditingEntry(null);}} 
         onSave={saveJournalEntry} 
+        onDelete={deleteJournalEntry}
         initialId={editingEntry?.id}
         initialContent={editingEntry?.content} 
         initialImage={editingEntry?.image} 

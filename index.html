@@ -7,15 +7,15 @@
     <title>Zournel</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C69C6D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='7.5 18 16.5 6'/%3E%3Cpath d='m12 12 3 3-3 3'/%3E%3Cpath d='m12 6-3 3 3 3'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..700;1,300..700&family=Playfair+Display:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:ital,wght@0,300..700;1,300..700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..700;1,300..700&family=Playfair+Display:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:ital,wght@0,300..700;1,300..700&family=Syncopate:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Outfit:wght@400..800&family=Cinzel:wght@400..800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
-              display: ['Playfair Display', 'serif'],
+              sans: ['var(--font-body)', 'Inter', 'sans-serif'],
+              display: ['var(--font-heading)', 'Outfit', 'Playfair Display', 'sans-serif'],
               grotesk: ['Space Grotesk', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
             },
@@ -314,13 +314,15 @@
         color: var(--color-primary) !important;
       }
 
-      /* Explicit Blockquote / Quote Styling for Milkdown */
+      /* Explicit Blockquote / Quote Styling for Milkdown (Italicized Sans-Serif Font) */
       .milkdown .editor blockquote,
       blockquote {
         border-left: 4px solid var(--color-accent) !important;
         padding: 0.6rem 1.25rem !important;
         margin: 1rem 0 !important;
+        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important;
         font-style: italic !important;
+        font-weight: 500 !important;
         color: var(--color-secondary) !important;
         background: rgba(198, 156, 109, 0.08) !important;
         border-radius: 0 0.75rem 0.75rem 0 !important;
@@ -328,6 +330,8 @@
 
       .milkdown .editor blockquote p,
       blockquote p {
+        font-family: 'Plus Jakarta Sans', 'Inter', sans-serif !important;
+        font-style: italic !important;
         margin: 0 !important;
         line-height: 1.6 !important;
       }

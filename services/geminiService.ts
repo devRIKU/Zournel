@@ -2,17 +2,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { AIProcessedInput, Priority } from "../types";
 
-// nano banana model name for image generation
-const imageModelName = 'gemini-2.5-flash-image';
+// Modern standard model names
+const imageModelName = 'gemini-3.1-flash-lite-image';
 
 export type AiActionType = 'PROOFREAD' | 'REWRITE' | 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE' | 'EXPAND';
 
 const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
   // Gracefully route models based on specialization requested:
-  // - Gemini 3.5 flash for polishing / summarizing and general insights
-  // - Gemini 3.5 flash lite for Todo AI & extraction tasks
-  if (model === 'gemini-3-flash-preview' || model === 'gemini-3.5-flash' || model === 'gemini-3.1-flash-lite' || model === 'gemini-3.5-flash-lite' || model === 'gemini-flash-lite') {
-    return type === 'POLISH' ? 'gemini-3.5-flash' : 'gemini-3.5-flash-lite';
+  // - Gemini 3.5 flash-lite (default) for fast tasks, extraction, and general processing
+  // - Gemini 3.6 flash for polishing / summarizing and general insights
+  // - Gemma 4 31b mapped to open weights model
+  if (!model) {
+    return type === 'POLISH' ? 'gemini-3.6-flash' : 'gemini-3.5-flash-lite';
+  }
+  if (model === 'gemma-4-31b-it') {
+    return 'gemma-2-27b-it';
   }
   return model;
 };
@@ -167,7 +171,7 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
   }
 };
 
-export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3.5-flash'): Promise<string> => {
+export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3.6-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
     if (!ai) {
@@ -188,7 +192,7 @@ export const generateJournalInsight = async (entryText: string, model: string = 
   }
 };
 
-export const editJournalText = async (text: string, type: AiActionType, model: string = 'gemini-3.5-flash'): Promise<string> => {
+export const editJournalText = async (text: string, type: AiActionType, model: string = 'gemini-3.6-flash'): Promise<string> => {
   try {
     const ai = getAiClient();
     if (!ai) {
@@ -239,6 +243,53 @@ export const generateCoverImage = async (context: string): Promise<string | null
       if (part.inlineData) {
         return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
       }
+    }
+    return null;
+  } catch (error) {
+    handleAiError(error);
+    return null;
+  }
+};
+
+export const detectMoodFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite'): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
+  try {
+    const ai = getAiClient();
+    if (!ai) {
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      return null;
+    }
+    const activeModel = routeModel(model, 'TODO');
+    
+    const cleanText = journalText.replace(/[#*`_~[\]()]/g, '').trim();
+    if (!cleanText || cleanText.length < 5) return null;
+
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        emoji: { type: Type.STRING, description: 'A single expressive emoji representing the emotional tone' },
+        label: { type: Type.STRING, description: 'A 1-2 word mood descriptor e.g. Happy, Peaceful, Inspired, Grateful, Anxious, Nostalgic' }
+      },
+      required: ['emoji', 'label']
+    };
+
+    const response = await ai.models.generateContent({
+      model: activeModel,
+      contents: `Analyze the emotional tone of this journal entry and choose the single best expressive emoji and a 1-2 word mood label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: responseSchema,
+      },
+    });
+
+    const text = response.text;
+    if (!text) return null;
+    const parsed = JSON.parse(cleanJsonString(text));
+    if (parsed.emoji && parsed.label) {
+      return {
+        emoji: parsed.emoji,
+        label: parsed.label,
+        fullMood: `${parsed.emoji} ${parsed.label}`
+      };
     }
     return null;
   } catch (error) {

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity } from 'lucide-react';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2 } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { 
   ResponsiveContainer, 
@@ -18,29 +18,72 @@ import {
 interface JournalViewProps {
   entries: JournalEntry[];
   onEdit: (entry: JournalEntry) => void;
+  onDeleteEntry?: (id: string) => void;
 }
 
 const TRUNCATE_LIMIT = 140;
 
-const MOOD_MAPPING: Record<string, { score: number; label: string; emoji: string; color: string; bg: string }> = {
-  'Happy': { score: 5, label: 'Happy', emoji: '😊', color: '#EAB308', bg: 'rgba(234, 179, 8, 0.1)' },
-  'Calm': { score: 4, label: 'Calm', emoji: '😌', color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
-  'Energetic': { score: 5, label: 'Energetic', emoji: '⚡', color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' },
-  'Reflective': { score: 3, label: 'Reflective', emoji: '😢', color: '#06B6D4', bg: 'rgba(6, 182, 212, 0.1)' },
-  'Stressed': { score: 2, label: 'Stressed', emoji: '🤯', color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
-  'Tense': { score: 1, label: 'Tense', emoji: '😠', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
-};
+export const MOOD_PRESETS = [
+  { label: 'Happy', emoji: '😊', score: 5, color: '#EAB308', bg: 'rgba(234, 179, 8, 0.1)' },
+  { label: 'Calm', emoji: '😌', score: 4, color: '#10B981', bg: 'rgba(16, 185, 129, 0.1)' },
+  { label: 'Energetic', emoji: '⚡', score: 5, color: '#F97316', bg: 'rgba(249, 115, 22, 0.1)' },
+  { label: 'Grateful', emoji: '🙏', score: 5, color: '#EC4899', bg: 'rgba(236, 72, 153, 0.1)' },
+  { label: 'Inspired', emoji: '💡', score: 4, color: '#8B5CF6', bg: 'rgba(139, 92, 246, 0.1)' },
+  { label: 'Focused', emoji: '🎯', score: 4, color: '#3B82F6', bg: 'rgba(59, 130, 246, 0.1)' },
+  { label: 'Proud', emoji: '🏆', score: 5, color: '#E11D48', bg: 'rgba(225, 29, 72, 0.1)' },
+  { label: 'Cozy', emoji: '☕', score: 4, color: '#D97706', bg: 'rgba(217, 119, 6, 0.1)' },
+  { label: 'Reflective', emoji: '💭', score: 3, color: '#06B6D4', bg: 'rgba(6, 182, 212, 0.1)' },
+  { label: 'Nostalgic', emoji: '🌊', score: 3, color: '#6366F1', bg: 'rgba(99, 102, 241, 0.1)' },
+  { label: 'Tired', emoji: '😴', score: 2, color: '#64748B', bg: 'rgba(100, 116, 139, 0.1)' },
+  { label: 'Anxious', emoji: '😰', score: 2, color: '#A855F7', bg: 'rgba(168, 85, 247, 0.1)' },
+  { label: 'Stressed', emoji: '🤯', score: 2, color: '#F43F5E', bg: 'rgba(244, 63, 94, 0.1)' },
+  { label: 'Sad', emoji: '😢', score: 1, color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.1)' },
+  { label: 'Tense', emoji: '😠', score: 1, color: '#EF4444', bg: 'rgba(239, 68, 68, 0.1)' },
+];
 
-const getMoodData = (moodStr?: string) => {
+const MOOD_MAPPING: Record<string, { score: number; label: string; emoji: string; color: string; bg: string }> = {};
+MOOD_PRESETS.forEach(p => {
+  MOOD_MAPPING[p.label] = p;
+});
+
+export const getMoodData = (moodStr?: string) => {
   if (!moodStr) return null;
-  const cleanStr = moodStr.toLowerCase();
-  
-  for (const [key, val] of Object.entries(MOOD_MAPPING)) {
-    if (cleanStr.includes(key.toLowerCase()) || cleanStr.includes(val.emoji)) {
-      return val;
+  const cleanStr = moodStr.trim();
+
+  // Direct preset check
+  for (const preset of MOOD_PRESETS) {
+    if (cleanStr.toLowerCase().includes(preset.label.toLowerCase()) || (preset.emoji && cleanStr.includes(preset.emoji))) {
+      return preset;
     }
   }
-  return { score: 3, label: moodStr, emoji: '💭', color: '#C69C6D', bg: 'rgba(198, 156, 109, 0.1)' };
+
+  // Custom mood parser (e.g. "🎨 Creative" or "Peaceful")
+  const emojiMatch = cleanStr.match(/(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u);
+  const emoji = emojiMatch ? emojiMatch[0] : '✨';
+  const label = cleanStr.replace(/(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u, '').trim() || cleanStr;
+
+  let hash = 0;
+  for (let i = 0; i < label.length; i++) {
+    hash = label.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  const color = `hsl(${hue}, 75%, 55%)`;
+  const bg = `hsla(${hue}, 75%, 55%, 0.12)`;
+
+  let score = 3.5;
+  const lower = label.toLowerCase();
+  if (lower.includes('great') || lower.includes('joy') || lower.includes('love') || lower.includes('awesome') || lower.includes('excited') || lower.includes('happy')) score = 5;
+  else if (lower.includes('good') || lower.includes('peace') || lower.includes('content') || lower.includes('chill') || lower.includes('calm')) score = 4;
+  else if (lower.includes('bad') || lower.includes('down') || lower.includes('angry') || lower.includes('sad')) score = 1;
+  else if (lower.includes('worry') || lower.includes('fear') || lower.includes('tired') || lower.includes('stress')) score = 2;
+
+  return {
+    score,
+    label: label || 'Custom',
+    emoji,
+    color,
+    bg
+  };
 };
 
 const CustomTooltip = ({ active, payload }: any) => {
@@ -66,7 +109,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => {
+export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
   
   const groupedEntries = useMemo(() => {
@@ -305,6 +348,20 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit }) => 
                           isHero ? 'md:col-span-2' : ''
                         }`}
                       >
+                        {onDeleteEntry && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (window.confirm("Are you sure you want to delete this memory?")) {
+                                onDeleteEntry(entry.id);
+                              }
+                            }}
+                            title="Delete Memory"
+                            className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-black/40 hover:bg-red-600/90 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 opacity-100 sm:opacity-0 group-hover:opacity-100 shadow-md"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                         {entry.image ? (
                           <div className={`${isHero ? 'h-80' : 'h-52'} w-full overflow-hidden relative`}>
                             <img 

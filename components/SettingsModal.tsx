@@ -12,9 +12,10 @@ interface SettingsModalProps {
 }
 
 const MODELS = [
-  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash', badge: 'Recommended', desc: 'Default for Polishing & Summarizing' },
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', badge: 'Fast', desc: 'Default for Todo & Extraction' },
-  { id: 'gemma-4-31b-it', label: 'Gemma 4', badge: 'Ultra', desc: 'Expert reasoning & coding' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', badge: 'Default', desc: 'Default for Tasks, Subtasks & Extraction' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', badge: 'Fast', desc: 'Lightweight & instant response model' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', badge: 'Recommended', desc: 'Default for Polishing, Summaries & Insights' },
+  { id: 'gemma-4-31b-it', label: 'Gemma 4 31B', badge: 'Open Model', desc: 'Open-weights reasoning model' },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
@@ -120,14 +121,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
-                    <Type className="w-4 h-4" /> Typography & Body Font
+                    <Type className="w-4 h-4" /> Headings & UI Font
                   </h3>
                   <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent font-semibold">
-                    Headings fixed to Playfair Display
+                    Display Styles
                   </span>
                 </div>
                 <p className="text-[11px] text-secondary/70 mb-4 leading-relaxed">
-                  Choose your preferred editor and body text font. Headings remain consistently styled in Playfair Display for classic editorial elegance.
+                  Customize the typography for titles, headings, subheadings, and key UI headers.
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+                  {[
+                    { id: 'syncopate', name: 'Syncopate', desc: 'Unique Display', previewStyle: { fontFamily: "'Syncopate', sans-serif" } },
+                    { id: 'playfair', name: 'Playfair', desc: 'Editorial Serif', previewStyle: { fontFamily: "'Playfair Display', serif" } },
+                    { id: 'space-grotesk', name: 'Space Grotesk', desc: 'Tech Display', previewStyle: { fontFamily: "'Space Grotesk', sans-serif" } },
+                    { id: 'outfit', name: 'Outfit', desc: 'Modern Display', previewStyle: { fontFamily: "'Outfit', sans-serif" } },
+                    { id: 'cormorant', name: 'Cormorant', desc: 'Graceful Serif', previewStyle: { fontFamily: "'Cormorant Garamond', serif" } },
+                    { id: 'cinzel', name: 'Cinzel', desc: 'Cinematic Display', previewStyle: { fontFamily: "'Cinzel', serif" } },
+                  ].map((hf) => {
+                    const isSelected = (settings.headingFontFamily || 'outfit') === hf.id;
+                    return (
+                      <button
+                        key={hf.id}
+                        onClick={() => onUpdateSettings({ ...settings, headingFontFamily: hf.id })}
+                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all duration-200 ${
+                          isSelected 
+                            ? 'border-accent bg-accent/10 text-primary shadow-xs' 
+                            : 'border-surface-highlight/70 bg-surface hover:bg-surface-highlight/50 text-secondary'
+                        }`}
+                      >
+                        <span className="text-sm font-bold text-primary truncate" style={hf.previewStyle}>
+                          {hf.name}
+                        </span>
+                        <span className="text-[10px] text-secondary/70 font-mono mt-0.5">
+                          {hf.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
+                    <Type className="w-4 h-4" /> Body & Editor Font
+                  </h3>
+                </div>
+                <p className="text-[11px] text-secondary/70 mb-4 leading-relaxed">
+                  Choose your preferred font for reading and writing journal entries and task text.
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
