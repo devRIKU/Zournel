@@ -30,13 +30,55 @@ const cleanJsonString = (str: string) => {
   return str.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-const getAiClient = () => {
-  const settingsStr = localStorage.getItem('mf_settings');
-  const apiKey = settingsStr ? JSON.parse(settingsStr).apiKey : '';
+const getAiClient = (apiKeyOverride?: string) => {
+  let apiKey = apiKeyOverride || '';
+
+  if (!apiKey) {
+    try {
+      const settingsStr = localStorage.getItem('mf_settings');
+      if (settingsStr) {
+        const parsed = JSON.parse(settingsStr);
+        if (parsed.apiKey && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
+          apiKey = parsed.apiKey.trim();
+        }
+      }
+    } catch (e) {
+      // Ignore JSON parse errors
+    }
+  }
+
+  if (!apiKey) {
+    apiKey = 
+      (typeof process !== 'undefined' && process.env ? (process.env.GEMINI_API_KEY || process.env.API_KEY) : '') ||
+      (typeof import.meta !== 'undefined' && import.meta.env ? (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY) : '') ||
+      (typeof window !== 'undefined' && ((window as any).GEMINI_API_KEY || (window as any).API_KEY)) ||
+      '';
+  }
+
   if (!apiKey) {
     return null;
   }
   return new GoogleGenAI({ apiKey });
+};
+
+const generateContentWithFallback = async (ai: GoogleGenAI, primaryModel: string, params: any) => {
+  const modelsToTry = [primaryModel, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
+  let lastError: any = null;
+
+  for (const modelName of uniqueModels) {
+    try {
+      const response = await ai.models.generateContent({
+        ...params,
+        model: modelName,
+      });
+      return response;
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Gemini generation failed for model ${modelName}, trying fallback model...`, err?.message || err);
+    }
+  }
+  throw lastError;
 };
 
 export const processUserInput = async (input: string, model: string = 'gemini-3.5-flash-lite'): Promise<AIProcessedInput> => {
@@ -251,11 +293,11 @@ export const generateCoverImage = async (context: string): Promise<string | null
   }
 };
 
-export const detectMoodFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite'): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
+export const detectMoodFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite', apiKeyOverride?: string): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
   try {
-    const ai = getAiClient();
+    const ai = getAiClient(apiKeyOverride);
     if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
+      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences or environment.");
       return null;
     }
     const activeModel = routeModel(model, 'TODO');
@@ -272,23 +314,43 @@ export const detectMoodFromJournal = async (journalText: string, model: string =
       required: ['emoji', 'label']
     };
 
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `Analyze the emotional tone of this journal entry and choose the single best expressive emoji and a 1-2 word mood label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-      },
-    });
+    let response: any = null;
+    try {
+      response = await generateContentWithFallback(ai, activeModel, {
+        contents: `Analyze the emotional tone of this journal entry and choose the single best expressive emoji and a 1-2 word mood label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: responseSchema,
+        },
+      });
+    } catch (err) {
+      console.warn("Structured mood detection failed, trying plain text fallback...", err);
+      response = await generateContentWithFallback(ai, activeModel, {
+        contents: `Analyze the emotional tone of this journal entry and return ONLY a single emoji followed by a 1-2 word mood label, e.g. "😊 Happy" or "😌 Peaceful".\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+      });
+    }
 
-    const text = response.text;
+    const text = response?.text;
     if (!text) return null;
-    const parsed = JSON.parse(cleanJsonString(text));
-    if (parsed.emoji && parsed.label) {
+
+    try {
+      const parsed = JSON.parse(cleanJsonString(text));
+      if (parsed.emoji && parsed.label) {
+        return {
+          emoji: parsed.emoji,
+          label: parsed.label,
+          fullMood: `${parsed.emoji} ${parsed.label}`
+        };
+      }
+    } catch (e) {
+      // Direct text parsing fallback if response wasn't JSON
+      const emojiMatch = text.match(/(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u);
+      const emoji = emojiMatch ? emojiMatch[0] : '✨';
+      const label = text.replace(/(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u, '').replace(/[^a-zA-Z0-9\s-]/g, '').trim() || 'Reflective';
       return {
-        emoji: parsed.emoji,
-        label: parsed.label,
-        fullMood: `${parsed.emoji} ${parsed.label}`
+        emoji,
+        label,
+        fullMood: `${emoji} ${label}`
       };
     }
     return null;

@@ -9,9 +9,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      // Prioritize the variable from loadEnv (local .env or Netlify env injection)
-      // This ensures process.env.API_KEY is replaced by the actual string value during build.
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY || ''),
+      // Prioritize the variable from loadEnv or process.env
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.API_KEY || process.env.GEMINI_API_KEY || process.env.API_KEY || ''),
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || env.GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY || ''),
     },
     build: {
       outDir: 'dist',
