@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, Sparkles } from 'lucide-react';
+import { Settings, Plus, Sparkles, BookOpen } from 'lucide-react';
 import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
 import { BottomNav } from './components/BottomNav';
 import { TodoView } from './components/TodoView';
@@ -349,9 +349,14 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-500 animate-fade-in">
       <header className="pt-12 px-8 pb-6 flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-primary tracking-tight leading-tight break-words">Zournel</h1>
-          <span className="text-accent italic font-grotesk text-sm">Reflect & Execute</span>
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-accent/15 text-accent rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
+            <BookOpen className="w-6 h-6 stroke-[2.5]" />
+          </div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-primary tracking-tight leading-tight break-words">Zournel</h1>
+            <span className="text-accent italic font-grotesk text-xs sm:text-sm font-semibold">Reflect & Execute</span>
+          </div>
         </div>
         <div className="flex gap-2">
            <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90 text-accent">
@@ -380,10 +385,10 @@ const App: React.FC = () => {
            <ProfileView profile={settings.profile} journalEntries={journalEntries} onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))} />
         </div>
       </main>
-      <div className={`fixed bottom-24 right-6 z-50 transition-opacity duration-300 ${activeTab === Tab.PROFILE ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      <div className={`fixed bottom-24 right-6 z-50 transition-opacity duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
         <button onClick={handlePlusClick} title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} className="w-16 h-16 bg-accent text-accent-fg rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"><Plus className="w-8 h-8" /></button>
       </div>
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {!isEditorOpen && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
       
       <JournalEditor 
         key={editingEntry ? editingEntry.id : 'new-entry'}

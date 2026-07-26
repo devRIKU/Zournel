@@ -188,12 +188,21 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         rect.right >= containerRect.left &&
         rect.left <= containerRect.right
       ) {
+        const isMobile = typeof window !== 'undefined' && (window.innerWidth < 768 || window.matchMedia('(pointer: coarse)').matches);
         let left = rect.left + rect.width / 2 - containerRect.left + editorContainerRef.current.scrollLeft;
-        let top = rect.top - containerRect.top + editorContainerRef.current.scrollTop - 48;
+        
+        // On mobile, position cursor bubble toolbar clear of native OS selection callout ribbons
+        let top = isMobile
+          ? rect.top - containerRect.top + editorContainerRef.current.scrollTop - 58
+          : rect.top - containerRect.top + editorContainerRef.current.scrollTop - 48;
 
-        if (left < 110) left = 110;
-        if (left > containerRect.width - 110) left = containerRect.width - 110;
-        if (top < 10) top = rect.bottom - containerRect.top + editorContainerRef.current.scrollTop + 8;
+        const paddingHorizontal = isMobile ? 120 : 110;
+        if (left < paddingHorizontal) left = paddingHorizontal;
+        if (left > containerRect.width - paddingHorizontal) left = containerRect.width - paddingHorizontal;
+        
+        if (top < 12) {
+          top = rect.bottom - containerRect.top + editorContainerRef.current.scrollTop + (isMobile ? 18 : 10);
+        }
 
         setBubbleMenuPos({ top, left });
         setSelectedText(text);
@@ -1278,75 +1287,86 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   top: `${bubbleMenuPos.top}px`,
                   left: `${bubbleMenuPos.left}px`,
                   transform: 'translateX(-50%)',
-                  zIndex: 60,
+                  zIndex: 120,
                 }}
-                className="bg-surface/95 backdrop-blur-2xl border border-accent/40 shadow-2xl rounded-2xl p-1 flex items-center gap-0.5 pointer-events-auto"
+                className="bg-surface/95 backdrop-blur-2xl border border-accent/40 shadow-2xl rounded-2xl p-1 flex items-center gap-0.5 pointer-events-auto touch-manipulation select-none max-w-[calc(100vw-24px)] overflow-x-auto no-scrollbar"
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => e.stopPropagation()}
               >
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleStrongCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="Bold"
                 >
                   <Bold className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleEmphasisCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="Italic"
                 >
                   <Italic className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleStrikethroughCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="Strikethrough"
                 >
                   <Strikethrough className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleInlineCodeCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="Inline Code"
                 >
                   <Code className="w-3.5 h-3.5" />
                 </button>
 
-                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5"></div>
+                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5 shrink-0"></div>
 
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInHeadingCommand.key, 1)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="H1"
                 >
                   <Heading1 className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInHeadingCommand.key, 2)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="H2"
                 >
                   <Heading2 className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInBulletListCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="Bullet List"
                 >
                   <List className="w-3.5 h-3.5" />
                 </button>
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInBlockquoteCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
                   title="Quote"
                 >
                   <Quote className="w-3.5 h-3.5" />
                 </button>
 
-                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5"></div>
+                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5 shrink-0"></div>
 
                 <button
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleAiAction('IMPROVE', selectedText)}
-                  className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-fg hover:bg-accent/90 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider active:scale-95 shadow-2xs"
+                  className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-fg hover:bg-accent/90 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider active:scale-95 shadow-2xs shrink-0"
                   title="Polish Selection with AI"
                 >
                   <Sparkles className="w-3 h-3" />
