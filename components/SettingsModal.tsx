@@ -130,12 +130,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 <p className="text-[11px] text-secondary/70 mb-4 leading-relaxed">
                   Customize the typography for titles, headings, subheadings, and key UI headers.
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 mb-8">
                   {[
-                    { id: 'syncopate', name: 'Syncopate', desc: 'Unique Display', previewStyle: { fontFamily: "'Syncopate', sans-serif" } },
+                    { id: 'syncopate', name: 'Syncopate', desc: 'Wide Display', previewStyle: { fontFamily: "'Syncopate', sans-serif", textTransform: 'uppercase' as const, letterSpacing: '-0.02em' } },
+                    { id: 'syne', name: 'Syne', desc: 'Avant-Garde', previewStyle: { fontFamily: "'Syne', sans-serif", fontWeight: 700 } },
+                    { id: 'outfit', name: 'Outfit', desc: 'Modern Display', previewStyle: { fontFamily: "'Outfit', sans-serif" } },
                     { id: 'playfair', name: 'Playfair', desc: 'Editorial Serif', previewStyle: { fontFamily: "'Playfair Display', serif" } },
                     { id: 'space-grotesk', name: 'Space Grotesk', desc: 'Tech Display', previewStyle: { fontFamily: "'Space Grotesk', sans-serif" } },
-                    { id: 'outfit', name: 'Outfit', desc: 'Modern Display', previewStyle: { fontFamily: "'Outfit', sans-serif" } },
                     { id: 'cormorant', name: 'Cormorant', desc: 'Graceful Serif', previewStyle: { fontFamily: "'Cormorant Garamond', serif" } },
                     { id: 'cinzel', name: 'Cinzel', desc: 'Cinematic Display', previewStyle: { fontFamily: "'Cinzel', serif" } },
                   ].map((hf) => {

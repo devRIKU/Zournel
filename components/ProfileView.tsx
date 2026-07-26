@@ -615,7 +615,7 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-display font-bold text-primary mb-2 tracking-tight text-center">{profile.name || 'Anonymous Creator'}</h1>
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-primary mb-2 tracking-tight text-center break-words">{profile.name || 'Anonymous Creator'}</h1>
         
         {profile.username && (
           <span className="text-xs font-mono text-accent bg-accent/10 border border-accent/20 px-3 py-1 rounded-full mb-6">

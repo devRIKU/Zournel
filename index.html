@@ -7,7 +7,7 @@
     <title>Zournel</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C69C6D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='7.5 18 16.5 6'/%3E%3Cpath d='m12 12 3 3-3 3'/%3E%3Cpath d='m12 6-3 3 3 3'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..700;1,300..700&family=Playfair+Display:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:ital,wght@0,300..700;1,300..700&family=Syncopate:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Outfit:wght@400..800&family=Cinzel:wght@400..800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..700;1,300..700&family=Playfair+Display:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:ital,wght@0,300..700;1,300..700&family=Syncopate:wght@400;700&family=Syne:wght@400..800&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Outfit:wght@400..800&family=Cinzel:wght@400..800&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -360,6 +360,43 @@
       html.dark input.border,
       html.dark textarea.border {
          border-color: rgba(255, 255, 255, 0.08) !important;
+      }
+
+      /* Responsive Display Typography & Syncopate Font Optimization */
+      .font-display {
+        font-family: var(--font-heading), 'Outfit', 'Playfair Display', sans-serif;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      /* Responsive kerning & tracking for Syncopate (Wide Upper Display Font) */
+      [data-heading-font="syncopate"] .font-display,
+      .font-syncopate {
+        letter-spacing: -0.02em;
+        line-height: 1.1;
+        text-transform: uppercase;
+      }
+      @media (min-width: 640px) {
+        [data-heading-font="syncopate"] .font-display,
+        .font-syncopate {
+          letter-spacing: 0.03em;
+          line-height: 1.15;
+        }
+      }
+      @media (min-width: 1024px) {
+        [data-heading-font="syncopate"] .font-display,
+        .font-syncopate {
+          letter-spacing: 0.07em;
+          line-height: 1.2;
+        }
+      }
+
+      /* Avant-garde & Cinematic Display tweaks */
+      [data-heading-font="syne"] .font-display {
+        letter-spacing: -0.02em;
+      }
+      [data-heading-font="cinzel"] .font-display {
+        letter-spacing: 0.04em;
       }
     </style>
   <script type="importmap">

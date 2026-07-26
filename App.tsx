@@ -211,6 +211,7 @@ const App: React.FC = () => {
     };
     const headingFontMap: Record<string, string> = {
       'syncopate': "'Syncopate', sans-serif",
+      'syne': "'Syne', sans-serif",
       'playfair': "'Playfair Display', serif",
       'space-grotesk': "'Space Grotesk', sans-serif",
       'outfit': "'Outfit', sans-serif",
@@ -221,6 +222,7 @@ const App: React.FC = () => {
     const selectedHeadingFont = headingFontMap[settings.headingFontFamily || 'outfit'] || "'Outfit', sans-serif";
     document.documentElement.style.setProperty('--font-body', selectedBodyFont);
     document.documentElement.style.setProperty('--font-heading', selectedHeadingFont);
+    document.documentElement.setAttribute('data-heading-font', settings.headingFontFamily || 'outfit');
   }, [settings.fontFamily, settings.headingFontFamily]);
 
   const handlePlusClick = () => {
@@ -348,7 +350,7 @@ const App: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-500 animate-fade-in">
       <header className="pt-12 px-8 pb-6 flex justify-between items-start">
         <div>
-          <h1 className="text-4xl font-display font-bold text-primary">Zournel</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-primary tracking-tight leading-tight break-words">Zournel</h1>
           <span className="text-accent italic font-grotesk text-sm">Reflect & Execute</span>
         </div>
         <div className="flex gap-2">

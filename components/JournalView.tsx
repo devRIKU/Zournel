@@ -254,7 +254,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                    <LineChart className="w-8 h-8 text-accent" />
                 )}
              </div>
-             <h2 className="text-5xl md:text-6xl font-display font-bold text-primary tracking-tighter">
+             <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-primary tracking-tight break-words">
                {subTab === 'timeline' ? 'Memories' : 'Reflections'}
              </h2>
           </div>
@@ -317,7 +317,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
              <div className="w-24 h-24 bg-surface-highlight rounded-[2rem] flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
                <Sparkles className="w-10 h-10 text-accent/20" />
              </div>
-             <p className="font-display text-4xl text-primary font-bold">A Clean Page</p>
+             <p className="font-display text-2xl sm:text-3xl md:text-4xl text-primary font-bold break-words">A Clean Page</p>
              <p className="font-sans text-secondary mt-4 max-w-xs mx-auto leading-relaxed opacity-40">
                Your story begins here. Capture a thought or a moment to build your archive of memories.
              </p>
@@ -326,8 +326,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           <div className="space-y-32">
             {groupedEntries.map(([dateLabel, dayEntries]) => (
               <section key={dateLabel} className="group/section animate-slide-up">
-                <div className="flex items-baseline gap-6 mb-12">
-                  <span className="text-3xl font-display font-bold text-primary group-hover/section:text-accent transition-colors duration-500">{dateLabel}</span>
+                <div className="flex items-baseline gap-4 sm:gap-6 mb-8 sm:mb-12">
+                  <span className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-primary group-hover/section:text-accent transition-colors duration-500 break-words">{dateLabel}</span>
                   <div className="h-px flex-grow bg-surface-highlight opacity-50"></div>
                 </div>
                 

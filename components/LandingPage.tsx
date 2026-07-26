@@ -48,7 +48,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
               <span className="text-[10px] sm:text-xs font-grotesk font-medium tracking-[0.2em] text-secondary uppercase">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
            </div>
            
-           <h1 className="text-5xl sm:text-6xl md:text-8xl font-display font-bold text-primary tracking-tight">
+           <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-display font-bold text-primary tracking-tight break-words leading-tight">
              {greeting}.
            </h1>
            <p className="text-lg sm:text-xl text-secondary font-light max-w-lg mx-auto leading-relaxed">

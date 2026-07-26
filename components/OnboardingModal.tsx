@@ -36,7 +36,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave, onSkip
              <Key className="w-8 h-8 text-accent-fg" />
           </div>
           
-          <h2 className="text-3xl font-display font-bold text-center text-primary mb-2">Welcome to Zournel</h2>
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-center text-primary mb-2 break-words">Welcome to Zournel</h2>
           <p className="text-center text-secondary text-sm leading-relaxed mb-8">
             Zournel can optionally connect to Google Gemini for AI insights. You can enter an API key now, or skip this step and add it later in Preferences.
           </p>
