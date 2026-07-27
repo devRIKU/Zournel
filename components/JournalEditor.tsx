@@ -27,7 +27,7 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, detectMoodFromJournal, AiActionType } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType, generateAutoTitle, extractAutoTitle } from '../services/geminiService';
 
 const PRESET_MOODS = [
   { emoji: '😊', label: 'Happy' },
@@ -50,9 +50,10 @@ const PRESET_MOODS = [
 interface JournalEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean) => void;
+  onSave: (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean, title?: string) => void;
   onDelete?: (id: string) => void;
   initialContent?: string;
+  initialTitle?: string;
   initialImage?: string;
   initialId?: string;
   initialMood?: string;
@@ -138,9 +139,11 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
 });
 
 export const JournalEditor: React.FC<JournalEditorProps> = ({ 
-  isOpen, onClose, onSave, onDelete, initialContent = '', initialImage, initialId, initialMood, selectedModel 
+  isOpen, onClose, onSave, onDelete, initialContent = '', initialTitle = '', initialImage, initialId, initialMood, selectedModel 
 }) => {
   const [content, setContent] = useState(() => initialContent);
+  const [title, setTitle] = useState<string>(() => initialTitle || extractAutoTitle(initialContent || ''));
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
   const [showMoodMenu, setShowMoodMenu] = useState(false);
@@ -306,6 +309,21 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   }, [isOpen, initialContent, initialImage, initialMood]);
 
+  const handleAutoGenerateTitle = async () => {
+    if (!content || content.trim().length < 5) return;
+    setIsGeneratingTitle(true);
+    try {
+      const aiTitle = await generateAutoTitle(content, selectedModel);
+      if (aiTitle) {
+        setTitle(aiTitle);
+      }
+    } catch (e) {
+      console.error("Failed auto title generation", e);
+    } finally {
+      setIsGeneratingTitle(false);
+    }
+  };
+
   // Debounced Auto-Save Effect
   useEffect(() => {
     if (!isOpen) return;
@@ -322,7 +340,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
     autoSaveTimerRef.current = setTimeout(() => {
       setSaveStatus('saving');
-      onSave(content, image, mood, true);
+      const activeTitle = title.trim() || extractAutoTitle(content);
+      onSave(content, image, mood, true, activeTitle);
       setTimeout(() => {
         setSaveStatus('saved');
         setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -332,7 +351,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [content, image, mood, isOpen, onSave]);
+  }, [content, image, mood, title, isOpen, onSave]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
@@ -652,7 +671,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         setIsAutoDetectingMood(false);
       }
     }
-    onSave(content, image, finalMood);
+    const finalTitle = title.trim() || extractAutoTitle(content);
+    onSave(content, image, finalMood, false, finalTitle);
     onClose();
   };
 

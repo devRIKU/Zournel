@@ -359,3 +359,85 @@ export const detectMoodFromJournal = async (journalText: string, model: string =
     return null;
   }
 };
+
+export const extractAutoTitle = (journalText: string): string => {
+  if (!journalText || !journalText.trim()) return 'Untitled Memory';
+  
+  // 1. Check if there's a markdown heading like "# My Heading" or "## Title"
+  const headingMatch = journalText.match(/^#+\s+(.+)$/m);
+  if (headingMatch && headingMatch[1].trim()) {
+    const title = headingMatch[1].replace(/[*_~`]/g, '').trim();
+    if (title.length > 0) return title.slice(0, 60);
+  }
+
+  // 2. Strip markdown elements and clean up line breaks
+  const clean = journalText
+    .replace(/^#+\s+/gm, '') 
+    .replace(/!\[.*?\]\(.*?\)/g, '') 
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1') 
+    .replace(/[*_~`>]/g, '') 
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!clean) return 'Untitled Memory';
+
+  // Take the first sentence if available and reasonable length
+  const firstSentence = clean.split(/[.!?]\s+/)[0].trim();
+  if (firstSentence && firstSentence.length >= 3 && firstSentence.length <= 50) {
+    return firstSentence;
+  }
+
+  // Otherwise take first 6 words
+  const words = clean.split(/\s+/).slice(0, 6);
+  if (words.length > 0) {
+    const titleCandidate = words.join(' ');
+    if (clean.length > titleCandidate.length) {
+      return titleCandidate + '...';
+    }
+    return titleCandidate;
+  }
+
+  return 'Untitled Memory';
+};
+
+export const generateAutoTitle = async (
+  journalText: string, 
+  model: string = 'gemini-3.5-flash-lite', 
+  apiKeyOverride?: string
+): Promise<string> => {
+  try {
+    const fallbackTitle = extractAutoTitle(journalText);
+    const ai = getAiClient(apiKeyOverride);
+    if (!ai) {
+      return fallbackTitle;
+    }
+
+    const cleanText = journalText.replace(/[#*`_~[\]()]/g, '').trim();
+    if (!cleanText || cleanText.length < 10) {
+      return fallbackTitle;
+    }
+
+    const activeModel = routeModel(model, 'TODO');
+
+    const response = await ai.models.generateContent({
+      model: activeModel,
+      contents: `You are an expert editor for a personal journal blog. Generate a short, catchy, poetic, or reflective title (between 3 and 6 words) that captures the core essence or main theme of this entry.
+Rules:
+- DO NOT use generic titles like "Journal Entry", "Daily Thoughts", or "My Reflection".
+- Return ONLY the title text. No quotes, no markdown, no leading labels.
+
+Journal Entry:
+"${cleanText.slice(0, 1500)}"`,
+    });
+
+    const titleText = response.text?.trim().replace(/^["']|["']$/g, '').replace(/[*_~`#]/g, '') || '';
+    if (titleText && titleText.length >= 2 && titleText.length <= 70) {
+      return titleText;
+    }
+    return fallbackTitle;
+  } catch (error) {
+    handleAiError(error);
+    return extractAutoTitle(journalText);
+  }
+};
+

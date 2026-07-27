@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2 } from 'lucide-react';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2 } from 'lucide-react';
 import { JournalEntry } from '../types';
+import { extractAutoTitle, generateAutoTitle } from '../services/geminiService';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -19,6 +20,8 @@ interface JournalViewProps {
   entries: JournalEntry[];
   onEdit: (entry: JournalEntry) => void;
   onDeleteEntry?: (id: string) => void;
+  onRenameEntry?: (id: string, newTitle: string) => void;
+  selectedModel?: string;
 }
 
 const TRUNCATE_LIMIT = 140;
@@ -109,8 +112,42 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry }) => {
+export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, selectedModel }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
+  const [renamingEntry, setRenamingEntry] = useState<JournalEntry | null>(null);
+  const [renamingTitleInput, setRenamingTitleInput] = useState('');
+  const [isGeneratingAutoTitle, setIsGeneratingAutoTitle] = useState(false);
+
+  const openRenameModal = (entry: JournalEntry) => {
+    setRenamingEntry(entry);
+    setRenamingTitleInput(entry.title || extractAutoTitle(entry.content));
+  };
+
+  const handleAutoTitleForRenaming = async () => {
+    if (!renamingEntry) return;
+    setIsGeneratingAutoTitle(true);
+    try {
+      const aiTitle = await generateAutoTitle(renamingEntry.content, selectedModel);
+      if (aiTitle) {
+        setRenamingTitleInput(aiTitle);
+      } else {
+        setRenamingTitleInput(extractAutoTitle(renamingEntry.content));
+      }
+    } catch (err) {
+      setRenamingTitleInput(extractAutoTitle(renamingEntry.content));
+    } finally {
+      setIsGeneratingAutoTitle(false);
+    }
+  };
+
+  const handleSaveRename = () => {
+    if (!renamingEntry) return;
+    const finalTitle = renamingTitleInput.trim() || extractAutoTitle(renamingEntry.content);
+    if (onRenameEntry) {
+      onRenameEntry(renamingEntry.id, finalTitle);
+    }
+    setRenamingEntry(null);
+  };
   
   const groupedEntries = useMemo(() => {
     const groups: Record<string, JournalEntry[]> = {};
@@ -232,6 +269,14 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
     return stripped.slice(0, TRUNCATE_LIMIT) + '...';
   };
 
+  const getEntryStats = (content: string) => {
+    if (!content) return { words: 0, readTime: 1 };
+    const clean = content.replace(/[*_~`#]/g, '').trim();
+    const words = clean ? clean.split(/\s+/).filter(Boolean).length : 0;
+    const readTime = Math.max(1, Math.ceil(words / 180));
+    return { words, readTime };
+  };
+
   const yAxisFormatter = (tick: number) => {
     if (tick === 5) return '😊';
     if (tick === 4) return '😌';
@@ -335,16 +380,26 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                   {dayEntries.map((entry, idx) => {
                     const isHero = dayEntries.length === 1 || (dayEntries.length > 2 && idx === 0);
                     const timeString = entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                    const displayTitle = entry.title || extractAutoTitle(entry.content);
+                    const { words, readTime } = getEntryStats(entry.content);
                     
                     return (
-                      <motion.button 
+                      <motion.div 
                         key={entry.id} 
                         onClick={() => onEdit(entry)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            onEdit(entry);
+                          }
+                        }}
                         title="View & Edit Memory"
                         whileHover={{ y: -6, scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className={`group relative flex flex-col text-left bg-surface rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-2xl overflow-hidden outline-none ${
+                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-2xl hover:border-accent/30 transition-all duration-300 overflow-hidden outline-none cursor-pointer ${
                           isHero ? 'md:col-span-2' : ''
                         }`}
                       >
@@ -357,59 +412,108 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                               }
                             }}
                             title="Delete Memory"
-                            className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-black/40 hover:bg-red-600/90 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 opacity-100 sm:opacity-0 group-hover:opacity-100 shadow-md"
+                            className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-black/50 hover:bg-red-600/90 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 opacity-100 sm:opacity-0 group-hover:opacity-100 shadow-md"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}
+
                         {entry.image ? (
-                          <div className={`${isHero ? 'h-80' : 'h-52'} w-full overflow-hidden relative`}>
+                          <div className={`${isHero ? 'h-64 sm:h-80' : 'h-52'} w-full overflow-hidden relative bg-surface-highlight`}>
                             <img 
                               src={entry.image} 
                               alt="cover" 
-                              className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110" 
+                              className="w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-108" 
                               referrerPolicy="no-referrer"
                             />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                            <div className="absolute top-6 left-6 flex gap-2">
-                               <div className="px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-white text-[9px] font-bold tracking-widest uppercase">
-                                 {timeString}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
+                            
+                            <div className="absolute top-5 left-5 right-14 flex items-center justify-between gap-2 z-10 flex-wrap">
+                               <div className="flex items-center gap-2">
+                                 <div className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full border border-white/20 text-white text-[10px] font-bold tracking-widest uppercase">
+                                   {timeString}
+                                 </div>
+                                 <div className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full border border-white/20 text-white/90 text-[10px] font-mono">
+                                   {readTime} min read
+                                 </div>
                                </div>
+
+                               {entry.mood && (
+                                 <div className="px-3 py-1 bg-accent/90 backdrop-blur-md text-accent-fg font-bold text-[10px] uppercase tracking-wider rounded-full shadow-md">
+                                   {entry.mood}
+                                 </div>
+                               )}
                             </div>
                           </div>
                         ) : (
-                          <div className="p-8 pb-0">
-                             <div className="flex items-center gap-2 mb-4 opacity-50">
-                                <ImageIcon className="w-3 h-3 text-accent" />
-                                <span className="text-[9px] font-grotesk font-bold uppercase tracking-wider text-secondary">
-                                  {timeString}
+                          <div className="pt-6 px-6 sm:px-8 flex items-center justify-between gap-2 border-b border-surface-highlight/40 pb-4">
+                             <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-accent/10 rounded-lg text-accent">
+                                  <BookOpen className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-secondary">
+                                  {timeString} • {readTime} min read
                                 </span>
                              </div>
-                          </div>
-                        )}
 
-                        <div className="p-10 flex-1 flex flex-col">
-                          <div className="mb-8">
                              {entry.mood && (
-                               <span className="inline-block text-[9px] font-grotesk font-bold uppercase tracking-widest text-accent mb-4 px-2.5 py-0.5 bg-accent/5 rounded-lg border border-accent/10 transition-colors group-hover:bg-accent/10">
+                               <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent px-3 py-1 bg-accent/10 rounded-full border border-accent/20">
                                  {entry.mood}
                                </span>
                              )}
-                             <p className="font-sans text-xl leading-relaxed text-primary/70 line-clamp-3 group-hover:text-primary transition-colors duration-300">
+                          </div>
+                        )}
+
+                        <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
+                          <div>
+                             {/* Auto Title & Rename Option */}
+                             <div className="flex items-start justify-between gap-3 mb-3">
+                               <h3 className="text-xl sm:text-2xl font-display font-bold text-primary group-hover:text-accent transition-colors duration-300 leading-snug tracking-tight line-clamp-2">
+                                 {displayTitle}
+                               </h3>
+                               {onRenameEntry && (
+                                 <button
+                                   type="button"
+                                   onClick={(e) => {
+                                     e.stopPropagation();
+                                     openRenameModal(entry);
+                                   }}
+                                   title="Rename Title"
+                                   className="p-2 text-secondary/70 hover:text-accent hover:bg-accent/15 rounded-xl transition-all shrink-0 active:scale-90"
+                                 >
+                                   <Pencil className="w-4 h-4" />
+                                 </button>
+                               )}
+                             </div>
+
+                             {/* Content Excerpt */}
+                             <p className="font-sans text-sm sm:text-base leading-relaxed text-primary/75 line-clamp-3 mb-6">
                                {stripMarkdownAndTruncate(entry.content)}
                              </p>
                           </div>
 
-                          {entry.aiInsight && (
-                            <div className="mt-auto pt-8 border-t border-surface-highlight flex gap-4 transition-all duration-300">
-                              <Sparkles className="w-4 h-4 text-accent shrink-0 mt-1" />
-                              <p className="font-display text-[15px] text-primary/80 leading-relaxed italic text-left">
-                                {entry.aiInsight}
-                              </p>
+                          <div>
+                            {entry.aiInsight && (
+                              <div className="mb-4 p-3.5 sm:p-4 bg-accent/5 group-hover:bg-accent/10 rounded-2xl border border-accent/15 flex items-start gap-3 transition-colors duration-300">
+                                <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                                <p className="font-display text-xs sm:text-sm text-primary/85 leading-relaxed italic text-left">
+                                  "{entry.aiInsight}"
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="pt-3 border-t border-surface-highlight/60 flex items-center justify-between text-xs text-secondary/70">
+                              <span className="font-mono text-[10px] uppercase tracking-wider opacity-70">
+                                {words} words
+                              </span>
+                              <div className="flex items-center gap-1 font-bold text-accent text-xs group-hover:translate-x-1 transition-transform">
+                                <span>Read Memory</span>
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </div>
                             </div>
-                          )}
+                          </div>
                         </div>
-                      </motion.button>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -665,6 +769,89 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           </div>
         )}
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Rename Memory Title Modal */}
+      <AnimatePresence>
+        {renamingEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-surface rounded-3xl border border-surface-highlight shadow-2xl p-6 sm:p-8 max-w-md w-full relative overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-accent/15 text-accent rounded-xl border border-accent/20">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-display font-bold text-primary">Rename Memory</h3>
+                    <p className="text-xs text-secondary">Custom title (or Auto Title with AI)</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setRenamingEntry(null)} 
+                  className="p-2 rounded-full hover:bg-surface-highlight text-secondary hover:text-primary transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4 my-6">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Memory Title</label>
+                  <input 
+                    type="text" 
+                    value={renamingTitleInput} 
+                    onChange={(e) => setRenamingTitleInput(e.target.value)} 
+                    placeholder="Enter memory title..."
+                    className="w-full px-4 py-3 bg-bg border border-surface-highlight rounded-2xl text-primary font-display font-bold text-base outline-none focus:border-accent transition-all"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveRename();
+                      }
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAutoTitleForRenaming}
+                  disabled={isGeneratingAutoTitle}
+                  className="w-full py-2.5 px-4 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/25 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition-all disabled:opacity-50 active:scale-98"
+                >
+                  {isGeneratingAutoTitle ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  <span>Auto Title with AI</span>
+                </button>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2 border-t border-surface-highlight/50">
+                <button
+                  type="button"
+                  onClick={() => setRenamingEntry(null)}
+                  className="px-5 py-2.5 rounded-full text-xs font-bold text-secondary hover:text-primary transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveRename}
+                  className="px-6 py-2.5 rounded-full bg-accent text-accent-fg text-xs font-bold hover:bg-accent/90 shadow-md transition-all active:scale-95"
+                >
+                  Save Title
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

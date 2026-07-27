@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Sun, Moon, Cloud, CheckCircle, BookOpen, Coffee, Sparkles } from 'lucide-react';
 import { Task, JournalEntry } from '../types';
+import { extractAutoTitle } from '../services/geminiService';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -115,7 +116,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
                 {recentEntry ? (
                    <>
                      <div className="flex-grow">
-                        <p className="text-xl font-display leading-relaxed line-clamp-3 italic opacity-90 mb-4">
+                        <h4 className="text-lg font-display font-bold text-primary mb-2 line-clamp-1">
+                           {recentEntry.title || extractAutoTitle(recentEntry.content)}
+                        </h4>
+                        <p className="text-sm font-sans leading-relaxed line-clamp-2 opacity-80 mb-4">
                            "{recentEntry.content.replace(/[#*`]/g, '').slice(0, 100)}..."
                         </p>
                      </div>

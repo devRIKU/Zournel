@@ -11,7 +11,7 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { LandingPage } from './components/LandingPage';
 import { AddModal } from './components/AddModal';
 import { ProfileView, PublicProfileView } from './components/ProfileView';
-import { generateJournalInsight, extractTasksFromJournal } from './services/geminiService';
+import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, extractAutoTitle } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
   'theme-cozy-light', 'theme-cozy-dark', 'theme-evergreen-light', 'theme-evergreen-dark', 
@@ -261,14 +261,19 @@ const App: React.FC = () => {
     
     if (journal) {
        const entryId = Math.random().toString(36).substr(2, 9);
+       const autoTitle = extractAutoTitle(journal);
        const newEntry: JournalEntry = {
           id: entryId,
           content: journal,
+          title: autoTitle,
           mood: mood || undefined,
           createdAt: Date.now(),
           aiInsight: mood ? `Feeling ${mood}` : undefined
        };
        setJournalEntries(prev => [newEntry, ...prev]);
+       generateAutoTitle(journal, settings.model).then(aiTitle => {
+         if (aiTitle) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, title: aiTitle } : e));
+       });
        // Generate better insight in background
        generateJournalInsight(journal, settings.model).then(insight => {
          if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
@@ -280,16 +285,36 @@ const App: React.FC = () => {
     setJournalEntries(prev => prev.filter(e => e.id !== id));
   };
 
-  const saveJournalEntry = (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean) => {
+  const renameJournalEntry = (id: string, newTitle: string) => {
+    setJournalEntries(prev => prev.map(e => e.id === id ? { ...e, title: newTitle } : e));
+  };
+
+  const saveJournalEntry = (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean, title?: string) => {
     let entryId = editingEntry?.id;
     let isNew = false;
     
+    const computedTitle = title?.trim() || extractAutoTitle(content);
+
     if (entryId) {
-      setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, content, image, mood: mood !== undefined ? mood : e.mood } : e));
+      setJournalEntries(prev => prev.map(e => e.id === entryId ? { 
+        ...e, 
+        content, 
+        image, 
+        title: computedTitle, 
+        mood: mood !== undefined ? mood : e.mood 
+      } : e));
     } else {
       isNew = true;
       entryId = Math.random().toString(36).substr(2, 9);
-      const newEntry: JournalEntry = { id: entryId, content, image, mood, createdAt: Date.now(), tasksExtracted: false };
+      const newEntry: JournalEntry = { 
+        id: entryId, 
+        content, 
+        image, 
+        title: computedTitle, 
+        mood, 
+        createdAt: Date.now(), 
+        tasksExtracted: false 
+      };
       setJournalEntries(prev => [newEntry, ...prev]);
       if (isAutoSave) {
         setEditingEntry(newEntry);
@@ -300,6 +325,12 @@ const App: React.FC = () => {
         generateJournalInsight(content, settings.model).then(insight => {
             if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
         });
+
+        if (!title || title.trim() === 'Untitled Memory' || title.trim() === 'A Quiet Moment') {
+          generateAutoTitle(content, settings.model).then(aiTitle => {
+            if (aiTitle) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, title: aiTitle } : e));
+          });
+        }
 
         const entry = journalEntries.find(e => e.id === entryId);
         if (isNew || (entry && !entry.tasksExtracted)) {
@@ -379,7 +410,13 @@ const App: React.FC = () => {
             />
         </div>
         <div className={`transition-all duration-300 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
-           <JournalView entries={journalEntries} onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} onDeleteEntry={deleteJournalEntry} />
+           <JournalView 
+             entries={journalEntries} 
+             onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} 
+             onDeleteEntry={deleteJournalEntry} 
+             onRenameEntry={renameJournalEntry}
+             selectedModel={settings.model}
+           />
         </div>
         <div className={`transition-all duration-300 ${activeTab === Tab.PROFILE ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <ProfileView profile={settings.profile} journalEntries={journalEntries} onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))} />
@@ -397,6 +434,7 @@ const App: React.FC = () => {
         onSave={saveJournalEntry} 
         onDelete={deleteJournalEntry}
         initialId={editingEntry?.id}
+        initialTitle={editingEntry?.title}
         initialContent={editingEntry?.content} 
         initialImage={editingEntry?.image} 
         initialMood={editingEntry?.mood}

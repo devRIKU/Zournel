@@ -7,6 +7,7 @@ import {
   MessageSquare, Edit3, Shield, BookOpen, Layers, Zap, X
 } from 'lucide-react';
 import { getLocalUserId, setLocalUserId } from '../services/authService';
+import { extractAutoTitle } from '../services/geminiService';
 
 interface ProfileViewProps {
   profile: UserProfile | undefined;
@@ -359,7 +360,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ profile, journalEntrie
                             {isSharedOnProfile && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                           </div>
                           <span className="text-xs sm:text-sm font-bold text-primary truncate max-w-[220px]">
-                            {entry.title || new Date(entry.createdAt).toLocaleDateString()}
+                            {entry.title || extractAutoTitle(entry.content)}
                           </span>
                         </div>
 
