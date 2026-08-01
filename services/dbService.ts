@@ -57,3 +57,42 @@ export const getSharedEntriesForUsername = async (username: string) => {
   });
   return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
+
+export const syncMemoriesToCloud = async (
+  userIdentifier: string, 
+  entries: JournalEntry[], 
+  extraInfo?: { googleEmail?: string; deviceKey?: string }
+) => {
+  if (!userIdentifier) return;
+  const syncRef = doc(db, 'user_memories', userIdentifier);
+  await setDoc(syncRef, {
+    entries,
+    lastSyncedAt: Date.now(),
+    deviceKey: extraInfo?.deviceKey || getLocalUserId(),
+    googleEmail: extraInfo?.googleEmail || null
+  }, { merge: true });
+};
+
+export const fetchMemoriesFromCloud = async (userIdentifier: string): Promise<JournalEntry[] | null> => {
+  if (!userIdentifier) return null;
+  const syncRef = doc(db, 'user_memories', userIdentifier);
+  const snapshot = await getDoc(syncRef);
+  if (snapshot.exists()) {
+    const data = snapshot.data();
+    if (Array.isArray(data.entries)) {
+      return data.entries as JournalEntry[];
+    }
+  }
+  return null;
+};
+
+export const exportMemoriesAsJSON = (entries: JournalEntry[]) => {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(entries, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `zournel-memories-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+};
+

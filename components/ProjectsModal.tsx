@@ -91,7 +91,7 @@ export const ProjectsModal: React.FC<ProjectsModalProps> = ({ isOpen, onClose })
                   href={repo.html_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group block p-6 bg-surface border border-surface-highlight rounded-[1.5rem] hover:border-accent/50 hover:shadow-lg transition-all duration-300 relative overflow-hidden"
+                  className="group block p-6 bg-surface border border-surface-highlight rounded-[1.5rem] hover:border-accent/50 hover:shadow-lg transition duration-300 relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
                     <ExternalLink className="w-5 h-5 text-accent" />

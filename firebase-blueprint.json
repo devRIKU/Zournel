@@ -65,6 +65,30 @@
         "update": "request.resource.data.ownerId == resource.data.ownerId",
         "delete": "true"
       }
+    },
+    "user_memories": {
+      "__description__": "User synced memories backup document",
+      "__id__": "userIdentifier",
+      "entries": {
+        "type": "array"
+      },
+      "lastSyncedAt": {
+        "type": "number"
+      },
+      "deviceKey": {
+        "type": "string",
+        "optional": true
+      },
+      "googleEmail": {
+        "type": "string",
+        "optional": true
+      },
+      "__security__": {
+        "read": "true",
+        "create": "true",
+        "update": "true",
+        "delete": "true"
+      }
     }
   }
 }

@@ -707,14 +707,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           alt="Cover" 
           onLoad={() => setImgLoading(false)}
           onError={() => { setImgError(true); setImgLoading(false); }}
-          className={`w-full h-full object-cover transition-all duration-700 ${imgLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`} 
+          className={`w-full h-full object-cover transition duration-700 ${imgLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`} 
         />
         
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-bg"></div>
         
         <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-center text-white z-10">
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all active:scale-90" title="Back">
+            <button onClick={onClose} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition active:scale-[0.97]" title="Back">
               <ArrowLeft className="w-5 h-5 md:w-6 h-6" />
             </button>
             {/* Auto-Save Status Indicator */}
@@ -745,7 +745,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           <div className="flex items-center gap-2 md:gap-3">
              <button 
                 onClick={handleRandomCover}
-                className="flex items-center gap-2 px-3 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white active:scale-95"
+                className="flex items-center gap-2 px-3 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white active:scale-[0.97]"
                 title="Random Cover Photo"
              >
                 <Shuffle className="w-3.5 h-3.5 md:w-4 h-4" />
@@ -754,7 +754,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
              <button 
                 onClick={() => setShowGallery(true)}
-                className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition-all font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
+                className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
                 title="Change Cover"
              >
                 <LayoutTemplate className="w-3.5 h-3.5 md:w-4 h-4" />
@@ -769,14 +769,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       onClose();
                     }
                   }}
-                  className="p-2 md:p-2.5 bg-red-500/20 hover:bg-red-600/90 text-white backdrop-blur-md rounded-full transition-all active:scale-90 border border-red-500/30"
+                  className="p-2 md:p-2.5 bg-red-500/20 hover:bg-red-600/90 text-white backdrop-blur-md rounded-full transition active:scale-[0.97] border border-red-500/30"
                   title="Delete Memory"
                >
                   <Trash2 className="w-4 h-4" />
                </button>
              )}
 
-             <button onClick={handleSave} className="flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 bg-accent text-accent-fg rounded-full hover:bg-accent/90 shadow-lg transition-all active:scale-95 font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest">
+             <button onClick={handleSave} className="flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 bg-accent text-accent-fg rounded-full hover:bg-accent/90 shadow-lg transition active:scale-[0.97] font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest">
                 <Save className="w-3.5 h-3.5 md:w-4 h-4" />
                 <span>Save</span>
              </button>
@@ -810,7 +810,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                         handleRandomCover();
                         setShowGallery(false);
                       }}
-                      className="flex items-center gap-2 px-4 py-2 bg-accent/15 text-accent border border-accent/30 rounded-xl hover:bg-accent/25 transition-all text-xs font-bold uppercase tracking-wider"
+                      className="flex items-center gap-2 px-4 py-2 bg-accent/15 text-accent border border-accent/30 rounded-xl hover:bg-accent/25 transition text-xs font-bold uppercase tracking-wider"
                     >
                       <Shuffle className="w-4 h-4" />
                       <span>Surprise Me</span>
@@ -829,7 +829,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                           <button 
                             key={idx}
                             onClick={() => { setImage(url); setShowGallery(false); }}
-                            className={`relative aspect-video rounded-2xl overflow-hidden group border-2 transition-all ${image === url ? 'border-accent ring-4 ring-accent/10 scale-95' : 'border-transparent hover:border-surface-highlight hover:scale-[1.02]'}`}
+                            className={`relative aspect-video rounded-2xl overflow-hidden group border-2 transition ${image === url ? 'border-accent ring-4 ring-accent/10 scale-95' : 'border-transparent hover:border-surface-highlight hover:scale-[1.02]'}`}
                           >
                             <img 
                               src={url} 
@@ -903,14 +903,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <div className="p-8 border-t border-surface-highlight flex gap-4 bg-surface-highlight/10">
                  <button 
                     onClick={discardAiPreview}
-                    className="flex-1 py-4 px-6 rounded-2xl border border-surface-highlight text-secondary font-bold text-xs uppercase tracking-widest hover:bg-surface-highlight transition-all active:scale-95 flex items-center justify-center gap-2"
+                    className="flex-1 py-4 px-6 rounded-2xl border border-surface-highlight text-secondary font-bold text-xs uppercase tracking-widest hover:bg-surface-highlight transition active:scale-[0.97] flex items-center justify-center gap-2"
                  >
                     <XCircle className="w-4 h-4" />
                     Discard
                  </button>
                  <button 
                     onClick={applyAiPreview}
-                    className="flex-[2] py-4 px-6 rounded-2xl bg-accent text-accent-fg font-bold text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition-all active:scale-95 flex items-center justify-center gap-2"
+                    className="flex-[2] py-4 px-6 rounded-2xl bg-accent text-accent-fg font-bold text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition active:scale-[0.97] flex items-center justify-center gap-2"
                  >
                     <CheckCircle className="w-4 h-4" />
                     Apply Changes
@@ -982,7 +982,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
             <button 
               onClick={() => setShowMoodMenu(!showMoodMenu)}
-              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition-all border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
               title="Add current emotional state or mood"
             >
               {isAutoDetectingMood ? (
@@ -1010,7 +1010,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-3 z-50 flex flex-col gap-2.5 max-h-[80vh] overflow-y-auto no-scrollbar"
+                  className="absolute right-0 top-full mt-2 w-64 origin-top-right sm:w-72 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-3 z-50 flex flex-col gap-2.5 max-h-[80vh] overflow-y-auto no-scrollbar"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between pb-2 border-b border-surface-highlight/50">
@@ -1033,7 +1033,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   <button 
                     onClick={() => handleAutoDetectMood(true)}
                     disabled={isAutoDetectingMood}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left ${
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl border transition text-left ${
                       autoMoodActive || mood === '✨ Auto' 
                         ? 'bg-accent/15 border-accent text-accent font-semibold shadow-xs' 
                         : 'bg-accent/5 border-accent/20 hover:bg-accent/10 text-primary'
@@ -1068,7 +1068,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                               setAutoMoodActive(false);
                               setShowMoodMenu(false);
                             }} 
-                            className={`flex flex-col items-center justify-center p-2 rounded-xl text-center transition-all ${
+                            className={`flex flex-col items-center justify-center p-2 rounded-xl text-center transition ${
                               isSelected 
                                 ? 'bg-accent text-accent-fg font-bold scale-105 shadow-sm' 
                                 : 'bg-surface-highlight/30 hover:bg-surface-highlight text-primary'
@@ -1113,7 +1113,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <button 
               onClick={() => !isProcessing && setShowAiMenu(!showAiMenu)}
               disabled={isProcessing}
-              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition-all border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
             >
               {isProcessing ? (
                 <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 animate-spin text-accent" />
@@ -1131,7 +1131,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-                  className="absolute right-0 top-full mt-2 w-48 md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
+                  className="absolute right-0 top-full mt-2 w-48 origin-top-right md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
                 >
                   <button onClick={() => handleAiAction('PROOFREAD')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
                     <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
@@ -1199,9 +1199,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           <AnimatePresence>
             {blockHandlePos && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
+                exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.1 }}
                 style={{
                   position: 'absolute',
@@ -1298,9 +1298,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           <AnimatePresence>
             {bubbleMenuPos && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.9, y: 4 }}
+                initial={{ opacity: 0, scale: 0.95, y: 4 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9, y: 4 }}
+                exit={{ opacity: 0, scale: 0.95, y: 4 }}
                 transition={{ duration: 0.12, ease: "easeOut" }}
                 style={{
                   position: 'absolute',
@@ -1316,7 +1316,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleStrongCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="Bold"
                 >
                   <Bold className="w-3.5 h-3.5" />
@@ -1324,7 +1324,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleEmphasisCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="Italic"
                 >
                   <Italic className="w-3.5 h-3.5" />
@@ -1332,7 +1332,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleStrikethroughCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="Strikethrough"
                 >
                   <Strikethrough className="w-3.5 h-3.5" />
@@ -1340,7 +1340,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(toggleInlineCodeCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="Inline Code"
                 >
                   <Code className="w-3.5 h-3.5" />
@@ -1351,7 +1351,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInHeadingCommand.key, 1)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="H1"
                 >
                   <Heading1 className="w-3.5 h-3.5" />
@@ -1359,7 +1359,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInHeadingCommand.key, 2)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="H2"
                 >
                   <Heading2 className="w-3.5 h-3.5" />
@@ -1367,7 +1367,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInBulletListCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="Bullet List"
                 >
                   <List className="w-3.5 h-3.5" />
@@ -1375,7 +1375,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => callCommand(wrapInBlockquoteCommand.key)}
-                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-90 shrink-0"
+                  className="p-1.5 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition-colors active:scale-[0.97] shrink-0"
                   title="Quote"
                 >
                   <Quote className="w-3.5 h-3.5" />
@@ -1386,7 +1386,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleAiAction('IMPROVE', selectedText)}
-                  className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-fg hover:bg-accent/90 rounded-xl transition-all text-[10px] font-bold uppercase tracking-wider active:scale-95 shadow-2xs shrink-0"
+                  className="flex items-center gap-1 px-2 py-1 bg-accent text-accent-fg hover:bg-accent/90 rounded-xl transition text-[10px] font-bold uppercase tracking-wider active:scale-[0.97] shadow-2xs shrink-0"
                   title="Polish Selection with AI"
                 >
                   <Sparkles className="w-3 h-3" />
@@ -1441,7 +1441,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       value={slashQuery}
                       onChange={(e) => setSlashQuery(e.target.value)}
                       placeholder="Type to search..."
-                      className="w-full bg-surface-highlight/50 focus:bg-surface-highlight text-xs font-medium pl-8 pr-2.5 py-1 rounded-lg border border-transparent focus:border-accent/40 text-primary outline-none transition-all placeholder:text-secondary/50"
+                      className="w-full bg-surface-highlight/50 focus:bg-surface-highlight text-xs font-medium pl-8 pr-2.5 py-1 rounded-lg border border-transparent focus:border-accent/40 text-primary outline-none transition placeholder:text-secondary/50"
                       autoFocus
                     />
                   </div>
@@ -1451,7 +1451,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       <button
                         key={cat}
                         onClick={() => setSelectedCategory(cat)}
-                        className={`px-2 py-0.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition-all ${
+                        className={`px-2 py-0.5 rounded-md text-[9px] font-semibold whitespace-nowrap transition ${
                           selectedCategory === cat 
                             ? 'bg-accent text-accent-fg shadow-2xs' 
                             : 'bg-surface-highlight/40 hover:bg-surface-highlight text-secondary hover:text-primary'
@@ -1481,7 +1481,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                           onMouseEnter={() => setSelectedIndex(idx)}
                           role="option"
                           aria-selected={isSelected}
-                          className={`flex items-center gap-2.5 w-full p-1.5 rounded-xl text-left transition-all border ${
+                          className={`flex items-center gap-2.5 w-full p-1.5 rounded-xl text-left transition border ${
                             isSelected 
                               ? 'bg-accent/15 border-accent/40 text-accent font-semibold shadow-2xs' 
                               : 'bg-transparent border-transparent hover:bg-surface-highlight text-primary'

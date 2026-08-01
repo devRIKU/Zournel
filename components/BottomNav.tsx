@@ -17,7 +17,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           <button 
             onClick={() => onTabChange(Tab.TODO)}
             title="Switch to Tasks View"
-            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-2 outline-none ${
                 activeTab === Tab.TODO 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -39,7 +39,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           <button 
             onClick={() => onTabChange(Tab.JOURNAL)}
             title="Switch to Memories View"
-            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-2 outline-none ${
                 activeTab === Tab.JOURNAL 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -61,7 +61,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           <button 
             onClick={() => onTabChange(Tab.PROFILE)}
             title="Switch to Profile View"
-            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition-all duration-300 active:scale-95 flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-2 outline-none ${
                 activeTab === Tab.PROFILE 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'

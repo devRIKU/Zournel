@@ -48,7 +48,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave, onSkip
                  value={key}
                  onChange={(e) => setKey(e.target.value)}
                  placeholder="Paste your Gemini API Key here (Optional)"
-                 className="w-full bg-surface-highlight p-4 rounded-xl border-2 border-transparent focus:border-accent outline-none text-primary font-mono text-center transition-all placeholder:text-secondary/40"
+                 className="w-full bg-surface-highlight p-4 rounded-xl border-2 border-transparent focus:border-accent outline-none text-primary font-mono text-center transition placeholder:text-secondary/40"
                  autoFocus
                />
              </div>
@@ -57,16 +57,16 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ onSave, onSkip
                <button 
                  type="button"
                  onClick={onSkip}
-                 className="flex-1 py-4 rounded-xl font-bold text-sm uppercase tracking-widest text-secondary bg-surface-highlight hover:bg-surface-highlight/80 transition-all active:scale-95"
+                 className="flex-1 py-4 rounded-xl font-bold text-sm uppercase tracking-widest text-secondary bg-surface-highlight hover:bg-surface-highlight/80 transition active:scale-[0.97]"
                >
                  Skip
                </button>
                <button 
                  type="submit"
                  disabled={!key.trim()}
-                 className={`flex-2 py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg ${
+                 className={`flex-2 py-4 rounded-xl font-bold text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition shadow-lg ${
                    key.trim() 
-                   ? 'bg-accent text-accent-fg hover:bg-accent/90 hover:scale-[1.02] active:scale-95 shadow-accent/25' 
+                   ? 'bg-accent text-accent-fg hover:bg-accent/90 hover:scale-[1.02] active:scale-[0.97] shadow-accent/25' 
                    : 'bg-surface-highlight text-secondary cursor-not-allowed shadow-none opacity-50'
                  }`}
                  style={{ flex: 2 }}

@@ -22,7 +22,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
   const ThemeButton = ({ theme, icon: Icon, label, colorClass }: { theme: Theme, icon: any, label: string, colorClass: string }) => (
     <button 
       onClick={() => onUpdateSettings({ ...settings, theme })}
-      className={`flex flex-col items-center gap-2 p-3.5 rounded-[1.8rem] border-2 transition-all duration-300 w-full ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-[1.02] font-semibold' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
+      className={`flex flex-col items-center gap-2 p-3.5 rounded-[1.8rem] border-2 transition duration-300 w-full ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-[1.02] font-semibold' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
     >
       <div className={`w-9 h-9 rounded-xl ${colorClass} flex items-center justify-center shadow-md`}>
           <Icon className="w-4 h-4" />
@@ -53,7 +53,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 <h2 className="text-3xl font-display font-bold text-primary">Preferences</h2>
                 <p className="text-secondary text-[10px] font-grotesk tracking-widest uppercase mt-1">Refine your environment</p>
               </div>
-              <button onClick={onClose} className="p-4 bg-surface-highlight hover:bg-accent hover:text-accent-fg rounded-2xl transition-all">
+              <button onClick={onClose} className="p-4 bg-surface-highlight hover:bg-accent hover:text-accent-fg rounded-2xl transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -71,7 +71,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      value={settings.apiKey}
                      onChange={(e) => onUpdateSettings({ ...settings, apiKey: e.target.value })}
                      placeholder="Enter your API Key..."
-                     className="w-full bg-surface p-4 rounded-xl border-none outline-none text-primary font-mono text-sm focus:ring-2 focus:ring-accent/50 transition-all"
+                     className="w-full bg-surface p-4 rounded-xl border-none outline-none text-primary font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
                    />
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
                      Your key is stored locally on this device. We use it to communicate directly with Google's Gemini API for task analysis and journaling insights.
@@ -145,7 +145,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       <button
                         key={hf.id}
                         onClick={() => onUpdateSettings({ ...settings, headingFontFamily: hf.id })}
-                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all duration-200 ${
+                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition duration-200 ${
                           isSelected 
                             ? 'border-accent bg-accent/10 text-primary shadow-xs' 
                             : 'border-surface-highlight/70 bg-surface hover:bg-surface-highlight/50 text-secondary'
@@ -184,7 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       <button
                         key={f.id}
                         onClick={() => onUpdateSettings({ ...settings, fontFamily: f.id })}
-                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition-all duration-200 ${
+                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition duration-200 ${
                           isSelected 
                             ? 'border-accent bg-accent/10 text-primary shadow-xs' 
                             : 'border-surface-highlight/70 bg-surface hover:bg-surface-highlight/50 text-secondary'
@@ -211,7 +211,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      <button 
                       key={m.id}
                       onClick={() => onUpdateSettings({ ...settings, model: m.id })}
-                      className={`w-full flex items-center justify-between p-5 rounded-[1.5rem] transition-all border-2 ${settings.model === m.id ? 'border-accent bg-accent/5' : 'border-surface-highlight bg-surface'}`}
+                      className={`w-full flex items-center justify-between p-5 rounded-[1.5rem] transition border-2 ${settings.model === m.id ? 'border-accent bg-accent/5' : 'border-surface-highlight bg-surface'}`}
                      >
                        <div className="text-left">
                          <div className="flex items-center gap-3 mb-1">
@@ -235,7 +235,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      <button 
                       key={opt}
                       onClick={() => onUpdateSettings({ ...settings, completionAnimation: opt as CompletionAnimation })}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
                      >
                        {opt}
                      </button>

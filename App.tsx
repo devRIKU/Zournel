@@ -11,6 +11,8 @@ import { OnboardingModal } from './components/OnboardingModal';
 import { LandingPage } from './components/LandingPage';
 import { AddModal } from './components/AddModal';
 import { ProfileView, PublicProfileView } from './components/ProfileView';
+import { ImportModal } from './components/ImportModal';
+import { getLocalUserId } from './services/authService';
 import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, extractAutoTitle } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
@@ -24,6 +26,7 @@ const App: React.FC = () => {
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [focusInputSignal, setFocusInputSignal] = useState(0); 
   const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
@@ -281,6 +284,18 @@ const App: React.FC = () => {
     }
   };
 
+  const handleImportEntries = (newEntries: JournalEntry[], replaceExisting: boolean = false) => {
+    if (replaceExisting) {
+      setJournalEntries(newEntries);
+    } else {
+      setJournalEntries(prev => {
+        const existingIds = new Set(prev.map(e => e.id));
+        const filteredNew = newEntries.filter(e => !existingIds.has(e.id));
+        return [...filteredNew, ...prev];
+      });
+    }
+  };
+
   const deleteJournalEntry = (id: string) => {
     setJournalEntries(prev => prev.filter(e => e.id !== id));
   };
@@ -390,16 +405,16 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-2">
-           <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90 text-accent">
+           <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
             <Sparkles className="w-6 h-6" />
            </button>
-           <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition-all active:scale-90">
+           <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97]">
             <Settings className="w-6 h-6" />
            </button>
         </div>
       </header>
       <main className="relative flex-grow min-h-[80vh] w-full max-w-4xl mx-auto">
-        <div className={`transition-all duration-300 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
+        <div className={`transition duration-300 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <TodoView 
               tasks={tasks} onToggleTask={t => setTasks(prev => prev.map(tk => tk.id === t ? {...tk, completed: !tk.completed} : tk))} 
               onDeleteTask={t => setTasks(prev => prev.filter(tk => tk.id !== t))} 
@@ -409,21 +424,28 @@ const App: React.FC = () => {
               selectedModel={settings.model}
             />
         </div>
-        <div className={`transition-all duration-300 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
+        <div className={`transition duration-300 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <JournalView 
              entries={journalEntries} 
              onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} 
              onDeleteEntry={deleteJournalEntry} 
              onRenameEntry={renameJournalEntry}
+             onImportClick={() => setIsImportModalOpen(true)}
              selectedModel={settings.model}
            />
         </div>
-        <div className={`transition-all duration-300 ${activeTab === Tab.PROFILE ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
-           <ProfileView profile={settings.profile} journalEntries={journalEntries} onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))} />
+        <div className={`transition duration-300 ${activeTab === Tab.PROFILE ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
+           <ProfileView 
+             profile={settings.profile} 
+             journalEntries={journalEntries} 
+             onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))}
+             onOpenImportModal={() => setIsImportModalOpen(true)}
+             onImportEntries={handleImportEntries}
+           />
         </div>
       </main>
       <div className={`fixed bottom-24 right-6 z-50 transition-opacity duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <button onClick={handlePlusClick} title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} className="w-16 h-16 bg-accent text-accent-fg rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"><Plus className="w-8 h-8" /></button>
+        <button onClick={handlePlusClick} title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} className="w-16 h-16 bg-accent text-accent-fg rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-[0.97] transition"><Plus className="w-8 h-8" /></button>
       </div>
       {!isEditorOpen && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
       
@@ -452,6 +474,13 @@ const App: React.FC = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddData={handleAddDataFromAI}
+      />
+
+      <ImportModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        onImportEntries={handleImportEntries}
+        currentDeviceKey={getLocalUserId()}
       />
 
       {showOnboarding && (

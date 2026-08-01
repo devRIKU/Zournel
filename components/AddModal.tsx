@@ -66,7 +66,7 @@ export const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAddData }
                 Pour your thoughts here. The AI will separate your tasks from your journal entries automatically.
               </p>
               
-              <div className="bg-surface-highlight rounded-[1.5rem] p-2 focus-within:ring-2 focus-within:ring-accent transition-all">
+              <div className="bg-surface-highlight rounded-[1.5rem] p-2 focus-within:ring-2 focus-within:ring-accent transition">
                 <textarea
                   autoFocus
                   className="w-full h-40 p-4 text-primary bg-transparent border-none outline-none resize-none text-lg leading-relaxed placeholder:text-secondary/50"
@@ -81,7 +81,7 @@ export const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAddData }
                 <button
                   onClick={handleSubmit}
                   disabled={isProcessing || !input.trim()}
-                  className={`flex items-center gap-2 px-8 py-4 rounded-[1.5rem] text-white font-semibold text-sm transition-all shadow-lg hover:shadow-xl active:scale-95 ${
+                  className={`flex items-center gap-2 px-8 py-4 rounded-[1.5rem] text-white font-semibold text-sm transition shadow-lg hover:shadow-xl active:scale-[0.97] ${
                     isProcessing || !input.trim() 
                       ? 'bg-secondary/20 text-secondary cursor-not-allowed shadow-none' 
                       : 'bg-accent hover:bg-accent/90'

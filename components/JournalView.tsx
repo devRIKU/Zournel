@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2 } from 'lucide-react';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { extractAutoTitle, generateAutoTitle } from '../services/geminiService';
 import { 
@@ -21,6 +21,7 @@ interface JournalViewProps {
   onEdit: (entry: JournalEntry) => void;
   onDeleteEntry?: (id: string) => void;
   onRenameEntry?: (id: string, newTitle: string) => void;
+  onImportClick?: () => void;
   selectedModel?: string;
 }
 
@@ -112,11 +113,13 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, selectedModel }) => {
+export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, onImportClick, selectedModel }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
   const [renamingEntry, setRenamingEntry] = useState<JournalEntry | null>(null);
   const [renamingTitleInput, setRenamingTitleInput] = useState('');
   const [isGeneratingAutoTitle, setIsGeneratingAutoTitle] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const openRenameModal = (entry: JournalEntry) => {
     setRenamingEntry(entry);
@@ -148,10 +151,22 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
     }
     setRenamingEntry(null);
   };
+
+  const filteredEntries = useMemo(() => {
+    if (!searchQuery.trim()) return entries;
+    const q = searchQuery.toLowerCase().trim();
+    return entries.filter(e => {
+      const titleMatch = (e.title || '').toLowerCase().includes(q);
+      const contentMatch = (e.content || '').toLowerCase().includes(q);
+      const moodMatch = (e.mood || '').toLowerCase().includes(q);
+      const insightMatch = (e.aiInsight || '').toLowerCase().includes(q);
+      return titleMatch || contentMatch || moodMatch || insightMatch;
+    });
+  }, [entries, searchQuery]);
   
   const groupedEntries = useMemo(() => {
     const groups: Record<string, JournalEntry[]> = {};
-    const sorted = [...entries].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    const sorted = [...filteredEntries].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     
     sorted.forEach(entry => {
       const timestamp = entry.createdAt || Date.now();
@@ -167,7 +182,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
     });
     
     return Object.entries(groups);
-  }, [entries]);
+  }, [filteredEntries]);
 
   const moodEntries = useMemo(() => {
     return entries
@@ -289,14 +304,14 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   return (
     <div className="pb-40 px-6 max-w-6xl mx-auto w-full animate-fade-in">
       {/* Header with Switcher Tab Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-16 mt-8 border-b border-surface-highlight/30 pb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 mb-8 mt-4 sm:mt-8 border-b border-surface-highlight/30 pb-6">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-4">
-             <div className="p-3 bg-accent/10 rounded-2xl">
+          <div className="flex items-center gap-3 sm:gap-4">
+             <div className="p-2.5 sm:p-3 bg-accent/10 rounded-2xl">
                 {subTab === 'timeline' ? (
-                   <Library className="w-8 h-8 text-accent" />
+                   <Library className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
                 ) : (
-                   <LineChart className="w-8 h-8 text-accent" />
+                   <LineChart className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
                 )}
              </div>
              <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-primary tracking-tight break-words">
@@ -304,49 +319,147 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
              </h2>
           </div>
           <div className="flex items-center gap-3">
-              <div className="h-0.5 w-12 bg-accent rounded-full"></div>
-              <p className="font-grotesk text-secondary text-[10px] uppercase tracking-[0.4em] opacity-60">
+              <div className="h-0.5 w-10 sm:w-12 bg-accent rounded-full"></div>
+              <p className="font-grotesk text-secondary text-[10px] uppercase tracking-[0.3em] sm:tracking-[0.4em] opacity-60">
                 {subTab === 'timeline' ? 'Visual Journal Timeline' : 'Mood Analytics & Trends'}
               </p>
           </div>
         </div>
 
-        {/* Switcher Tab Buttons */}
-        <div className="flex bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 max-w-sm shrink-0 shadow-inner relative z-0">
-          <button
-            onClick={() => setSubTab('timeline')}
-            className={`relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
-              subTab === 'timeline' ? 'text-accent' : 'text-secondary hover:text-primary'
-            }`}
-          >
-            {subTab === 'timeline' && (
-              <motion.div
-                layoutId="activeSubTab"
-                className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/5 -z-10"
-                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              />
-            )}
-            <Library className="w-4 h-4" />
-            Timeline
-          </button>
-          <button
-            onClick={() => setSubTab('reflections')}
-            className={`relative flex items-center gap-2.5 px-5 py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
-              subTab === 'reflections' ? 'text-accent' : 'text-secondary hover:text-primary'
-            }`}
-          >
-            {subTab === 'reflections' && (
-              <motion.div
-                layoutId="activeSubTab"
-                className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/5 -z-10"
-                transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              />
-            )}
-            <LineChart className="w-4 h-4" />
-            Reflections
-          </button>
+        {/* Action Controls & Tab Switcher Bar */}
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full md:w-auto">
+          {/* Action Group: Search + Import */}
+          {subTab === 'timeline' && (
+            <div className="flex items-center bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 gap-1 shrink-0">
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setIsSearchOpen(prev => !prev)}
+                className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+                  isSearchOpen || searchQuery
+                    ? 'bg-accent text-accent-fg shadow-xs'
+                    : 'text-secondary hover:text-primary hover:bg-surface-highlight/50'
+                }`}
+                title="Search memories"
+              >
+                <Search className="w-4 h-4 shrink-0" />
+                <span className="hidden sm:inline">Search</span>
+                {searchQuery && !isSearchOpen && (
+                  <span className="w-2 h-2 rounded-full bg-accent-fg animate-ping" />
+                )}
+              </motion.button>
+
+              {onImportClick && (
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onImportClick}
+                  className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-bold text-secondary hover:text-accent hover:bg-surface-highlight/50 transition flex items-center gap-2"
+                  title="Import old memories"
+                >
+                  <Upload className="w-4 h-4 text-accent shrink-0" />
+                  <span className="hidden sm:inline">Import</span>
+                </motion.button>
+              )}
+            </div>
+          )}
+
+          {/* Switcher Tab Buttons */}
+          <div className="flex bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 shrink-0 shadow-inner relative z-0">
+            <button
+              onClick={() => setSubTab('timeline')}
+              className={`relative flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
+                subTab === 'timeline' ? 'text-accent' : 'text-secondary hover:text-primary'
+              }`}
+            >
+              {subTab === 'timeline' && (
+                <motion.div
+                  layoutId="activeSubTab"
+                  className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/5 -z-10"
+                  transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                />
+              )}
+              <Library className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="text-[11px] sm:text-xs">Timeline</span>
+            </button>
+            <button
+              onClick={() => setSubTab('reflections')}
+              className={`relative flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
+                subTab === 'reflections' ? 'text-accent' : 'text-secondary hover:text-primary'
+              }`}
+            >
+              {subTab === 'reflections' && (
+                <motion.div
+                  layoutId="activeSubTab"
+                  className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/5 -z-10"
+                  transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+                />
+              )}
+              <LineChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="text-[11px] sm:text-xs">Reflections</span>
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Expandable Search Card Bar */}
+      <AnimatePresence>
+        {subTab === 'timeline' && isSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+            className="mb-8 w-full overflow-hidden"
+          >
+            <div className="flex items-center gap-3 bg-surface border border-accent/40 rounded-2xl px-4 py-3 shadow-md">
+              <Search className="w-4 h-4 text-accent shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search memories by title, text, or mood..."
+                className="bg-transparent text-xs sm:text-sm text-primary outline-none w-full font-medium placeholder:text-secondary/50"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="p-1 text-secondary/60 hover:text-primary transition-colors shrink-0"
+                  title="Clear search text"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsSearchOpen(false);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-surface-highlight text-xs font-bold text-secondary hover:text-primary transition-colors shrink-0"
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Active Search Filter Chip (when closed) */}
+      {subTab === 'timeline' && searchQuery && !isSearchOpen && (
+        <div className="flex items-center justify-between bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2.5 mb-8 animate-fade-in">
+          <div className="flex items-center gap-2 text-xs text-primary font-medium">
+            <Search className="w-3.5 h-3.5 text-accent shrink-0" />
+            <span>Active filter: <strong className="text-accent">"{searchQuery}"</strong></span>
+          </div>
+          <button
+            onClick={() => setSearchQuery('')}
+            className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
+          >
+            Clear <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {subTab === 'timeline' ? (
@@ -358,16 +471,39 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             transition={{ type: 'spring', damping: 28, stiffness: 220 }}
           >
             {entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-32 text-center">
-             <div className="w-24 h-24 bg-surface-highlight rounded-[2rem] flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
-               <Sparkles className="w-10 h-10 text-accent/20" />
-             </div>
-             <p className="font-display text-2xl sm:text-3xl md:text-4xl text-primary font-bold break-words">A Clean Page</p>
-             <p className="font-sans text-secondary mt-4 max-w-xs mx-auto leading-relaxed opacity-40">
-               Your story begins here. Capture a thought or a moment to build your archive of memories.
-             </p>
-          </div>
-        ) : (
+              <div className="flex flex-col items-center justify-center py-32 text-center">
+                 <div className="w-24 h-24 bg-surface-highlight rounded-[2rem] flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
+                   <Sparkles className="w-10 h-10 text-accent/20" />
+                 </div>
+                 <p className="font-display text-2xl sm:text-3xl md:text-4xl text-primary font-bold break-words">A Clean Page</p>
+                 <p className="font-sans text-secondary mt-4 max-w-xs mx-auto leading-relaxed opacity-40 mb-6">
+                   Your story begins here. Capture a thought or a moment to build your archive of memories.
+                 </p>
+                 {onImportClick && (
+                   <button
+                     onClick={onImportClick}
+                     className="px-6 py-3 bg-accent text-accent-fg rounded-2xl font-bold text-xs flex items-center gap-2 shadow-md hover:opacity-90 active:scale-[0.97] transition"
+                   >
+                     <Upload className="w-4 h-4" />
+                     <span>Import Old Memories</span>
+                   </button>
+                 )}
+              </div>
+            ) : filteredEntries.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center bg-surface border border-surface-highlight rounded-3xl p-8">
+                <Search className="w-12 h-12 text-accent/40 mb-4 animate-bounce" />
+                <h3 className="text-xl font-display font-bold text-primary mb-2">No matching memories found</h3>
+                <p className="text-xs text-secondary max-w-xs mb-6">
+                  No memories match <span className="font-semibold text-accent">"{searchQuery}"</span>. Try searching with different keywords or clear search filters.
+                </p>
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="px-5 py-2.5 bg-surface-highlight text-primary hover:bg-surface-highlight/80 rounded-2xl text-xs font-bold transition active:scale-[0.97]"
+                >
+                  Clear Search Filter
+                </button>
+              </div>
+            ) : (
           <div className="space-y-32">
             {groupedEntries.map(([dateLabel, dayEntries]) => (
               <section key={dateLabel} className="group/section animate-slide-up">
@@ -399,7 +535,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                         whileHover={{ y: -6, scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-2xl hover:border-accent/30 transition-all duration-300 overflow-hidden outline-none cursor-pointer ${
+                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-2xl hover:border-accent/30 transition duration-300 overflow-hidden outline-none cursor-pointer ${
                           isHero ? 'md:col-span-2' : ''
                         }`}
                       >
@@ -412,7 +548,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                               }
                             }}
                             title="Delete Memory"
-                            className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-black/50 hover:bg-red-600/90 text-white/90 hover:text-white backdrop-blur-md transition-all active:scale-90 opacity-100 sm:opacity-0 group-hover:opacity-100 shadow-md"
+                            className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-black/50 hover:bg-red-600/90 text-white/90 hover:text-white backdrop-blur-md transition active:scale-[0.97] opacity-100 sm:opacity-0 group-hover:opacity-100 shadow-md"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -479,7 +615,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                                      openRenameModal(entry);
                                    }}
                                    title="Rename Title"
-                                   className="p-2 text-secondary/70 hover:text-accent hover:bg-accent/15 rounded-xl transition-all shrink-0 active:scale-90"
+                                   className="p-2 text-secondary/70 hover:text-accent hover:bg-accent/15 rounded-xl transition shrink-0 active:scale-[0.97]"
                                  >
                                    <Pencil className="w-4 h-4" />
                                  </button>
@@ -744,7 +880,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                       <div 
                         key={entry.id} 
                         onClick={() => onEdit(entry)}
-                        className="p-5 rounded-2xl bg-surface-highlight/20 border border-surface-highlight/30 hover:border-accent/20 cursor-pointer transition-all duration-300 flex flex-col text-left group"
+                        className="p-5 rounded-2xl bg-surface-highlight/20 border border-surface-highlight/30 hover:border-accent/20 cursor-pointer transition duration-300 flex flex-col text-left group"
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -808,7 +944,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     value={renamingTitleInput} 
                     onChange={(e) => setRenamingTitleInput(e.target.value)} 
                     placeholder="Enter memory title..."
-                    className="w-full px-4 py-3 bg-bg border border-surface-highlight rounded-2xl text-primary font-display font-bold text-base outline-none focus:border-accent transition-all"
+                    className="w-full px-4 py-3 bg-bg border border-surface-highlight rounded-2xl text-primary font-display font-bold text-base outline-none focus:border-accent transition"
                     autoFocus
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -823,7 +959,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                   type="button"
                   onClick={handleAutoTitleForRenaming}
                   disabled={isGeneratingAutoTitle}
-                  className="w-full py-2.5 px-4 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/25 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition-all disabled:opacity-50 active:scale-98"
+                  className="w-full py-2.5 px-4 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/25 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition disabled:opacity-50 active:scale-98"
                 >
                   {isGeneratingAutoTitle ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -845,7 +981,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                 <button
                   type="button"
                   onClick={handleSaveRename}
-                  className="px-6 py-2.5 rounded-full bg-accent text-accent-fg text-xs font-bold hover:bg-accent/90 shadow-md transition-all active:scale-95"
+                  className="px-6 py-2.5 rounded-full bg-accent text-accent-fg text-xs font-bold hover:bg-accent/90 shadow-md transition active:scale-[0.97]"
                 >
                   Save Title
                 </button>

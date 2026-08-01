@@ -13,5 +13,9 @@ service cloud.firestore {
       allow update: if request.resource.data.ownerId == resource.data.ownerId;
       allow delete: if true;
     }
+    match /user_memories/{userIdentifier} {
+      allow read, write: if true;
+    }
   }
 }
+

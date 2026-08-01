@@ -28,7 +28,7 @@ const PriorityBadge: React.FC<{ priority: Priority; onClick: () => void }> = ({ 
     <button 
       onClick={(e) => { e.stopPropagation(); onClick(); }} 
       title="Change Priority"
-      className={`px-2.5 py-0.5 rounded-full text-[10px] font-grotesk font-bold uppercase tracking-widest border transition-all active:scale-90 ${getColors()}`}
+      className={`px-2.5 py-0.5 rounded-full text-[10px] font-grotesk font-bold uppercase tracking-widest border transition active:scale-[0.97] ${getColors()}`}
     >
       {priority}
     </button>
@@ -69,17 +69,17 @@ const TaskItem: React.FC<{
   };
 
   return (
-    <div className={`group bg-surface rounded-2xl p-5 mb-3 border border-surface-highlight transition-all duration-300 hover-lift ${task.completed ? 'opacity-50 scale-[0.98]' : 'shadow-sm hover:shadow-md'} ${isDeleting ? 'animate-fade-out scale-90 translate-x-10' : ''}`}>
+    <div className={`group bg-surface rounded-2xl p-5 mb-3 border border-surface-highlight transition duration-300 hover-lift ${task.completed ? 'opacity-50 scale-[0.98]' : 'shadow-sm hover:shadow-md'} ${isDeleting ? 'animate-fade-out scale-90 translate-x-10' : ''}`}>
       <div className="flex items-start gap-4">
         <button 
           onClick={handleToggle} 
           title={task.completed ? "Mark as incomplete" : "Mark as complete"}
-          className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all active:scale-75 ${task.completed ? 'bg-accent border-accent' : 'border-secondary hover:border-accent'}`}
+          className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition active:scale-75 ${task.completed ? 'bg-accent border-accent' : 'border-secondary hover:border-accent'}`}
         >
           {task.completed && <Check className="w-3.5 h-3.5 text-accent-fg" />}
         </button>
         <div className="flex-grow">
-          <span className={`block text-lg transition-all duration-300 ${task.completed ? 'line-through text-secondary' : 'text-primary'}`}>{task.text}</span>
+          <span className={`block text-lg transition duration-300 ${task.completed ? 'line-through text-secondary' : 'text-primary'}`}>{task.text}</span>
           <div className="flex items-center gap-2 mt-1">
             <PriorityBadge priority={task.priority} onClick={() => {
                 const next: Record<Priority, Priority> = { 'high': 'medium', 'medium': 'low', 'low': 'high' };
@@ -97,11 +97,11 @@ const TaskItem: React.FC<{
             onClick={() => { if (task.subtasks?.length) setIsExpanded(!isExpanded); else handleGenerateSubtasks(); }} 
             disabled={loadingSubtasks} 
             title="AI Breakdown (Subtasks)"
-            className="p-1.5 text-secondary hover:text-accent rounded-lg transition-colors active:scale-90"
+            className="p-1.5 text-secondary hover:text-accent rounded-lg transition-colors active:scale-[0.97]"
           >
              {loadingSubtasks ? <Bot className="w-4 h-4 animate-pulse" /> : <Bot className="w-4 h-4"/>}
           </button>
-          <button onClick={handleDelete} title="Delete Task" className="p-1.5 text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-90"><Trash2 className="w-4 h-4" /></button>
+          <button onClick={handleDelete} title="Delete Task" className="p-1.5 text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-[0.97]"><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
       {(isExpanded || loadingSubtasks) && (
@@ -111,7 +111,7 @@ const TaskItem: React.FC<{
              <div key={st.id} className="flex items-center gap-3 group/sub">
                 <button 
                   onClick={() => onUpdate({ ...task, subtasks: task.subtasks?.map(s => s.id === st.id ? { ...s, completed: !s.completed } : s) })} 
-                  className={`w-4 h-4 rounded border transition-all active:scale-75 ${st.completed ? 'bg-secondary border-secondary' : 'border-secondary hover:border-accent'}`}
+                  className={`w-4 h-4 rounded border transition active:scale-75 ${st.completed ? 'bg-secondary border-secondary' : 'border-secondary hover:border-accent'}`}
                 >
                   {st.completed && <Check className="w-3 h-3 text-white" />}
                 </button>
@@ -154,7 +154,7 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
           onKeyDown={handleKeyDown} 
           placeholder="What's on your list?" 
           title="Type a task and press Enter"
-          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl py-4 transition-all duration-300 placeholder:opacity-30"
+          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl py-4 transition duration-300 placeholder:opacity-30"
         />
       </div>
       {tasks.length === 0 ? (

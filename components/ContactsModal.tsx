@@ -79,7 +79,7 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({ isOpen, onClose })
               href={contact.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-between p-4 rounded-2xl bg-surface hover:bg-surface-highlight border border-surface-highlight transition-all group"
+              className="flex items-center justify-between p-4 rounded-2xl bg-surface hover:bg-surface-highlight border border-surface-highlight transition group"
             >
               <div className="flex items-center gap-4">
                 <div className={`p-3 rounded-xl ${contact.bg} ${contact.color}`}>
