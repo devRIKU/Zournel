@@ -25,7 +25,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
 
   const handleEnterClick = () => {
     setIsExiting(true);
-    setTimeout(onEnter, 800);
+    setTimeout(onEnter, 200);
   };
 
   // Derived State
@@ -35,12 +35,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
   const nextTask = pendingTasks.sort((a, b) => (a.priority === 'high' ? -1 : 1))[0];
 
   return (
-    <div className={`min-h-screen bg-bg text-primary font-sans transition duration-1000 flex flex-col items-center justify-center p-4 sm:p-6 ${isExiting ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'}`}>
+    <div className={`min-h-screen bg-bg text-primary font-sans transition duration-200 flex flex-col items-center justify-center p-4 sm:p-6 ${isExiting ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'}`}>
       
       {/* Texture Overlay */}
       <div className="fixed inset-0 opacity-[0.02] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
 
-      <div className={`relative z-10 w-full max-w-4xl transition duration-1000 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+      <div className={`relative z-10 w-full max-w-4xl transition duration-200 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
         
         {/* Header Section */}
         <header className="text-center mb-10 sm:mb-16 space-y-4">

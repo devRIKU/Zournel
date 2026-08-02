@@ -303,8 +303,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
   return (
     <div className="pb-40 px-6 max-w-6xl mx-auto w-full animate-fade-in">
-      {/* Header with Switcher Tab Navigation */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 mb-8 mt-4 sm:mt-8 border-b border-surface-highlight/30 pb-6">
+      {/* Header with Switcher Tab Navigation & Controls */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 mt-4 sm:mt-8 border-b border-surface-highlight/30 pb-5">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3 sm:gap-4">
              <div className="p-2.5 sm:p-3 bg-accent/10 rounded-2xl">
@@ -326,47 +326,75 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           </div>
         </div>
 
-        {/* Action Controls & Tab Switcher Bar */}
-        <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full md:w-auto">
-          {/* Action Group: Search + Import */}
+        {/* Control Cluster: Search (Left) -> Toggle (Center) -> Import (Right) */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap self-start lg:self-auto">
+          {/* 1. Search button / expanding search input on LEFT of toggle */}
           {subTab === 'timeline' && (
-            <div className="flex items-center bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 gap-1 shrink-0">
-              <motion.button
-                whileTap={{ scale: 0.97 }}
-                onClick={() => setIsSearchOpen(prev => !prev)}
-                className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
-                  isSearchOpen || searchQuery
-                    ? 'bg-accent text-accent-fg shadow-xs'
-                    : 'text-secondary hover:text-primary hover:bg-surface-highlight/50'
-                }`}
-                title="Search memories"
-              >
-                <Search className="w-4 h-4 shrink-0" />
-                <span className="hidden sm:inline">Search</span>
-                {searchQuery && !isSearchOpen && (
-                  <span className="w-2 h-2 rounded-full bg-accent-fg animate-ping" />
-                )}
-              </motion.button>
-
-              {onImportClick && (
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={onImportClick}
-                  className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl text-xs font-bold text-secondary hover:text-accent hover:bg-surface-highlight/50 transition flex items-center gap-2"
-                  title="Import old memories"
+            <AnimatePresence mode="wait">
+              {isSearchOpen ? (
+                <motion.div
+                  key="expanded-search-input"
+                  initial={{ width: 100, opacity: 0 }}
+                  animate={{ width: '100%', opacity: 1 }}
+                  exit={{ width: 100, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                  className="flex items-center gap-2 bg-surface border border-accent/50 rounded-2xl px-3 py-2 shadow-md w-full sm:w-60 md:w-64 overflow-hidden shrink-0"
                 >
-                  <Upload className="w-4 h-4 text-accent shrink-0" />
-                  <span className="hidden sm:inline">Import</span>
+                  <Search className="w-4 h-4 text-accent shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search memories..."
+                    className="bg-transparent text-xs text-primary outline-none w-full font-medium placeholder:text-secondary/50"
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="p-1 text-secondary/70 hover:text-primary transition-colors shrink-0"
+                      title="Clear search text"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsSearchOpen(false)}
+                    className="p-1 rounded-xl bg-surface-highlight/60 text-secondary hover:text-primary transition-colors text-xs font-bold shrink-0"
+                    title="Close search input"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </motion.div>
+              ) : (
+                <motion.button
+                  key="search-toggle-btn"
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setIsSearchOpen(true)}
+                  className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 border shadow-xs shrink-0 ${
+                    searchQuery
+                      ? 'bg-accent/15 border-accent/30 text-accent'
+                      : 'bg-surface-highlight/30 hover:bg-surface-highlight border-surface-highlight/40 text-secondary hover:text-primary'
+                  }`}
+                  title="Search memories"
+                >
+                  <Search className="w-4 h-4 text-accent shrink-0" />
+                  <span className="hidden sm:inline">Search</span>
+                  {searchQuery && (
+                    <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
+                  )}
                 </motion.button>
               )}
-            </div>
+            </AnimatePresence>
           )}
 
-          {/* Switcher Tab Buttons */}
+          {/* 2. Switcher Tab Buttons (Memories / Reflections Toggle in CENTER) */}
           <div className="flex bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 shrink-0 shadow-inner relative z-0">
             <button
               onClick={() => setSubTab('timeline')}
-              className={`relative flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
+              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
                 subTab === 'timeline' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -382,7 +410,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             </button>
             <button
               onClick={() => setSubTab('reflections')}
-              className={`relative flex items-center gap-2 px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
+              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
                 subTab === 'reflections' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
             >
@@ -397,53 +425,21 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               <span className="text-[11px] sm:text-xs">Reflections</span>
             </button>
           </div>
+
+          {/* 3. Import Button (RIGHT of toggle) */}
+          {subTab === 'timeline' && onImportClick && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={onImportClick}
+              className="px-3 py-2 sm:px-3.5 sm:py-2.5 bg-surface-highlight/30 hover:bg-surface-highlight border border-surface-highlight/40 text-secondary hover:text-accent rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0"
+              title="Import old memories"
+            >
+              <Upload className="w-4 h-4 text-accent shrink-0" />
+              <span className="hidden sm:inline">Import</span>
+            </motion.button>
+          )}
         </div>
       </div>
-
-      {/* Expandable Search Card Bar */}
-      <AnimatePresence>
-        {subTab === 'timeline' && isSearchOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, height: 0 }}
-            animate={{ opacity: 1, y: 0, height: 'auto' }}
-            exit={{ opacity: 0, y: -8, height: 0 }}
-            transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-            className="mb-8 w-full overflow-hidden"
-          >
-            <div className="flex items-center gap-3 bg-surface border border-accent/40 rounded-2xl px-4 py-3 shadow-md">
-              <Search className="w-4 h-4 text-accent shrink-0" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search memories by title, text, or mood..."
-                className="bg-transparent text-xs sm:text-sm text-primary outline-none w-full font-medium placeholder:text-secondary/50"
-                autoFocus
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="p-1 text-secondary/60 hover:text-primary transition-colors shrink-0"
-                  title="Clear search text"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setSearchQuery('');
-                  setIsSearchOpen(false);
-                }}
-                className="px-3 py-1.5 rounded-xl bg-surface-highlight text-xs font-bold text-secondary hover:text-primary transition-colors shrink-0"
-              >
-                Close
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Active Search Filter Chip (when closed) */}
       {subTab === 'timeline' && searchQuery && !isSearchOpen && (

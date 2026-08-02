@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Upload, FileText, Check, AlertCircle, X, Sparkles, CloudDownload, Key, FileJson, RefreshCw, Layers } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, X, Sparkles, CloudDownload, FileJson, RefreshCw, Code } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
-import { fetchMemoriesFromCloud, exportMemoriesAsJSON } from '../services/dbService';
+import { fetchMemoriesFromCloud } from '../services/dbService';
 
 interface ImportModalProps {
   isOpen: boolean;
@@ -39,16 +39,179 @@ const SAMPLE_STARTER_MEMORIES: JournalEntry[] = [
   }
 ];
 
+export const parseJsonContent = (text: string): JournalEntry[] => {
+  if (!text || !text.trim()) {
+    throw new Error("JSON content is empty.");
+  }
+
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    // Attempt cleaning trailing commas or double braces
+    try {
+      const cleaned = text.replace(/,\s*([\]}])/g, '$1');
+      data = JSON.parse(cleaned);
+    } catch (err) {
+      throw new Error("Invalid JSON syntax. Please verify the JSON formatting.");
+    }
+  }
+
+  let list: any[] = [];
+
+  if (Array.isArray(data)) {
+    list = data;
+  } else if (data && typeof data === 'object') {
+    // Check known keys that hold array of memories/entries
+    const possibleArrayKeys = ['entries', 'memories', 'journalEntries', 'journal', 'items', 'posts', 'notes', 'data', 'logs', 'history', 'records'];
+    let foundArrayKey = false;
+    for (const key of possibleArrayKeys) {
+      if (Array.isArray(data[key])) {
+        list = data[key];
+        foundArrayKey = true;
+        break;
+      }
+    }
+
+    if (!foundArrayKey) {
+      // Check if any value inside object is an array
+      const anyArrayKey = Object.keys(data).find(k => Array.isArray(data[k]));
+      if (anyArrayKey) {
+        list = data[anyArrayKey];
+      } else {
+        // Assume the single object itself is a single memory
+        list = [data];
+      }
+    }
+  }
+
+  const formattedEntries: JournalEntry[] = list.map((item, index) => {
+    if (typeof item === 'string') {
+      return {
+        id: `imported-${Date.now()}-${index}`,
+        content: item,
+        createdAt: Date.now() - index * 60000,
+        title: extractAutoTitle(item)
+      };
+    }
+
+    if (!item || typeof item !== 'object') {
+      return null;
+    }
+
+    // Determine content string from various common fields (content, text, body, entry, note, description, markdown, message)
+    const content = 
+      item.content || 
+      item.text || 
+      item.body || 
+      item.entry || 
+      item.note || 
+      item.description || 
+      item.markdown || 
+      item.message || 
+      (typeof item.journal === 'string' ? item.journal : null);
+
+    const finalContent = typeof content === 'string' && content.trim() 
+      ? content.trim() 
+      : (item.content ? String(item.content) : JSON.stringify(item));
+
+    // Determine timestamp
+    const rawDate = 
+      item.createdAt || 
+      item.created_at || 
+      item.timestamp || 
+      item.date || 
+      item.time || 
+      item.creationDate || 
+      item.creation_date || 
+      item.published_at;
+
+    let timestamp = Date.now() - index * 60000;
+    if (typeof rawDate === 'number') {
+      // Unix timestamp in seconds vs milliseconds
+      timestamp = rawDate < 10000000000 ? rawDate * 1000 : rawDate;
+    } else if (typeof rawDate === 'string' && rawDate.trim()) {
+      const parsed = new Date(rawDate).getTime();
+      if (!isNaN(parsed)) {
+        timestamp = parsed;
+      }
+    }
+
+    // Determine title
+    const rawTitle = item.title || item.subject || item.name || item.heading || item.header;
+    const title = typeof rawTitle === 'string' && rawTitle.trim() ? rawTitle.trim() : extractAutoTitle(finalContent);
+
+    // Determine mood
+    const mood = typeof item.mood === 'string' ? item.mood : typeof item.sentiment === 'string' ? item.sentiment : undefined;
+
+    // Determine image
+    const image = typeof item.image === 'string' ? item.image : typeof item.img === 'string' ? item.img : typeof item.photo === 'string' ? item.photo : typeof item.imageUrl === 'string' ? item.imageUrl : undefined;
+
+    // Determine AI insight
+    const aiInsight = typeof item.aiInsight === 'string' ? item.aiInsight : typeof item.ai_insight === 'string' ? item.ai_insight : typeof item.insight === 'string' ? item.insight : undefined;
+
+    return {
+      id: item.id && typeof item.id === 'string' ? item.id : `imported-${Date.now()}-${index}`,
+      content: finalContent,
+      createdAt: isNaN(timestamp) ? Date.now() : timestamp,
+      title,
+      mood,
+      image,
+      aiInsight
+    };
+  }).filter((entry): entry is JournalEntry => entry !== null && Boolean(entry.content && entry.content.trim().length > 0));
+
+  if (formattedEntries.length === 0) {
+    throw new Error("No valid memory records found in JSON data.");
+  }
+
+  return formattedEntries;
+};
+
+export const parseTextMarkdownFile = (text: string): JournalEntry[] => {
+  const blocks = text.split(/\n(?=#{1,3}\s|\n---|\nDate:|\n\[\d{4}-\d{2}-\d{2}\])/gi).filter(b => b.trim().length > 0);
+  const formatted: JournalEntry[] = blocks.map((block, index) => {
+    const cleanBlock = block.replace(/^---/g, '').trim();
+    const lines = cleanBlock.split('\n');
+    let title = '';
+    if (lines[0].startsWith('#')) {
+      title = lines[0].replace(/^#+\s*/, '').trim();
+    } else if (lines[0].length < 60) {
+      title = lines[0].trim();
+    }
+    
+    return {
+      id: `imported-txt-${Date.now()}-${index}`,
+      content: cleanBlock,
+      createdAt: Date.now() - (blocks.length - index) * 86400000,
+      title: title || extractAutoTitle(cleanBlock),
+      mood: 'Reflective'
+    };
+  });
+
+  if (formatted.length === 0) {
+    return [{
+      id: `imported-txt-${Date.now()}-0`,
+      content: text.trim(),
+      createdAt: Date.now(),
+      title: extractAutoTitle(text),
+      mood: 'Reflective'
+    }];
+  }
+  return formatted;
+};
+
 export const ImportModal: React.FC<ImportModalProps> = ({
   isOpen,
   onClose,
   onImportEntries,
   currentEntriesCount
 }) => {
-  const [activeSource, setActiveSource] = useState<'file' | 'cloud' | 'starter'>('file');
+  const [activeSource, setActiveSource] = useState<'file' | 'paste' | 'cloud' | 'starter'>('file');
   const [dragOver, setDragOver] = useState(false);
   const [parsedEntries, setParsedEntries] = useState<JournalEntry[]>([]);
   const [fileName, setFileName] = useState<string>('');
+  const [pastedText, setPastedText] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [replaceExisting, setReplaceExisting] = useState(false);
   
@@ -61,75 +224,23 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
   if (!isOpen) return null;
 
-  const parseJsonFile = (text: string) => {
-    try {
-      const data = JSON.parse(text);
-      let list: any[] = [];
-      if (Array.isArray(data)) {
-        list = data;
-      } else if (data && Array.isArray(data.entries)) {
-        list = data.entries;
-      } else if (data && typeof data === 'object') {
-        list = [data];
-      }
+  const processTextContent = (text: string, filename?: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) throw new Error("Content is empty.");
 
-      const formatted: JournalEntry[] = list.map((item, index) => {
-        const contentStr = typeof item.content === 'string' ? item.content : JSON.stringify(item);
-        const timestamp = typeof item.createdAt === 'number' ? item.createdAt : 
-                          item.createdAt ? new Date(item.createdAt).getTime() : Date.now() - index * 60000;
-        return {
-          id: item.id || `imported-${Date.now()}-${index}`,
-          content: contentStr,
-          createdAt: isNaN(timestamp) ? Date.now() : timestamp,
-          title: item.title || extractAutoTitle(contentStr),
-          mood: item.mood || undefined,
-          image: item.image || undefined,
-          aiInsight: item.aiInsight || undefined
-        };
-      }).filter(e => e.content && e.content.trim().length > 0);
+    const isJsonLike = trimmed.startsWith('[') || trimmed.startsWith('{') || (filename && filename.toLowerCase().endsWith('.json'));
 
-      if (formatted.length === 0) {
-        throw new Error("No valid memories found in JSON file.");
+    if (isJsonLike) {
+      try {
+        return parseJsonContent(trimmed);
+      } catch (jsonErr: any) {
+        if (filename && filename.toLowerCase().endsWith('.json')) {
+          throw jsonErr;
+        }
       }
-      return formatted;
-    } catch (err: any) {
-      throw new Error(err.message || "Invalid JSON formatting.");
     }
-  };
 
-  const parseTextMarkdownFile = (text: string) => {
-    // Split by horizontal rule '---' or double line breaks with headings
-    const blocks = text.split(/\n(?=#{1,3}\s|\n---|\nDate:|\n\[\d{4}-\d{2}-\d{2}\])/gi).filter(b => b.trim().length > 0);
-    const formatted: JournalEntry[] = blocks.map((block, index) => {
-      const cleanBlock = block.replace(/^---/g, '').trim();
-      const lines = cleanBlock.split('\n');
-      let title = '';
-      if (lines[0].startsWith('#')) {
-        title = lines[0].replace(/^#+\s*/, '').trim();
-      } else if (lines[0].length < 60) {
-        title = lines[0].trim();
-      }
-      
-      return {
-        id: `imported-txt-${Date.now()}-${index}`,
-        content: cleanBlock,
-        createdAt: Date.now() - (blocks.length - index) * 86400000,
-        title: title || extractAutoTitle(cleanBlock),
-        mood: 'Reflective'
-      };
-    });
-
-    if (formatted.length === 0) {
-      // Fallback: entire text as single memory
-      return [{
-        id: `imported-txt-${Date.now()}-0`,
-        content: text.trim(),
-        createdAt: Date.now(),
-        title: extractAutoTitle(text),
-        mood: 'Reflective'
-      }];
-    }
-    return formatted;
+    return parseTextMarkdownFile(trimmed);
   };
 
   const handleFileProcess = (file: File) => {
@@ -142,13 +253,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         const text = e.target?.result as string;
         if (!text) throw new Error("File is empty.");
 
-        let entries: JournalEntry[] = [];
-        if (file.name.endsWith('.json')) {
-          entries = parseJsonFile(text);
-        } else {
-          entries = parseTextMarkdownFile(text);
-        }
-
+        const entries = processTextContent(text, file.name);
         setParsedEntries(entries);
       } catch (err: any) {
         setErrorMsg(err.message || "Failed to process file.");
@@ -171,6 +276,21 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     }
   };
 
+  const handleParsePastedText = () => {
+    setErrorMsg('');
+    if (!pastedText.trim()) {
+      setErrorMsg("Please paste JSON or text content first.");
+      return;
+    }
+    try {
+      const entries = processTextContent(pastedText);
+      setParsedEntries(entries);
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to parse pasted content.");
+      setParsedEntries([]);
+    }
+  };
+
   const handleCloudFetch = async () => {
     if (!cloudKeyInput.trim()) {
       setErrorMsg("Please enter a device key or account ID.");
@@ -185,7 +305,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         setParsedEntries(remoteEntries);
         setCloudFetchSuccessMsg(`Successfully fetched ${remoteEntries.length} memories from cloud!`);
       } else {
-        setErrorMsg("No remote memories found for that key.");
+        setErrorMsg("No remote memories found for that device key.");
         setParsedEntries([]);
       }
     } catch (err: any) {
@@ -207,6 +327,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 12 }}
+        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
         className="bg-surface rounded-3xl border border-surface-highlight shadow-2xl p-6 sm:p-8 max-w-xl w-full relative overflow-hidden my-8"
       >
         {/* Header */}
@@ -217,7 +338,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             </div>
             <div>
               <h2 className="text-xl sm:text-2xl font-display font-bold text-primary">Import Old Memories</h2>
-              <p className="text-xs text-secondary">Restore from file backup, device key, or sample set</p>
+              <p className="text-xs text-secondary">Restore from JSON file backup, raw text paste, device key, or sample set</p>
             </div>
           </div>
           <button 
@@ -229,27 +350,38 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="grid grid-cols-3 gap-2 bg-bg p-1.5 rounded-2xl border border-surface-highlight mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-bg p-1.5 rounded-2xl border border-surface-highlight mb-6">
           <button
             type="button"
             onClick={() => { setActiveSource('file'); setErrorMsg(''); }}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
               activeSource === 'file' ? 'bg-surface text-accent shadow-xs border border-accent/15' : 'text-secondary hover:text-primary'
             }`}
           >
-            <FileJson className="w-3.5 h-3.5" />
-            <span>File Backup</span>
+            <FileJson className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">JSON File</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setActiveSource('paste'); setErrorMsg(''); }}
+            className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
+              activeSource === 'paste' ? 'bg-surface text-accent shadow-xs border border-accent/15' : 'text-secondary hover:text-primary'
+            }`}
+          >
+            <Code className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Paste Text</span>
           </button>
 
           <button
             type="button"
             onClick={() => { setActiveSource('cloud'); setErrorMsg(''); }}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
               activeSource === 'cloud' ? 'bg-surface text-accent shadow-xs border border-accent/15' : 'text-secondary hover:text-primary'
             }`}
           >
-            <CloudDownload className="w-3.5 h-3.5" />
-            <span>Cloud Key</span>
+            <CloudDownload className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Cloud Key</span>
           </button>
 
           <button
@@ -259,12 +391,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               setParsedEntries(SAMPLE_STARTER_MEMORIES);
               setErrorMsg('');
             }}
-            className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+            className={`py-2 px-2.5 rounded-xl text-[11px] font-bold transition flex items-center justify-center gap-1.5 ${
               activeSource === 'starter' ? 'bg-surface text-accent shadow-xs border border-accent/15' : 'text-secondary hover:text-primary'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Starter Set</span>
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Starter Set</span>
           </button>
         </div>
 
@@ -287,18 +419,43 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                 accept=".json,.txt,.md,.csv" 
                 onChange={(e) => e.target.files?.[0] && handleFileProcess(e.target.files[0])} 
               />
-              <FileText className="w-10 h-10 text-accent/60 mx-auto mb-3" />
+              <FileJson className="w-10 h-10 text-accent/60 mx-auto mb-3" />
               <p className="text-sm font-bold text-primary mb-1">
-                {fileName ? fileName : "Click or drag backup file here"}
+                {fileName ? fileName : "Click or drag JSON / text backup file here"}
               </p>
               <p className="text-xs text-secondary opacity-80">
-                Supports .json, .txt, .md, or .csv journal exports
+                Supports .json arrays/objects, Day One exports, .md, .txt
               </p>
             </div>
           </div>
         )}
 
-        {/* Tab 2: Cloud Fetch */}
+        {/* Tab 2: Paste Raw JSON / Text */}
+        {activeSource === 'paste' && (
+          <div className="space-y-3">
+            <label className="block text-xs font-bold uppercase tracking-wider text-secondary">
+              Paste JSON Array or Raw Markdown Text
+            </label>
+            <textarea
+              rows={5}
+              value={pastedText}
+              onChange={(e) => setPastedText(e.target.value)}
+              placeholder={`Paste raw JSON array or markdown text here...\nExample:\n[\n  { "title": "First Memory", "content": "Hello world" }\n]`}
+              className="w-full p-3.5 bg-bg border border-surface-highlight rounded-2xl text-xs font-mono text-primary outline-none focus:border-accent placeholder:text-secondary/40"
+            />
+            <button
+              type="button"
+              onClick={handleParsePastedText}
+              disabled={!pastedText.trim()}
+              className="w-full py-2.5 bg-accent text-accent-fg font-bold text-xs rounded-xl hover:opacity-90 disabled:opacity-40 transition flex items-center justify-center gap-2"
+            >
+              <Check className="w-4 h-4" />
+              <span>Parse Content</span>
+            </button>
+          </div>
+        )}
+
+        {/* Tab 3: Cloud Fetch */}
         {activeSource === 'cloud' && (
           <div className="space-y-4">
             <div>
@@ -325,7 +482,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           </div>
         )}
 
-        {/* Tab 3: Starter Preset */}
+        {/* Tab 4: Starter Preset */}
         {activeSource === 'starter' && (
           <div className="p-4 bg-accent/5 border border-accent/15 rounded-2xl">
             <div className="flex items-center gap-2 mb-2 text-accent">
