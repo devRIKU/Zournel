@@ -3,6 +3,7 @@ import { Check, Trash2, Bot, ClipboardList } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { Task, CompletionAnimation, DeleteAnimation, Priority } from '../types';
 import { generateSubtasks } from '../services/geminiService';
+import { AiGlitterPill } from './AiGlitterTypewriter';
 
 interface TodoViewProps {
   tasks: Task[];
@@ -45,6 +46,9 @@ const TaskItem: React.FC<{
   const [isDeleting, setIsDeleting] = useState(false);
 
   const handleToggle = () => {
+    if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(25); } catch (e) {}
+    }
     if (!task.completed && completionAnim === 'confetti') {
         confetti({ particleCount: 30, spread: 40, colors: ['#4F46E5', '#818CF8'], origin: { y: 0.7 } });
     }
@@ -86,9 +90,7 @@ const TaskItem: React.FC<{
                 onUpdate({ ...task, priority: next[task.priority] });
             }} />
             {task.aiAnalysis && (
-              <span className="text-[9px] font-bold uppercase tracking-wider text-accent bg-accent/10 border border-accent/20 px-2 py-0.5 rounded-full italic animate-fade-in select-none">
-                ✨ {task.aiAnalysis}
-              </span>
+              <AiGlitterPill label={task.aiAnalysis} />
             )}
           </div>
         </div>
@@ -99,18 +101,27 @@ const TaskItem: React.FC<{
             title="AI Breakdown (Subtasks)"
             className="p-1.5 text-secondary hover:text-accent rounded-lg transition-colors active:scale-[0.97]"
           >
-             {loadingSubtasks ? <Bot className="w-4 h-4 animate-pulse" /> : <Bot className="w-4 h-4"/>}
+             {loadingSubtasks ? <Bot className="w-4 h-4 animate-pulse text-accent" /> : <Bot className="w-4 h-4"/>}
           </button>
           <button onClick={handleDelete} title="Delete Task" className="p-1.5 text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-[0.97]"><Trash2 className="w-4 h-4" /></button>
         </div>
       </div>
       {(isExpanded || loadingSubtasks) && (
         <div className="mt-4 pl-8 space-y-3 animate-slide-up">
-           {loadingSubtasks && <p className="text-[10px] font-grotesk font-bold uppercase tracking-widest text-accent animate-pulse">Deep Analysis...</p>}
+           {loadingSubtasks && (
+             <div className="py-1">
+               <AiGlitterPill label="AI is decomposing task into actionable steps..." />
+             </div>
+           )}
            {task.subtasks?.map(st => (
              <div key={st.id} className="flex items-center gap-3 group/sub">
                 <button 
-                  onClick={() => onUpdate({ ...task, subtasks: task.subtasks?.map(s => s.id === st.id ? { ...s, completed: !s.completed } : s) })} 
+                  onClick={() => {
+                    if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+                      try { navigator.vibrate(15); } catch (e) {}
+                    }
+                    onUpdate({ ...task, subtasks: task.subtasks?.map(s => s.id === st.id ? { ...s, completed: !s.completed } : s) });
+                  }} 
                   className={`w-4 h-4 rounded border transition active:scale-75 ${st.completed ? 'bg-secondary border-secondary' : 'border-secondary hover:border-accent'}`}
                 >
                   {st.completed && <Check className="w-3 h-3 text-white" />}

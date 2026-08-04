@@ -13,6 +13,7 @@ import {
 } from '../services/authService';
 import { syncMemoriesToCloud, fetchMemoriesFromCloud, exportMemoriesAsJSON } from '../services/dbService';
 import { extractAutoTitle } from '../services/geminiService';
+import { BlogView } from './BlogView';
 
 interface ProfileViewProps {
   profile: UserProfile | undefined;
@@ -85,6 +86,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [sharedEntryIds, setSharedEntryIds] = useState<string[]>(profile?.sharedEntries?.map(e => e.id) || []);
   const [copiedProfileLink, setCopiedProfileLink] = useState(false);
   const [copiedMemoryId, setCopiedMemoryId] = useState<string | null>(null);
+  const [previewBlogEntry, setPreviewBlogEntry] = useState<JournalEntry | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thoughtInputRef = useRef<HTMLInputElement>(null);
 
@@ -468,6 +470,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                             <span>{isSharedOnProfile ? 'Visible' : 'Private'}</span>
                           </button>
 
+                          {isSharedOnProfile && (
+                            <button
+                              onClick={() => setPreviewBlogEntry(entry)}
+                              className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 transition flex items-center gap-1.5"
+                              title="Preview as Blog Article"
+                            >
+                              <BookOpen className="w-3 h-3" />
+                              <span>Blog Page</span>
+                            </button>
+                          )}
+
                           <button 
                              onClick={() => copySingleMemoryLink(entry.id)}
                              className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition flex items-center gap-1.5 ${
@@ -711,6 +724,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Blog Post Modal Preview */}
+      <AnimatePresence>
+        {previewBlogEntry && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-[#FAF9F6] w-full max-w-4xl max-h-[92vh] rounded-3xl overflow-y-auto relative shadow-2xl border border-surface-highlight"
+            >
+              <div className="sticky top-0 z-50 bg-[#FAF9F6]/95 border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs font-mono text-accent">
+                  <Globe className="w-4 h-4" />
+                  <span>blog-sanniva.vercel.app/friends</span>
+                </div>
+                <button
+                  onClick={() => setPreviewBlogEntry(null)}
+                  className="p-2 rounded-full bg-[#E7E5E4] hover:bg-[#D6D3D1] text-[#44403C] transition"
+                  title="Close Preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <BlogView 
+                entry={previewBlogEntry} 
+                profile={{ name, bio, thought, picture, username, sharedEntries: journalEntries.filter(e => sharedEntryIds.includes(e.id)) }} 
+                allSharedEntries={journalEntries.filter(e => sharedEntryIds.includes(e.id))}
+                isStandalonePage={false}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
@@ -719,6 +766,7 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
   const isSingle = profile.isSingleEntry;
   const singleEntry = profile.sharedEntries?.[0];
   const [copied, setCopied] = useState(false);
+  const [activeBlogEntry, setActiveBlogEntry] = useState<JournalEntry | null>(null);
 
   const handleShareCurrentPage = () => {
     navigator.clipboard.writeText(window.location.href);
@@ -726,85 +774,28 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // 1. STANDALONE SINGLE MEMORY VIEW
+  // 1. STANDALONE SINGLE MEMORY BLOG VIEW
   if (isSingle && singleEntry) {
+    return <BlogView entry={singleEntry} profile={profile} allSharedEntries={profile.sharedEntries} />;
+  }
+
+  // If a visitor clicked a specific entry to read as a blog post
+  if (activeBlogEntry) {
     return (
-      <div className="min-h-screen bg-bg text-primary font-sans flex items-center justify-center p-4 sm:p-6 transition duration-500 animate-fade-in relative overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDelay: '2s' }} />
-
-        <div className="w-full max-w-lg relative z-10 my-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/10 text-accent border border-accent/20 text-xs font-semibold uppercase tracking-widest mb-3">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Shared Memory</span>
-            </div>
-            <h1 className="text-xs font-grotesk font-medium tracking-[0.2em] text-secondary uppercase">
-              A private moment shared from Zournel
-            </h1>
-          </div>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-10 shadow-lg relative overflow-hidden backdrop-blur-md"
-          >
-            <div className="flex justify-between items-start border-b border-surface-highlight pb-6 mb-6">
-              <div>
-                <span className="text-xs font-mono text-secondary tracking-wider block mb-1">
-                  {new Date(singleEntry.createdAt).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                </span>
-                <h2 className="text-2xl font-display font-bold text-primary tracking-tight">
-                  {singleEntry.title || 'Memory'}
-                </h2>
-              </div>
-              {singleEntry.mood && (
-                <span className="px-3 py-1 bg-accent/15 border border-accent/25 text-accent text-xs font-semibold uppercase tracking-wider rounded-full">
-                  {singleEntry.mood}
-                </span>
-              )}
-            </div>
-
-            {singleEntry.image && (
-              <div className="mb-6 rounded-2xl overflow-hidden shadow-sm max-h-64 border border-surface-highlight">
-                <img src={singleEntry.image} alt="Memory illustration" className="w-full h-full object-cover" />
-              </div>
-            )}
-
-            <p className="text-primary text-base sm:text-lg leading-relaxed italic opacity-95 mb-8 font-light select-text whitespace-pre-wrap">
-              "{singleEntry.content}"
-            </p>
-
-            {singleEntry.aiInsight && (
-              <div className="bg-accent/5 border border-accent/15 rounded-2xl p-5 relative overflow-hidden">
-                <div className="flex items-center gap-2 mb-2 text-accent">
-                  <Sparkles className="w-4 h-4" />
-                  <span className="text-[10px] font-bold tracking-widest uppercase">AI Reflection</span>
-                </div>
-                <p className="text-secondary text-xs sm:text-sm leading-relaxed italic">
-                  {singleEntry.aiInsight}
-                </p>
-              </div>
-            )}
-          </motion.div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mt-8">
-            <button
-              onClick={handleShareCurrentPage}
-              className="px-6 py-3.5 bg-surface-highlight text-primary hover:bg-surface-highlight/80 rounded-2xl font-bold flex items-center justify-center gap-2 transition active:scale-[0.97] text-xs sm:text-sm shrink-0 w-full sm:w-auto"
-            >
-              {copied ? <Check className="w-4 h-4 text-accent" /> : <Copy className="w-4 h-4" />}
-              <span>{copied ? "Copied Link!" : "Copy Memory Link"}</span>
-            </button>
-            <button
-              onClick={() => window.location.href = window.location.origin}
-              className="px-6 py-3.5 bg-accent text-accent-fg hover:opacity-90 rounded-2xl font-bold flex items-center justify-center gap-2 transition active:scale-[0.97] text-xs sm:text-sm w-full sm:w-auto flex-grow"
-            >
-              <span>Create Your Own Zournel</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+      <div className="relative">
+        <button
+          onClick={() => setActiveBlogEntry(null)}
+          className="fixed top-4 left-4 z-50 px-4 py-2 bg-surface text-primary border border-surface-highlight rounded-full text-xs font-bold shadow-md hover:bg-surface-highlight transition flex items-center gap-1.5"
+        >
+          <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+          <span>Back to {profile.name || 'Profile'}</span>
+        </button>
+        <BlogView 
+          entry={activeBlogEntry} 
+          profile={profile} 
+          allSharedEntries={profile.sharedEntries}
+          onSelectEntry={(entry) => setActiveBlogEntry(entry)}
+        />
       </div>
     );
   }
@@ -855,23 +846,26 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
           <div className="w-full text-left mt-4 pt-8 border-t border-surface-highlight/60">
             <div className="flex items-center justify-center gap-2 mb-6">
               <Calendar className="w-4 h-4 text-secondary/60" />
-              <h3 className="text-xs font-bold text-secondary tracking-widest uppercase text-center">Shared Memories</h3>
+              <h3 className="text-xs font-bold text-secondary tracking-widest uppercase text-center">Shared Blog Entries</h3>
             </div>
             
             <div className="space-y-5">
               {profile.sharedEntries.map(entry => (
-                <div key={entry.id} className="bg-bg/40 p-6 rounded-[2rem] border border-surface-highlight shadow-xs hover:shadow-sm transition duration-300">
+                <div 
+                  key={entry.id} 
+                  onClick={() => setActiveBlogEntry(entry)}
+                  className="bg-bg/40 hover:bg-bg/80 p-6 rounded-[2rem] border border-surface-highlight hover:border-accent/40 shadow-xs hover:shadow-md transition duration-300 cursor-pointer group"
+                >
                   <div className="flex justify-between items-center mb-3">
-                    <span className="font-bold text-primary text-xs sm:text-sm">
-                      {entry.title || new Date(entry.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    <span className="font-bold text-primary group-hover:text-accent transition-colors text-sm sm:text-base">
+                      {entry.title || extractAutoTitle(entry.content)}
                     </span>
-                    {entry.mood && (
-                      <span className="px-2.5 py-1 bg-accent/10 border border-accent/15 rounded-full text-[9px] font-bold uppercase tracking-wider text-accent">
-                        {entry.mood}
-                      </span>
-                    )}
+                    <span className="px-3 py-1 bg-accent/10 border border-accent/20 rounded-full text-[10px] font-bold uppercase tracking-wider text-accent flex items-center gap-1">
+                      <BookOpen className="w-3 h-3" />
+                      <span>Read Article</span>
+                    </span>
                   </div>
-                  <p className="text-secondary text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-light opacity-95">{entry.content}</p>
+                  <p className="text-secondary text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-light opacity-95 line-clamp-3">{entry.content}</p>
                   
                   {entry.image && (
                     <div className="mt-4 rounded-2xl overflow-hidden max-h-52 border border-surface-highlight/40">

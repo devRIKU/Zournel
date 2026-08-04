@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload } from 'lucide-react';
 import { JournalEntry } from '../types';
-import { extractAutoTitle, generateAutoTitle } from '../services/geminiService';
+import { extractAutoTitle } from '../services/geminiService';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -115,42 +115,9 @@ const CustomTooltip = ({ active, payload }: any) => {
 
 export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, onImportClick, selectedModel }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
-  const [renamingEntry, setRenamingEntry] = useState<JournalEntry | null>(null);
-  const [renamingTitleInput, setRenamingTitleInput] = useState('');
-  const [isGeneratingAutoTitle, setIsGeneratingAutoTitle] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-
-  const openRenameModal = (entry: JournalEntry) => {
-    setRenamingEntry(entry);
-    setRenamingTitleInput(entry.title || extractAutoTitle(entry.content));
-  };
-
-  const handleAutoTitleForRenaming = async () => {
-    if (!renamingEntry) return;
-    setIsGeneratingAutoTitle(true);
-    try {
-      const aiTitle = await generateAutoTitle(renamingEntry.content, selectedModel);
-      if (aiTitle) {
-        setRenamingTitleInput(aiTitle);
-      } else {
-        setRenamingTitleInput(extractAutoTitle(renamingEntry.content));
-      }
-    } catch (err) {
-      setRenamingTitleInput(extractAutoTitle(renamingEntry.content));
-    } finally {
-      setIsGeneratingAutoTitle(false);
-    }
-  };
-
-  const handleSaveRename = () => {
-    if (!renamingEntry) return;
-    const finalTitle = renamingTitleInput.trim() || extractAutoTitle(renamingEntry.content);
-    if (onRenameEntry) {
-      onRenameEntry(renamingEntry.id, finalTitle);
-    }
-    setRenamingEntry(null);
-  };
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const filteredEntries = useMemo(() => {
     if (!searchQuery.trim()) return entries;
@@ -302,7 +269,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   };
 
   return (
-    <div className="pb-40 px-6 max-w-6xl mx-auto w-full animate-fade-in">
+    <div className="pb-40 w-full animate-fade-in">
       {/* Header with Switcher Tab Navigation & Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 mt-4 sm:mt-8 border-b border-surface-highlight/30 pb-5">
         <div className="flex flex-col gap-2">
@@ -531,7 +498,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                         whileHover={{ y: -6, scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
                         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-2xl hover:border-accent/30 transition duration-300 overflow-hidden outline-none cursor-pointer ${
+                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight/60 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_60px_-8px_rgba(0,0,0,0.08)] hover:border-accent/40 transition-all duration-500 overflow-hidden outline-none cursor-pointer ${
                           isHero ? 'md:col-span-2' : ''
                         }`}
                       >
@@ -539,14 +506,19 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (window.confirm("Are you sure you want to delete this memory?")) {
+                              if (deleteConfirmId === entry.id) {
                                 onDeleteEntry(entry.id);
+                                setDeleteConfirmId(null);
+                              } else {
+                                setDeleteConfirmId(entry.id);
+                                setTimeout(() => setDeleteConfirmId(null), 3000);
                               }
                             }}
                             title="Delete Memory"
-                            className="absolute top-4 right-4 z-20 p-2.5 rounded-full bg-black/50 hover:bg-red-600/90 text-white/90 hover:text-white backdrop-blur-md transition active:scale-[0.97] opacity-100 sm:opacity-0 group-hover:opacity-100 shadow-md"
+                            className={`absolute top-4 right-4 z-20 px-3 py-1.5 rounded-full backdrop-blur-md transition active:scale-[0.97] shadow-md flex items-center gap-2 ${deleteConfirmId === entry.id ? 'bg-red-600 text-white opacity-100' : 'bg-black/50 hover:bg-red-600/90 text-white/90 hover:text-white opacity-100 sm:opacity-0 group-hover:opacity-100'}`}
                           >
                             <Trash2 className="w-4 h-4" />
+                            {deleteConfirmId === entry.id && <span className="text-xs font-bold uppercase tracking-wider">Confirm</span>}
                           </button>
                         )}
 
@@ -598,24 +570,11 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
                         <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
                           <div>
-                             {/* Auto Title & Rename Option */}
-                             <div className="flex items-start justify-between gap-3 mb-3">
+                             {/* Auto Title */}
+                             <div className="mb-3">
                                <h3 className="text-xl sm:text-2xl font-display font-bold text-primary group-hover:text-accent transition-colors duration-300 leading-snug tracking-tight line-clamp-2">
                                  {displayTitle}
                                </h3>
-                               {onRenameEntry && (
-                                 <button
-                                   type="button"
-                                   onClick={(e) => {
-                                     e.stopPropagation();
-                                     openRenameModal(entry);
-                                   }}
-                                   title="Rename Title"
-                                   className="p-2 text-secondary/70 hover:text-accent hover:bg-accent/15 rounded-xl transition shrink-0 active:scale-[0.97]"
-                                 >
-                                   <Pencil className="w-4 h-4" />
-                                 </button>
-                               )}
                              </div>
 
                              {/* Content Excerpt */}
@@ -904,88 +863,6 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
         )}
       </AnimatePresence>
 
-      {/* Rename Memory Title Modal */}
-      <AnimatePresence>
-        {renamingEntry && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              className="bg-surface rounded-3xl border border-surface-highlight shadow-2xl p-6 sm:p-8 max-w-md w-full relative overflow-hidden"
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 bg-accent/15 text-accent rounded-xl border border-accent/20">
-                    <Pencil className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-display font-bold text-primary">Rename Memory</h3>
-                    <p className="text-xs text-secondary">Custom title (or Auto Title with AI)</p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => setRenamingEntry(null)} 
-                  className="p-2 rounded-full hover:bg-surface-highlight text-secondary hover:text-primary transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-4 my-6">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">Memory Title</label>
-                  <input 
-                    type="text" 
-                    value={renamingTitleInput} 
-                    onChange={(e) => setRenamingTitleInput(e.target.value)} 
-                    placeholder="Enter memory title..."
-                    className="w-full px-4 py-3 bg-bg border border-surface-highlight rounded-2xl text-primary font-display font-bold text-base outline-none focus:border-accent transition"
-                    autoFocus
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        handleSaveRename();
-                      }
-                    }}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleAutoTitleForRenaming}
-                  disabled={isGeneratingAutoTitle}
-                  className="w-full py-2.5 px-4 bg-accent/10 hover:bg-accent/20 text-accent border border-accent/25 rounded-2xl flex items-center justify-center gap-2 text-xs font-bold transition disabled:opacity-50 active:scale-98"
-                >
-                  {isGeneratingAutoTitle ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4" />
-                  )}
-                  <span>Auto Title with AI</span>
-                </button>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2 border-t border-surface-highlight/50">
-                <button
-                  type="button"
-                  onClick={() => setRenamingEntry(null)}
-                  className="px-5 py-2.5 rounded-full text-xs font-bold text-secondary hover:text-primary transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveRename}
-                  className="px-6 py-2.5 rounded-full bg-accent text-accent-fg text-xs font-bold hover:bg-accent/90 shadow-md transition active:scale-[0.97]"
-                >
-                  Save Title
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 };

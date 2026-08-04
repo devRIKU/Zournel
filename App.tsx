@@ -413,7 +413,7 @@ const App: React.FC = () => {
            </button>
         </div>
       </header>
-      <main className="relative flex-grow min-h-[80vh] w-full max-w-4xl mx-auto">
+      <main className="relative flex-grow min-h-[80vh] w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
         <div className={`transition duration-200 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <TodoView 
               tasks={tasks} onToggleTask={t => setTasks(prev => prev.map(tk => tk.id === t ? {...tk, completed: !tk.completed} : tk))} 

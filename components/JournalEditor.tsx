@@ -28,6 +28,7 @@ import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
 import { editJournalText, detectMoodFromJournal, AiActionType, generateAutoTitle, extractAutoTitle } from '../services/geminiService';
+import { AiGlitterTypewriter, AiGlitterPill } from './AiGlitterTypewriter';
 
 const PRESET_MOODS = [
   { emoji: '😊', label: 'Happy' },
@@ -152,6 +153,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [autoMoodActive, setAutoMoodActive] = useState<boolean>(() => initialMood === '✨ Auto');
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showAiMenu, setShowAiMenu] = useState(false);
   const [showToolbarMore, setShowToolbarMore] = useState(false);
@@ -381,12 +383,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     editorRef.current?.action((ctx) => ctx.get(commandsCtx).call(command, payload));
     // Close mobile menu after selection if open
     if (showToolbarMore) setShowToolbarMore(false);
-  };
-
-  const handleRandomCover = () => {
-    setImage(getRandomCover());
-    setImgLoading(true);
-    setImgError(false);
   };
 
   const getCleanedContent = (raw: string) => {
@@ -659,6 +655,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   const handleSave = async () => {
+    if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate([20, 30, 20]); } catch (e) {}
+    }
     let finalMood = mood;
     if (autoMoodActive || mood === '✨ Auto') {
       if (content && content.trim().length >= 5) {
@@ -744,15 +743,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           
           <div className="flex items-center gap-2 md:gap-3">
              <button 
-                onClick={handleRandomCover}
-                className="flex items-center gap-2 px-3 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white active:scale-[0.97]"
-                title="Random Cover Photo"
-             >
-                <Shuffle className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span className="hidden sm:inline">Random</span>
-             </button>
-
-             <button 
                 onClick={() => setShowGallery(true)}
                 className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
                 title="Change Cover"
@@ -764,15 +754,19 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
              {initialId && onDelete && (
                <button 
                   onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this memory?")) {
+                    if (showDeleteConfirm) {
                       onDelete(initialId);
                       onClose();
+                    } else {
+                      setShowDeleteConfirm(true);
+                      setTimeout(() => setShowDeleteConfirm(false), 3000);
                     }
                   }}
-                  className="p-2 md:p-2.5 bg-red-500/20 hover:bg-red-600/90 text-white backdrop-blur-md rounded-full transition active:scale-[0.97] border border-red-500/30"
+                  className={`p-2 md:p-2.5 backdrop-blur-md rounded-full transition active:scale-[0.97] border flex items-center gap-2 ${showDeleteConfirm ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'bg-red-500/20 hover:bg-red-600/90 text-white border-red-500/30'}`}
                   title="Delete Memory"
                >
                   <Trash2 className="w-4 h-4" />
+                  {showDeleteConfirm && <span className="text-xs font-bold uppercase tracking-wider pr-1">Confirm</span>}
                </button>
              )}
 
@@ -892,9 +886,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                        </div>
                     </div>
                     <div className="flex-1 space-y-4">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2"><Sparkles className="w-3 h-3" /> AI Suggestion</span>
-                       <div className="p-6 bg-accent/15 border-2 border-accent/45 rounded-2xl text-primary text-sm leading-relaxed font-semibold shadow-inner">
-                          {previewText}
+                       <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2"><Sparkles className="w-3 h-3 text-accent animate-spin" style={{ animationDuration: '3s' }} /> AI Suggestion</span>
+                       <div className="p-6 bg-accent/15 border-2 border-accent/45 rounded-2xl text-primary text-sm leading-relaxed font-semibold shadow-inner min-h-[140px]">
+                          <AiGlitterTypewriter text={previewText} badgeText="Glittering AI Rewrite" speed={18} />
                        </div>
                     </div>
                  </div>
@@ -1193,7 +1187,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           ref={editorContainerRef} 
           onMouseMove={handleMouseMoveContainer}
           onMouseLeave={handleMouseLeaveContainer}
-          className="flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border border-surface-highlight shadow-sm relative min-h-[350px]"
+          className={`flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[350px] transition-all duration-700 ${isProcessing ? 'border-accent/50 shadow-[0_0_40px_rgba(198,156,109,0.15)] animate-pulse' : 'border-surface-highlight/60'}`}
         >
           {/* Notion/BlockNote Style Block Handle (+ / ⋮⋮) */}
           <AnimatePresence>
