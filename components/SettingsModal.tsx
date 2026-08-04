@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type } from 'lucide-react';
+import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw } from 'lucide-react';
 import { AppSettings, Theme } from '../types';
 
 interface SettingsModalProps {
@@ -76,6 +76,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
                      Your key is stored locally on this device. We use it to communicate directly with Google's Gemini API for task analysis and journaling insights.
                    </p>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                  <ShieldCheck className="w-4 h-4" /> Cloud & Auto-Backup
+                </h3>
+                <div className="p-5 bg-surface-highlight/50 rounded-[1.5rem] border border-surface-highlight space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-primary">Automatic Background Backup</h4>
+                      <p className="text-[11px] text-secondary/70">Sync memories and app config seamlessly to cloud storage</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onUpdateSettings({ ...settings, autoBackupEnabled: !(settings.autoBackupEnabled ?? true) })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        (settings.autoBackupEnabled ?? true) ? 'bg-emerald-500' : 'bg-surface-highlight/80'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          (settings.autoBackupEnabled ?? true) ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {(settings.autoBackupEnabled ?? true) && (
+                    <div className="pt-3 border-t border-surface-highlight/50 space-y-3">
+                      <label className="block text-xs font-bold text-secondary uppercase tracking-wider">Sync Frequency</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {[
+                          { val: 0, label: 'Instant' },
+                          { val: 5, label: '5 Mins' },
+                          { val: 15, label: '15 Mins' },
+                          { val: 60, label: '1 Hour' },
+                        ].map(freq => (
+                          <button
+                            key={freq.val}
+                            type="button"
+                            onClick={() => onUpdateSettings({ ...settings, autoBackupIntervalMinutes: freq.val })}
+                            className={`py-2 rounded-xl text-xs font-bold transition border ${
+                              (settings.autoBackupIntervalMinutes ?? 5) === freq.val
+                                ? 'bg-surface text-accent border-accent/40 shadow-xs'
+                                : 'bg-surface-highlight/40 text-secondary hover:text-primary border-transparent'
+                            }`}
+                          >
+                            {freq.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </section>
 

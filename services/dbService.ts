@@ -61,27 +61,35 @@ export const getSharedEntriesForUsername = async (username: string) => {
 export const syncMemoriesToCloud = async (
   userIdentifier: string, 
   entries: JournalEntry[], 
-  extraInfo?: { googleEmail?: string; deviceKey?: string }
+  extraInfo?: { googleEmail?: string; deviceKey?: string; config?: any; profile?: any }
 ) => {
   if (!userIdentifier) return;
   const syncRef = doc(db, 'user_memories', userIdentifier);
-  await setDoc(syncRef, {
+  
+  const updateData: any = {
     entries,
     lastSyncedAt: Date.now(),
     deviceKey: extraInfo?.deviceKey || getLocalUserId(),
     googleEmail: extraInfo?.googleEmail || null
-  }, { merge: true });
+  };
+
+  if (extraInfo?.config) updateData.config = extraInfo.config;
+  if (extraInfo?.profile) updateData.profile = extraInfo.profile;
+
+  await setDoc(syncRef, updateData, { merge: true });
 };
 
-export const fetchMemoriesFromCloud = async (userIdentifier: string): Promise<JournalEntry[] | null> => {
+export const fetchMemoriesFromCloud = async (userIdentifier: string): Promise<{ entries: JournalEntry[] | null, config: any | null, profile: any | null } | null> => {
   if (!userIdentifier) return null;
   const syncRef = doc(db, 'user_memories', userIdentifier);
   const snapshot = await getDoc(syncRef);
   if (snapshot.exists()) {
     const data = snapshot.data();
-    if (Array.isArray(data.entries)) {
-      return data.entries as JournalEntry[];
-    }
+    return {
+      entries: Array.isArray(data.entries) ? data.entries as JournalEntry[] : null,
+      config: data.config || null,
+      profile: data.profile || null
+    };
   }
   return null;
 };

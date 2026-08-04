@@ -78,9 +78,26 @@ export const parseJsonContent = (text: string): JournalEntry[] => {
       const anyArrayKey = Object.keys(data).find(k => Array.isArray(data[k]));
       if (anyArrayKey) {
         list = data[anyArrayKey];
-      } else {
+      } else if (data.content || data.text || data.body || data.entry || data.note || data.title) {
         // Assume the single object itself is a single memory
         list = [data];
+      } else {
+        // Check if object is a key-value dictionary (e.g. { "2026-08-01": "Text", "2026-08-02": {...} })
+        const keys = Object.keys(data);
+        if (keys.length > 0) {
+          list = keys.map(k => {
+            const val = data[k];
+            if (typeof val === 'string') {
+              return { dateKey: k, content: val };
+            }
+            if (val && typeof val === 'object') {
+              return { dateKey: k, ...val };
+            }
+            return null;
+          }).filter(Boolean);
+        } else {
+          list = [data];
+        }
       }
     }
   }
@@ -121,6 +138,7 @@ export const parseJsonContent = (text: string): JournalEntry[] => {
       item.created_at || 
       item.timestamp || 
       item.date || 
+      item.dateKey ||
       item.time || 
       item.creationDate || 
       item.creation_date || 
@@ -300,10 +318,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
     setErrorMsg('');
     setCloudFetchSuccessMsg('');
     try {
-      const remoteEntries = await fetchMemoriesFromCloud(cloudKeyInput.trim());
-      if (remoteEntries && remoteEntries.length > 0) {
-        setParsedEntries(remoteEntries);
-        setCloudFetchSuccessMsg(`Successfully fetched ${remoteEntries.length} memories from cloud!`);
+      const remoteData = await fetchMemoriesFromCloud(cloudKeyInput.trim());
+      if (remoteData && remoteData.entries && remoteData.entries.length > 0) {
+        setParsedEntries(remoteData.entries);
+        setCloudFetchSuccessMsg(`Successfully fetched ${remoteData.entries.length} memories from cloud!`);
       } else {
         setErrorMsg("No remote memories found for that device key.");
         setParsedEntries([]);

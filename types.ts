@@ -31,6 +31,9 @@ export interface AppSettings {
   model: string;
   apiKey: string;
   profile?: UserProfile;
+  autoBackupEnabled?: boolean;
+  autoBackupIntervalMinutes?: number;
+  lastAutoBackupTime?: number;
 }
 
 export interface SubTask {

@@ -13,6 +13,8 @@ import { AddModal } from './components/AddModal';
 import { ProfileView, PublicProfileView } from './components/ProfileView';
 import { ImportModal } from './components/ImportModal';
 import { getLocalUserId } from './services/authService';
+import { syncMemoriesToCloud } from './services/dbService';
+import { AutoBackupPill } from './components/AutoBackupPill';
 import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, extractAutoTitle } from './services/geminiService';
 
 const ALL_THEME_CLASSES = [
@@ -178,7 +180,7 @@ const App: React.FC = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [settings.theme]);
 
-  // Persist settings
+  // Persist settings & local storage
   useEffect(() => {
     if (loaded) {
       localStorage.setItem('mf_tasks', JSON.stringify(tasks));
@@ -186,6 +188,77 @@ const App: React.FC = () => {
       localStorage.setItem('mf_settings', JSON.stringify(settings));
     }
   }, [tasks, journalEntries, settings, loaded]);
+
+  const latestDataRef = React.useRef({ journalEntries, settings });
+  
+  useEffect(() => {
+    latestDataRef.current = { journalEntries, settings };
+  }, [journalEntries, settings]);
+
+  // Auto-backup state and cloud sync engine
+  const [isAutoBackingUp, setIsAutoBackingUp] = useState(false);
+  const [lastAutoBackupTime, setLastAutoBackupTime] = useState<number | null>(() => {
+    return settings.lastAutoBackupTime || null;
+  });
+
+  const performAutoBackup = React.useCallback(async () => {
+    if (!loaded) return;
+    const { journalEntries: currentEntries, settings: currentSettings } = latestDataRef.current;
+    
+    setIsAutoBackingUp(true);
+    try {
+      const targetId = getLocalUserId();
+      await syncMemoriesToCloud(targetId, currentEntries, {
+        deviceKey: targetId,
+        config: currentSettings,
+        profile: currentSettings.profile
+      });
+      const now = Date.now();
+      setLastAutoBackupTime(now);
+      setSettings(prev => ({ ...prev, lastAutoBackupTime: now }));
+    } catch (e) {
+      console.warn("Auto-backup failed gracefully:", e);
+    } finally {
+      setIsAutoBackingUp(false);
+    }
+  }, [loaded]);
+
+  // Debounced Auto Backup Effect when entries or profile change
+  useEffect(() => {
+    if (!loaded) return;
+    if (settings.autoBackupEnabled === false) return;
+
+    // Create local backup snapshot
+    localStorage.setItem('mf_auto_backup_snapshot', JSON.stringify({
+      timestamp: Date.now(),
+      entries: journalEntries,
+      settings: settings
+    }));
+
+    const intervalMin = settings.autoBackupIntervalMinutes ?? 5;
+    
+    // If interval is 0 (Instant on change), debounce backup by 3 seconds
+    if (intervalMin === 0) {
+      const timer = setTimeout(() => {
+        performAutoBackup();
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [journalEntries, settings.profile, settings.autoBackupEnabled, loaded, performAutoBackup]);
+
+  // Periodic Auto-Backup Interval
+  useEffect(() => {
+    if (!loaded || settings.autoBackupEnabled === false) return;
+    const intervalMin = settings.autoBackupIntervalMinutes ?? 5;
+    if (intervalMin <= 0) return;
+
+    const intervalMs = intervalMin * 60 * 1000;
+    const intervalId = setInterval(() => {
+      performAutoBackup();
+    }, intervalMs);
+
+    return () => clearInterval(intervalId);
+  }, [loaded, settings.autoBackupEnabled, settings.autoBackupIntervalMinutes, performAutoBackup]);
 
   // Theme Applier
   useEffect(() => {
@@ -404,12 +477,19 @@ const App: React.FC = () => {
             <span className="text-accent italic font-grotesk text-xs sm:text-sm font-semibold">Reflect & Execute</span>
           </div>
         </div>
-        <div className="flex gap-2">
-           <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
-            <Sparkles className="w-6 h-6" />
+        <div className="flex items-center gap-2 sm:gap-3">
+           <AutoBackupPill
+             isBackingUp={isAutoBackingUp}
+             lastBackupTime={lastAutoBackupTime}
+             autoBackupEnabled={settings.autoBackupEnabled ?? true}
+             onManualBackup={performAutoBackup}
+             onOpenSettings={() => setIsSettingsOpen(true)}
+           />
+           <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
+            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
-           <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97]">
-            <Settings className="w-6 h-6" />
+           <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97]">
+            <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
         </div>
       </header>
@@ -431,6 +511,7 @@ const App: React.FC = () => {
              onDeleteEntry={deleteJournalEntry} 
              onRenameEntry={renameJournalEntry}
              onImportClick={() => setIsImportModalOpen(true)}
+             onImportEntries={handleImportEntries}
              selectedModel={settings.model}
            />
         </div>
@@ -441,6 +522,8 @@ const App: React.FC = () => {
              onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))}
              onOpenImportModal={() => setIsImportModalOpen(true)}
              onImportEntries={handleImportEntries}
+             settings={settings}
+             onUpdateSettings={setSettings}
            />
         </div>
       </main>

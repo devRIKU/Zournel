@@ -154,7 +154,7 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
         <div className="p-3 bg-accent/10 rounded-2xl">
           <ClipboardList className="w-8 h-8 text-accent" />
         </div>
-        <h2 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-primary tracking-tight break-words">Tasks</h2>
+        <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-primary tracking-tight break-words">Tasks</h2>
       </div>
       <div className="relative mb-12">
         <input 

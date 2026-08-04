@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload } from 'lucide-react';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code } from 'lucide-react';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { 
@@ -22,6 +22,7 @@ interface JournalViewProps {
   onDeleteEntry?: (id: string) => void;
   onRenameEntry?: (id: string, newTitle: string) => void;
   onImportClick?: () => void;
+  onImportEntries?: (entries: JournalEntry[], replaceExisting?: boolean) => void;
   selectedModel?: string;
 }
 
@@ -113,7 +114,7 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, onImportClick, selectedModel }) => {
+export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, onImportClick, onImportEntries, selectedModel }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -338,6 +339,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               ) : (
                 <motion.button
                   key="search-toggle-btn"
+                  type="button"
                   whileTap={{ scale: 0.97 }}
                   onClick={() => setIsSearchOpen(true)}
                   className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 border shadow-xs shrink-0 ${
@@ -360,7 +362,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           {/* 2. Switcher Tab Buttons (Memories / Reflections Toggle in CENTER) */}
           <div className="flex bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 shrink-0 shadow-inner relative z-0">
             <button
-              onClick={() => setSubTab('timeline')}
+              type="button"
+              onClick={() => { setSubTab('timeline'); setIsSearchOpen(false); }}
               className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
                 subTab === 'timeline' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
@@ -376,7 +379,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               <span className="text-[11px] sm:text-xs">Timeline</span>
             </button>
             <button
-              onClick={() => setSubTab('reflections')}
+              type="button"
+              onClick={() => { setSubTab('reflections'); setIsSearchOpen(false); }}
               className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
                 subTab === 'reflections' ? 'text-accent' : 'text-secondary hover:text-primary'
               }`}
@@ -395,15 +399,18 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
           {/* 3. Import Button (RIGHT of toggle) */}
           {subTab === 'timeline' && onImportClick && (
-            <motion.button
-              whileTap={{ scale: 0.97 }}
-              onClick={onImportClick}
-              className="px-3 py-2 sm:px-3.5 sm:py-2.5 bg-surface-highlight/30 hover:bg-surface-highlight border border-surface-highlight/40 text-secondary hover:text-accent rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0"
-              title="Import old memories"
-            >
-              <Upload className="w-4 h-4 text-accent shrink-0" />
-              <span className="hidden sm:inline">Import</span>
-            </motion.button>
+            <div className="flex items-center gap-2 shrink-0">
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.97 }}
+                onClick={onImportClick}
+                className="px-3 py-2 sm:px-3.5 sm:py-2.5 bg-surface-highlight/30 hover:bg-surface-highlight border border-surface-highlight/40 text-secondary hover:text-accent rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0"
+                title="Import old memories"
+              >
+                <Upload className="w-4 h-4 text-accent shrink-0" />
+                <span className="hidden sm:inline">Import</span>
+              </motion.button>
+            </div>
           )}
         </div>
       </div>
@@ -862,7 +869,6 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           </motion.div>
         )}
       </AnimatePresence>
-
     </div>
   );
 };

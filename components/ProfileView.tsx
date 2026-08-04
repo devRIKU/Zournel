@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { UserProfile, JournalEntry } from '../types';
+import { UserProfile, JournalEntry, AppSettings } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Camera, Copy, Check, Share, ExternalLink, User, Key, Eye, EyeOff, 
@@ -21,6 +21,8 @@ interface ProfileViewProps {
   onUpdateProfile: (profile: UserProfile) => void;
   onOpenImportModal?: () => void;
   onImportEntries?: (entries: JournalEntry[], replaceExisting?: boolean) => void;
+  settings?: AppSettings;
+  onUpdateSettings?: (settings: AppSettings) => void;
 }
 
 const QUICK_NOTE_PRESETS = [
@@ -77,7 +79,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   journalEntries, 
   onUpdateProfile,
   onOpenImportModal,
-  onImportEntries
+  onImportEntries,
+  settings,
+  onUpdateSettings
 }) => {
   const [name, setName] = useState(profile?.name || '');
   const [bio, setBio] = useState(profile?.bio || '');
@@ -108,8 +112,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   useEffect(() => {
     const unsubscribe = listenToAuthChanges((u) => {
       setGoogleUser(u);
-      if (u && !name) {
-        setName(u.displayName || 'Google Member');
+      if (u) {
+        setName(prev => prev || u.displayName || 'Google Member');
       }
     });
     return () => unsubscribe();
@@ -145,11 +149,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     try {
       await syncMemoriesToCloud(targetId, journalEntries, {
         googleEmail: googleUser?.email,
-        deviceKey: currentKey
+        deviceKey: currentKey,
+        config: settings,
+        profile: profile
       });
       const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       setLastSyncedTime(timeStr);
-      setSyncStatusMsg(`Synced ${journalEntries.length} memories to Cloud at ${timeStr}!`);
+      setSyncStatusMsg(`Synced ${journalEntries.length} memories & config to Cloud at ${timeStr}!`);
     } catch (err: any) {
       setSyncStatusMsg(`Sync error: ${err.message || 'Failed to sync'}`);
     } finally {
@@ -163,16 +169,26 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setSyncStatusMsg('');
     try {
       const remote = await fetchMemoriesFromCloud(targetId);
-      if (remote && remote.length > 0) {
-        if (onImportEntries) {
-          onImportEntries(remote, false);
+      if (remote) {
+        let msg = '';
+        if (remote.entries && remote.entries.length > 0 && onImportEntries) {
+          onImportEntries(remote.entries, false);
+          msg += `Pulled ${remote.entries.length} memories. `;
         }
-        setSyncStatusMsg(`Pulled and merged ${remote.length} memories from Cloud!`);
+        if (remote.config && onUpdateSettings) {
+           onUpdateSettings(remote.config);
+           msg += 'Pulled config. ';
+        }
+        if (msg) {
+           setSyncStatusMsg(msg.trim());
+        } else {
+           setSyncStatusMsg('No remote data found on Cloud.');
+        }
       } else {
         setSyncStatusMsg('No remote memories found on Cloud.');
       }
     } catch (err: any) {
-      setSyncStatusMsg(`Pull error: ${err.message || 'Failed to fetch cloud memories'}`);
+      setSyncStatusMsg(`Pull error: ${err.message || 'Failed to fetch cloud data'}`);
     } finally {
       setIsSyncingCloud(false);
     }
