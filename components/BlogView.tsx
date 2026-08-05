@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Globe, Copy, Check, ArrowRight, User, Calendar, Clock, BookOpen, Share2, Heart, ExternalLink, Bookmark } from 'lucide-react';
+import { Sparkles, Globe, Copy, Check, ArrowRight, User, Calendar, Clock, BookOpen, Share2, Heart, ExternalLink, Bookmark, Sun, Moon } from 'lucide-react';
 import { JournalEntry, UserProfile } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 
@@ -23,6 +23,10 @@ export const BlogView: React.FC<BlogViewProps> = ({
   const [bookmarked, setBookmarked] = useState(false);
   const [likesCount, setLikesCount] = useState(12);
   const [hasLiked, setHasLiked] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return document.documentElement.classList.contains('dark') || 
+      (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  });
 
   const authorName = profile?.name || 'Sanniva';
   const authorUsername = profile?.username || 'sanniva';
@@ -65,19 +69,27 @@ export const BlogView: React.FC<BlogViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] font-sans transition duration-500 selection:bg-accent/20 selection:text-accent">
+    <div className={`min-h-screen font-sans transition duration-500 selection:bg-accent/20 selection:text-accent ${
+      isDarkMode ? 'bg-[#0F172A] text-slate-100' : 'bg-[#FAF9F6] text-[#1C1917]'
+    }`}>
       {/* Top Simulated Blog Address Bar / Header */}
-      <header className="sticky top-0 z-40 bg-[#FAF9F6]/90 backdrop-blur-md border-b border-[#E7E5E4] px-4 sm:px-8 py-3.5">
+      <header className={`sticky top-0 z-40 backdrop-blur-md border-b px-4 sm:px-8 py-3.5 transition duration-500 ${
+        isDarkMode ? 'bg-[#0F172A]/90 border-slate-800' : 'bg-[#FAF9F6]/90 border-[#E7E5E4]'
+      }`}>
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-accent text-accent-fg flex items-center justify-center font-display font-bold text-sm shadow-xs">
               {authorName.charAt(0).toUpperCase()}
             </div>
             <div>
-              <span className="text-xs font-bold tracking-tight text-[#1C1917] block leading-tight">
+              <span className={`text-xs font-bold tracking-tight block leading-tight ${
+                isDarkMode ? 'text-slate-100' : 'text-[#1C1917]'
+              }`}>
                 {authorName}'s Journal Blog
               </span>
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#78716C]">
+              <div className={`flex items-center gap-1.5 text-[10px] font-mono ${
+                isDarkMode ? 'text-slate-400' : 'text-[#78716C]'
+              }`}>
                 <Globe className="w-2.5 h-2.5 text-accent" />
                 <span>{domainPath}</span>
               </div>
@@ -86,10 +98,26 @@ export const BlogView: React.FC<BlogViewProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleCopyLink}
-              className="px-3.5 py-1.5 rounded-full bg-white border border-[#E7E5E4] hover:border-accent text-xs font-semibold text-[#44403C] hover:text-accent transition flex items-center gap-1.5 shadow-xs active:scale-95"
+              onClick={() => setIsDarkMode(prev => !prev)}
+              className={`p-2 rounded-full border text-xs font-semibold transition flex items-center justify-center shadow-xs active:scale-95 ${
+                isDarkMode 
+                  ? 'bg-slate-800 border-slate-700 text-amber-300 hover:bg-slate-700' 
+                  : 'bg-white border-[#E7E5E4] text-[#44403C] hover:border-accent'
+              }`}
+              title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Share2 className="w-3.5 h-3.5 text-accent" />}
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+
+            <button
+              onClick={handleCopyLink}
+              className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold transition flex items-center gap-1.5 shadow-xs active:scale-95 ${
+                isDarkMode 
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 hover:border-accent hover:text-accent' 
+                  : 'bg-white border-[#E7E5E4] text-[#44403C] hover:border-accent hover:text-accent'
+              }`}
+            >
+              {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Share2 className="w-3.5 h-3.5 text-accent" />}
               <span>{copied ? 'Copied!' : 'Share Article'}</span>
             </button>
           </div>
@@ -99,7 +127,9 @@ export const BlogView: React.FC<BlogViewProps> = ({
       {/* Main Blog Post Wrapper */}
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-8 sm:py-14">
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center gap-2 text-xs font-mono text-[#78716C] mb-8">
+        <nav className={`flex items-center gap-2 text-xs font-mono mb-8 ${
+          isDarkMode ? 'text-slate-400' : 'text-[#78716C]'
+        }`}>
           <span>Home</span>
           <span>/</span>
           <span className="text-accent font-semibold">Friends & Personal</span>
@@ -116,36 +146,46 @@ export const BlogView: React.FC<BlogViewProps> = ({
                 <span>Personal Memory</span>
               </span>
               {entry.mood && (
-                <span className="px-3 py-1 bg-[#F5F5F4] border border-[#E7E5E4] rounded-full text-[10px] font-bold uppercase tracking-wider text-[#57534E]">
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                  isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-300' : 'bg-[#F5F5F4] border-[#E7E5E4] text-[#57534E]'
+                }`}>
                   {entry.mood}
                 </span>
               )}
-              <span className="text-xs text-[#78716C] font-mono flex items-center gap-1 ml-auto">
+              <span className={`text-xs font-mono flex items-center gap-1 ml-auto ${
+                isDarkMode ? 'text-slate-400' : 'text-[#78716C]'
+              }`}>
                 <Clock className="w-3 h-3" />
                 <span>{readTimeMinutes} min read</span>
               </span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-display font-bold text-[#1C1917] tracking-tight leading-[1.15] mb-6">
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl font-display font-bold tracking-tight leading-[1.15] mb-6 ${
+              isDarkMode ? 'text-slate-100' : 'text-[#1C1917]'
+            }`}>
               {displayTitle}
             </h1>
 
             {/* Author Profile Row */}
-            <div className="flex items-center justify-between border-y border-[#E7E5E4] py-4 my-6">
+            <div className={`flex items-center justify-between border-y py-4 my-6 ${
+              isDarkMode ? 'border-slate-800' : 'border-[#E7E5E4]'
+            }`}>
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-full overflow-hidden border border-[#E7E5E4] bg-[#F5F5F4] flex items-center justify-center shrink-0">
+                <div className={`w-11 h-11 rounded-full overflow-hidden border flex items-center justify-center shrink-0 ${
+                  isDarkMode ? 'border-slate-700 bg-slate-800' : 'border-[#E7E5E4] bg-[#F5F5F4]'
+                }`}>
                   {authorPic ? (
                     <img src={authorPic} alt={authorName} className="w-full h-full object-cover" />
                   ) : (
-                    <User className="w-6 h-6 text-[#A8A29E]" />
+                    <User className={`w-6 h-6 ${isDarkMode ? 'text-slate-500' : 'text-[#A8A29E]'}`} />
                   )}
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-[#1C1917]">{authorName}</span>
+                    <span className={`text-sm font-bold ${isDarkMode ? 'text-slate-100' : 'text-[#1C1917]'}`}>{authorName}</span>
                     <span className="text-xs text-accent font-mono">@{authorUsername}</span>
                   </div>
-                  <span className="text-xs text-[#78716C] block font-mono">{formattedDate}</span>
+                  <span className={`text-xs block font-mono ${isDarkMode ? 'text-slate-400' : 'text-[#78716C]'}`}>{formattedDate}</span>
                 </div>
               </div>
 
@@ -153,7 +193,11 @@ export const BlogView: React.FC<BlogViewProps> = ({
                 <button
                   onClick={handleToggleLike}
                   className={`p-2.5 rounded-full border transition flex items-center gap-1.5 text-xs font-bold ${
-                    hasLiked ? 'bg-red-50 border-red-200 text-red-600' : 'bg-white border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]'
+                    hasLiked 
+                      ? 'bg-red-500/10 border-red-500/30 text-red-500' 
+                      : isDarkMode 
+                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-slate-100' 
+                      : 'bg-white border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]'
                   }`}
                   title="Appreciate this entry"
                 >
@@ -163,7 +207,11 @@ export const BlogView: React.FC<BlogViewProps> = ({
                 <button
                   onClick={() => setBookmarked(!bookmarked)}
                   className={`p-2.5 rounded-full border transition ${
-                    bookmarked ? 'bg-accent/15 border-accent text-accent' : 'bg-white border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]'
+                    bookmarked 
+                      ? 'bg-accent/15 border-accent text-accent' 
+                      : isDarkMode 
+                      ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-slate-100' 
+                      : 'bg-white border-[#E7E5E4] text-[#78716C] hover:text-[#1C1917]'
                   }`}
                   title="Save article"
                 >
@@ -175,54 +223,68 @@ export const BlogView: React.FC<BlogViewProps> = ({
 
           {/* Cover Photo Image */}
           {entry.image && (
-            <div className="mb-10 rounded-3xl overflow-hidden border border-[#E7E5E4] shadow-md bg-[#F5F5F4]">
+            <div className={`mb-10 rounded-3xl overflow-hidden border shadow-md ${
+              isDarkMode ? 'border-slate-800 bg-slate-900' : 'border-[#E7E5E4] bg-[#F5F5F4]'
+            }`}>
               <img 
                 src={entry.image} 
                 alt={displayTitle} 
                 className="w-full max-h-[480px] object-cover hover:scale-[1.01] transition duration-700" 
               />
-              <div className="px-5 py-2.5 bg-white border-t border-[#E7E5E4] text-[11px] font-mono text-[#78716C] italic text-center">
+              <div className={`px-5 py-2.5 border-t text-[11px] font-mono italic text-center ${
+                isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-400' : 'bg-white border-[#E7E5E4] text-[#78716C]'
+              }`}>
                 Visual memory capture attached to this entry
               </div>
             </div>
           )}
 
           {/* Article Main Text Body */}
-          <div className="prose prose-stone max-w-none text-[#292524] text-lg leading-[1.85] font-serif select-text whitespace-pre-wrap mb-10">
+          <div className={`max-w-none text-lg leading-[1.85] font-serif select-text whitespace-pre-wrap mb-10 ${
+            isDarkMode ? 'text-slate-200' : 'text-[#292524]'
+          }`}>
             {entry.content}
           </div>
 
           {/* AI Insight Editorial Box */}
           {entry.aiInsight && (
-            <div className="my-10 p-6 sm:p-8 bg-gradient-to-br from-accent/5 via-accent/10 to-transparent border-l-4 border-accent rounded-r-3xl shadow-xs relative overflow-hidden">
+            <div className={`my-10 p-6 sm:p-8 bg-gradient-to-br from-accent/10 via-accent/5 to-transparent border-l-4 border-accent rounded-r-3xl shadow-xs relative overflow-hidden`}>
               <div className="flex items-center gap-2 mb-3 text-accent font-bold text-xs uppercase tracking-widest font-mono">
                 <Sparkles className="w-4 h-4" />
                 <span>AI Editorial Reflection</span>
               </div>
-              <p className="font-display italic text-base sm:text-lg text-[#1C1917] leading-relaxed">
+              <p className={`font-display italic text-base sm:text-lg leading-relaxed ${
+                isDarkMode ? 'text-slate-100' : 'text-[#1C1917]'
+              }`}>
                 "{entry.aiInsight}"
               </p>
             </div>
           )}
 
           {/* Author Sign-Off Card */}
-          <footer className="mt-14 pt-8 border-t border-[#E7E5E4]">
-            <div className="p-6 sm:p-8 bg-white border border-[#E7E5E4] rounded-3xl flex flex-col sm:flex-row items-center gap-6 shadow-xs">
-              <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-accent/30 bg-[#F5F5F4] flex items-center justify-center shrink-0 shadow-sm">
+          <footer className={`mt-14 pt-8 border-t ${
+            isDarkMode ? 'border-slate-800' : 'border-[#E7E5E4]'
+          }`}>
+            <div className={`p-6 sm:p-8 border rounded-3xl flex flex-col sm:flex-row items-center gap-6 shadow-xs ${
+              isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-[#E7E5E4]'
+            }`}>
+              <div className={`w-16 h-16 rounded-full overflow-hidden border-2 border-accent/30 flex items-center justify-center shrink-0 shadow-sm ${
+                isDarkMode ? 'bg-slate-800' : 'bg-[#F5F5F4]'
+              }`}>
                 {authorPic ? (
                   <img src={authorPic} alt={authorName} className="w-full h-full object-cover" />
                 ) : (
-                  <User className="w-8 h-8 text-[#A8A29E]" />
+                  <User className={`w-8 h-8 ${isDarkMode ? 'text-slate-500' : 'text-[#A8A29E]'}`} />
                 )}
               </div>
               <div className="flex-1 text-center sm:text-left">
                 <span className="text-[10px] font-bold font-mono uppercase tracking-widest text-accent block mb-1">
                   Written by
                 </span>
-                <h3 className="text-xl font-display font-bold text-[#1C1917]">
+                <h3 className={`text-xl font-display font-bold ${isDarkMode ? 'text-slate-100' : 'text-[#1C1917]'}`}>
                   {authorName}
                 </h3>
-                <p className="text-xs text-[#78716C] mt-1 leading-relaxed">
+                <p className={`text-xs mt-1 leading-relaxed ${isDarkMode ? 'text-slate-400' : 'text-[#78716C]'}`}>
                   {authorBio}
                 </p>
               </div>
@@ -238,7 +300,9 @@ export const BlogView: React.FC<BlogViewProps> = ({
             {/* Other Shared Articles from Same Blog */}
             {allSharedEntries.length > 1 && (
               <div className="mt-12">
-                <h4 className="text-xs font-bold uppercase tracking-widest text-[#78716C] font-mono mb-6 text-center">
+                <h4 className={`text-xs font-bold uppercase tracking-widest font-mono mb-6 text-center ${
+                  isDarkMode ? 'text-slate-400' : 'text-[#78716C]'
+                }`}>
                   More Stories from {authorName}
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -246,12 +310,20 @@ export const BlogView: React.FC<BlogViewProps> = ({
                     <div 
                       key={other.id} 
                       onClick={() => onSelectEntry && onSelectEntry(other)}
-                      className="p-5 bg-white border border-[#E7E5E4] hover:border-accent/50 rounded-2xl cursor-pointer hover:shadow-md transition duration-300 group"
+                      className={`p-5 border rounded-2xl cursor-pointer hover:shadow-md transition duration-300 group ${
+                        isDarkMode 
+                          ? 'bg-slate-900/60 border-slate-800 hover:border-accent/50' 
+                          : 'bg-white border-[#E7E5E4] hover:border-accent/50'
+                      }`}
                     >
-                      <span className="text-[10px] font-mono text-[#78716C] block mb-1">
+                      <span className={`text-[10px] font-mono block mb-1 ${
+                        isDarkMode ? 'text-slate-400' : 'text-[#78716C]'
+                      }`}>
                         {new Date(other.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                       </span>
-                      <h5 className="font-display font-bold text-[#1C1917] group-hover:text-accent transition-colors line-clamp-2 text-base">
+                      <h5 className={`font-display font-bold group-hover:text-accent transition-colors line-clamp-2 text-base ${
+                        isDarkMode ? 'text-slate-100' : 'text-[#1C1917]'
+                      }`}>
                         {other.title || extractAutoTitle(other.content)}
                       </h5>
                     </div>
@@ -261,7 +333,9 @@ export const BlogView: React.FC<BlogViewProps> = ({
             )}
 
             {/* Bottom Brand Link */}
-            <div className="mt-12 text-center text-xs text-[#A8A29E] font-mono flex items-center justify-center gap-2">
+            <div className={`mt-12 text-center text-xs font-mono flex items-center justify-center gap-2 ${
+              isDarkMode ? 'text-slate-500' : 'text-[#A8A29E]'
+            }`}>
               <span>Published via Zournel Blog Engine</span>
               <span>•</span>
               <a href={window.location.origin} className="text-accent hover:underline flex items-center gap-1">
@@ -275,3 +349,4 @@ export const BlogView: React.FC<BlogViewProps> = ({
     </div>
   );
 };
+

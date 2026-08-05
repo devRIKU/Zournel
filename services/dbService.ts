@@ -131,145 +131,107 @@ const fetchFromDbInstance = async (
   targetDb: Firestore, 
   cleanId: string
 ): Promise<{ entries: JournalEntry[] | null, config: any | null, profile: any | null } | null> => {
+  if (!cleanId) return null;
   const lowerId = cleanId.toLowerCase();
+  const candidates = Array.from(new Set([cleanId, lowerId]));
 
-  // 1. Direct document lookup in user_memories
-  for (const idToTry of [cleanId, lowerId]) {
-    try {
-      const snap = await getDoc(doc(targetDb, 'user_memories', idToTry));
-      if (snap.exists()) {
-        const data = snap.data();
-        const entries = extractEntriesFromObject(data);
-        if (entries) {
-          return { entries, config: data.config || null, profile: data.profile || null };
-        }
-      }
-    } catch (e) { /* ignore */ }
+  // 1. Parallel direct document lookups
+  const docRefPromises: Promise<{ snap: any; type: string; id: string }>[] = [];
+  
+  for (const id of candidates) {
+    docRefPromises.push(getDoc(doc(targetDb, 'user_memories', id)).then(snap => ({ snap, type: 'user_memories', id })));
+    docRefPromises.push(getDoc(doc(targetDb, 'profiles', id)).then(snap => ({ snap, type: 'profiles', id })));
+    docRefPromises.push(getDoc(doc(targetDb, 'profiles', id, 'usermemories', 'data')).then(snap => ({ snap, type: 'subcol_data', id })));
   }
 
-  // 2. Direct document lookup in profiles/{id}
-  for (const idToTry of [cleanId, lowerId]) {
-    try {
-      const snap = await getDoc(doc(targetDb, 'profiles', idToTry));
-      if (snap.exists()) {
-        const data = snap.data();
-        const entries = extractEntriesFromObject(data);
-        if (entries) {
-          return { entries, config: data.config || null, profile: data.profile || null };
-        }
+  const docResults = await Promise.allSettled(docRefPromises);
+  for (const res of docResults) {
+    if (res.status === 'fulfilled' && res.value.snap.exists()) {
+      const data = res.value.snap.data();
+      const entries = extractEntriesFromObject(data);
+      if (entries && entries.length > 0) {
+        return { entries, config: data.config || null, profile: data.profile || null };
       }
-    } catch (e) { /* ignore */ }
+    }
   }
 
-  // 3. Look in subcollections under profiles/{id}/[usermemories, user_memories, memories, entries]
+  // 2. Parallel subcollection lookups under profiles/{id}/[usermemories, user_memories, memories, entries]
   const subcolNames = ['usermemories', 'user_memories', 'memories', 'entries'];
-  for (const idToTry of [cleanId, lowerId]) {
+  const subcolPromises: Promise<{ snap: any; id: string; subcol: string }>[] = [];
+
+  for (const id of candidates) {
     for (const subcol of subcolNames) {
-      try {
-        const colSnap = await getDocs(collection(targetDb, 'profiles', idToTry, subcol));
-        if (!colSnap.empty) {
-          // Check if any doc has an 'entries' array field
-          for (const d of colSnap.docs) {
-            const data = d.data();
-            const entries = extractEntriesFromObject(data);
-            if (entries) {
-              return { entries, config: data.config || null, profile: data.profile || null };
-            }
-          }
-
-          // Otherwise, docs themselves might be individual entry documents
-          const collectedEntries: JournalEntry[] = [];
-          colSnap.docs.forEach(d => {
-            const data = d.data();
-            if (data && (data.content || data.text || data.title || data.id)) {
-              collectedEntries.push({
-                id: data.id || d.id,
-                content: data.content || data.text || '',
-                createdAt: data.createdAt || data.created_at || data.timestamp || Date.now(),
-                title: data.title || '',
-                mood: data.mood,
-                image: data.image,
-                aiInsight: data.aiInsight || data.ai_insight
-              });
-            }
-          });
-
-          if (collectedEntries.length > 0) {
-            return { entries: collectedEntries, config: null, profile: null };
-          }
-        }
-      } catch (e) { /* ignore */ }
+      subcolPromises.push(
+        getDocs(collection(targetDb, 'profiles', id, subcol))
+          .then(snap => ({ snap, id, subcol }))
+          .catch(() => ({ snap: null, id, subcol }))
+      );
     }
   }
 
-  // 4. Query fallback across user_memories collection
-  try {
-    const memRef = collection(targetDb, 'user_memories');
-    const fieldsToQuery = ['username', 'owner_id', 'ownerId', 'user_id', 'userId', 'profile.username', 'deviceKey', 'googleEmail'];
+  const subcolResults = await Promise.allSettled(subcolPromises);
+  for (const res of subcolResults) {
+    if (res.status === 'fulfilled' && res.value.snap && !res.value.snap.empty) {
+      const colSnap = res.value.snap;
+      
+      // Check if any doc has an array of entries
+      for (const d of colSnap.docs) {
+        const data = d.data();
+        const entries = extractEntriesFromObject(data);
+        if (entries && entries.length > 0) {
+          return { entries, config: data.config || null, profile: data.profile || null };
+        }
+      }
 
-    for (const field of fieldsToQuery) {
-      for (const val of [cleanId, lowerId]) {
-        const qSnap = await getDocs(query(memRef, where(field, '==', val)));
-        if (!qSnap.empty) {
-          const data = qSnap.docs[0].data();
-          const entries = extractEntriesFromObject(data);
-          if (entries) {
-            return { entries, config: data.config || null, profile: data.profile || null };
-          }
+      // Otherwise, aggregate individual entry documents
+      const collectedEntries: JournalEntry[] = [];
+      colSnap.docs.forEach((d: any) => {
+        const data = d.data();
+        if (data && (data.content || data.text || data.title || data.id)) {
+          collectedEntries.push({
+            id: data.id || d.id,
+            content: data.content || data.text || '',
+            createdAt: data.createdAt || data.created_at || data.timestamp || Date.now(),
+            title: data.title || '',
+            mood: data.mood,
+            image: data.image || data.img || data.photo,
+            aiInsight: data.aiInsight || data.ai_insight
+          });
+        }
+      });
+
+      if (collectedEntries.length > 0) {
+        return { entries: collectedEntries, config: null, profile: null };
+      }
+    }
+  }
+
+  // 3. Parallel query fallback across user_memories and profiles collections
+  const fieldsToQuery = ['username', 'owner_id', 'ownerId', 'user_id', 'userId', 'profile.username', 'deviceKey', 'googleEmail'];
+  const queryPromises: Promise<any>[] = [];
+  const memRef = collection(targetDb, 'user_memories');
+  const profRef = collection(targetDb, 'profiles');
+
+  for (const field of fieldsToQuery) {
+    for (const val of candidates) {
+      queryPromises.push(getDocs(query(memRef, where(field, '==', val))).catch(() => null));
+      queryPromises.push(getDocs(query(profRef, where(field, '==', val))).catch(() => null));
+    }
+  }
+
+  const queryResults = await Promise.allSettled(queryPromises);
+  for (const res of queryResults) {
+    if (res.status === 'fulfilled' && res.value && !res.value.empty) {
+      const qSnap = res.value;
+      for (const profDoc of qSnap.docs) {
+        const data = profDoc.data();
+        const entries = extractEntriesFromObject(data);
+        if (entries && entries.length > 0) {
+          return { entries, config: data.config || null, profile: data.profile || null };
         }
       }
     }
-  } catch (e) { /* ignore */ }
-
-  // 5. Query fallback across profiles collection
-  try {
-    const profRef = collection(targetDb, 'profiles');
-    const fieldsToQuery = ['username', 'owner_id', 'ownerId', 'user_id', 'userId'];
-
-    for (const field of fieldsToQuery) {
-      for (const val of [cleanId, lowerId]) {
-        const qSnap = await getDocs(query(profRef, where(field, '==', val)));
-        if (!qSnap.empty) {
-          for (const profDoc of qSnap.docs) {
-            const data = profDoc.data();
-            const entries = extractEntriesFromObject(data);
-            if (entries) {
-              return { entries, config: data.config || null, profile: data.profile || null };
-            }
-
-            // Also check subcollections for this matched profile document ID
-            for (const subcol of subcolNames) {
-              const colSnap = await getDocs(collection(targetDb, 'profiles', profDoc.id, subcol));
-              if (!colSnap.empty) {
-                const collectedEntries: JournalEntry[] = [];
-                colSnap.docs.forEach(d => {
-                  const dData = d.data();
-                  const eArr = extractEntriesFromObject(dData);
-                  if (eArr) {
-                    collectedEntries.push(...eArr);
-                  } else if (dData && (dData.content || dData.text)) {
-                    collectedEntries.push({
-                      id: dData.id || d.id,
-                      content: dData.content || dData.text || '',
-                      createdAt: dData.createdAt || dData.created_at || Date.now(),
-                      title: dData.title || '',
-                      mood: dData.mood,
-                      image: dData.image,
-                      aiInsight: dData.aiInsight
-                    });
-                  }
-                });
-
-                if (collectedEntries.length > 0) {
-                  return { entries: collectedEntries, config: null, profile: data.profile || null };
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  } catch (e) { /* ignore */ }
+  }
 
   return null;
 };
