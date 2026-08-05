@@ -139,7 +139,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           msg += `Pulled ${remote.entries.length} memories. `;
         }
         if (remote.config && onUpdateSettings) {
-          onUpdateSettings(remote.config);
+          onUpdateSettings((prev: any) => {
+             const updated = { ...prev, ...remote.config };
+             updated.theme = prev.theme;
+             if (prev.fontFamily) updated.fontFamily = prev.fontFamily;
+             if (prev.headingFontFamily) updated.headingFontFamily = prev.headingFontFamily;
+             return updated;
+          });
           msg += 'Pulled config. ';
         }
         if (remote.profile) {
@@ -200,7 +206,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           msg += `Pulled ${remote.entries.length} memories. `;
         }
         if (remote.config && onUpdateSettings) {
-           onUpdateSettings(remote.config);
+           onUpdateSettings((prev: any) => {
+              const updated = { ...prev, ...remote.config };
+              updated.theme = prev.theme;
+              if (prev.fontFamily) updated.fontFamily = prev.fontFamily;
+              if (prev.headingFontFamily) updated.headingFontFamily = prev.headingFontFamily;
+              return updated;
+           });
            msg += 'Pulled config. ';
         }
         if (msg) {

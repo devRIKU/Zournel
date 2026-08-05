@@ -277,7 +277,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   };
 
   return (
-    <div className="pb-40 w-full animate-fade-in">
+    <div className="pb-40 px-4 sm:px-6 max-w-7xl mx-auto w-full animate-fade-in">
       {/* Header with Switcher Tab Navigation & Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 mt-4 sm:mt-8 border-b border-surface-highlight/30 pb-5">
         <div className="flex flex-col gap-2">

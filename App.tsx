@@ -198,7 +198,14 @@ const App: React.FC = () => {
               });
             }
             if (remote.config) {
-              setSettings(prev => ({ ...prev, ...remote.config }));
+              setSettings(prev => {
+                const updated = { ...prev, ...remote.config };
+                // Do not sync appearance preferences from cloud
+                updated.theme = prev.theme;
+                if (prev.fontFamily) updated.fontFamily = prev.fontFamily;
+                if (prev.headingFontFamily) updated.headingFontFamily = prev.headingFontFamily;
+                return updated;
+              });
             }
           }
         } catch (err) {
@@ -511,7 +518,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-200 animate-fade-in">
-      <header className="pt-12 px-8 pb-6 flex justify-between items-start">
+      <header className="pt-8 sm:pt-12 px-4 sm:px-6 md:px-8 pb-4 flex justify-between items-start">
         <div className="flex items-center gap-3">
           <div className="p-2.5 bg-accent/15 text-accent rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
             <BookOpen className="w-6 h-6 stroke-[2.5]" />
@@ -522,13 +529,15 @@ const App: React.FC = () => {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
-           <AutoBackupPill
-             isBackingUp={isAutoBackingUp}
-             lastBackupTime={lastAutoBackupTime}
-             autoBackupEnabled={settings.autoBackupEnabled ?? true}
-             onManualBackup={performAutoBackup}
-             onOpenSettings={() => setIsSettingsOpen(true)}
-           />
+           <div className="hidden md:block">
+             <AutoBackupPill
+               isBackingUp={isAutoBackingUp}
+               lastBackupTime={lastAutoBackupTime}
+               autoBackupEnabled={settings.autoBackupEnabled ?? true}
+               onManualBackup={performAutoBackup}
+               onOpenSettings={() => setIsSettingsOpen(true)}
+             />
+           </div>
            <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
@@ -537,7 +546,7 @@ const App: React.FC = () => {
            </button>
         </div>
       </header>
-      <main className="relative flex-grow min-h-[80vh] w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+      <main className="relative flex-grow min-h-[80vh] w-full max-w-7xl mx-auto px-0">
         <div className={`transition duration-200 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
            <TodoView 
               tasks={tasks} onToggleTask={t => setTasks(prev => prev.map(tk => tk.id === t ? {...tk, completed: !tk.completed} : tk))} 
