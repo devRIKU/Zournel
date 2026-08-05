@@ -64,25 +64,50 @@ export const syncMemoriesToCloud = async (
   extraInfo?: { googleEmail?: string; deviceKey?: string; config?: any; profile?: any }
 ) => {
   if (!userIdentifier) return;
-  const syncRef = doc(db, 'user_memories', userIdentifier);
-  
+  const username = extraInfo?.profile?.username?.trim();
+  const googleEmail = extraInfo?.googleEmail?.trim();
+  const deviceKey = extraInfo?.deviceKey?.trim() || getLocalUserId();
+
   const updateData: any = {
     entries,
     lastSyncedAt: Date.now(),
-    deviceKey: extraInfo?.deviceKey || getLocalUserId(),
-    googleEmail: extraInfo?.googleEmail || null
+    deviceKey: deviceKey || null,
+    googleEmail: googleEmail || null,
+    username: username || null
   };
 
   if (extraInfo?.config) updateData.config = extraInfo.config;
   if (extraInfo?.profile) updateData.profile = extraInfo.profile;
 
+  // Primary document write (userIdentifier - e.g. Google UID or Device Key)
+  const syncRef = doc(db, 'user_memories', userIdentifier);
   await setDoc(syncRef, updateData, { merge: true });
+
+  // Dual-write index documents for username, email, and device key for direct fast lookup
+  const promises: Promise<any>[] = [];
+
+  if (username && username.toLowerCase() !== userIdentifier.toLowerCase()) {
+    promises.push(setDoc(doc(db, 'user_memories', username.toLowerCase()), updateData, { merge: true }));
+  }
+
+  if (googleEmail && googleEmail.toLowerCase() !== userIdentifier.toLowerCase()) {
+    promises.push(setDoc(doc(db, 'user_memories', googleEmail.toLowerCase()), updateData, { merge: true }));
+  }
+
+  if (deviceKey && deviceKey !== userIdentifier) {
+    promises.push(setDoc(doc(db, 'user_memories', deviceKey), updateData, { merge: true }));
+  }
+
+  await Promise.allSettled(promises);
 };
 
 export const fetchMemoriesFromCloud = async (userIdentifier: string): Promise<{ entries: JournalEntry[] | null, config: any | null, profile: any | null } | null> => {
-  if (!userIdentifier) return null;
-  const syncRef = doc(db, 'user_memories', userIdentifier);
-  const snapshot = await getDoc(syncRef);
+  if (!userIdentifier || !userIdentifier.trim()) return null;
+  const cleanId = userIdentifier.trim();
+
+  // 1. Direct document lookup by exact userIdentifier
+  let syncRef = doc(db, 'user_memories', cleanId);
+  let snapshot = await getDoc(syncRef);
   if (snapshot.exists()) {
     const data = snapshot.data();
     return {
@@ -91,6 +116,58 @@ export const fetchMemoriesFromCloud = async (userIdentifier: string): Promise<{ 
       profile: data.profile || null
     };
   }
+
+  // 2. Direct document lookup lowercase (for usernames / emails)
+  const lowerId = cleanId.toLowerCase();
+  if (lowerId !== cleanId) {
+    syncRef = doc(db, 'user_memories', lowerId);
+    snapshot = await getDoc(syncRef);
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      return {
+        entries: Array.isArray(data.entries) ? data.entries as JournalEntry[] : null,
+        config: data.config || null,
+        profile: data.profile || null
+      };
+    }
+  }
+
+  // 3. Fallback queries across username, profile.username, deviceKey, and googleEmail fields
+  try {
+    const memRef = collection(db, 'user_memories');
+
+    // Query username
+    let qSnap = await getDocs(query(memRef, where('username', '==', cleanId)));
+    if (qSnap.empty) {
+      qSnap = await getDocs(query(memRef, where('username', '==', lowerId)));
+    }
+    if (qSnap.empty) {
+      qSnap = await getDocs(query(memRef, where('profile.username', '==', cleanId)));
+    }
+    if (qSnap.empty) {
+      // Query deviceKey
+      qSnap = await getDocs(query(memRef, where('deviceKey', '==', cleanId)));
+    }
+    if (qSnap.empty) {
+      // Query googleEmail
+      qSnap = await getDocs(query(memRef, where('googleEmail', '==', cleanId)));
+    }
+    if (qSnap.empty && lowerId !== cleanId) {
+      qSnap = await getDocs(query(memRef, where('googleEmail', '==', lowerId)));
+    }
+
+    if (!qSnap.empty) {
+      const data = qSnap.docs[0].data();
+      return {
+        entries: Array.isArray(data.entries) ? data.entries as JournalEntry[] : null,
+        config: data.config || null,
+        profile: data.profile || null
+      };
+    }
+  } catch (err) {
+    console.warn("Firestore query fallback error:", err);
+  }
+
   return null;
 };
 

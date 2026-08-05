@@ -44,6 +44,7 @@ const TaskItem: React.FC<{
   const [isExpanded, setIsExpanded] = useState(false);
   const [loadingSubtasks, setLoadingSubtasks] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [suggestedSubtasks, setSuggestedSubtasks] = useState<{ id: string; text: string }[]>([]);
 
   const handleToggle = () => {
     if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
@@ -62,27 +63,38 @@ const TaskItem: React.FC<{
   };
 
   const handleGenerateSubtasks = async () => {
-    if (task.subtasks?.length) return;
+    if (task.subtasks?.length && suggestedSubtasks.length === 0) return;
     setLoadingSubtasks(true);
+    setIsExpanded(true);
     const steps = await generateSubtasks(task.text, selectedModel);
     setLoadingSubtasks(false);
     if (steps.length > 0) {
-      onUpdate({ ...task, subtasks: steps.map(text => ({ id: Math.random().toString(36).substr(2, 9), text, completed: false })) });
-      setIsExpanded(true);
+      setSuggestedSubtasks(steps.map(text => ({ id: Math.random().toString(36).substr(2, 9), text })));
     }
   };
 
+  const handleAcceptSubtask = (st: { id: string; text: string }) => {
+    onUpdate({ ...task, subtasks: [...(task.subtasks || []), { ...st, completed: false }] });
+    setSuggestedSubtasks(prev => prev.filter(s => s.id !== st.id));
+  };
+
+  const handleDismissSubtask = (id: string) => {
+    setSuggestedSubtasks(prev => prev.filter(s => s.id !== id));
+  };
+
   return (
-    <div className={`group bg-surface rounded-2xl p-5 mb-3 border border-surface-highlight transition duration-300 hover-lift ${task.completed ? 'opacity-50 scale-[0.98]' : 'shadow-sm hover:shadow-md'} ${isDeleting ? 'animate-fade-out scale-90 translate-x-10' : ''}`}>
-      <div className="flex items-start gap-4">
+    <div className={`group bg-surface rounded-2xl p-5 mb-4 border border-surface-highlight transition duration-300 hover-lift ${task.completed ? 'opacity-50 scale-[0.98]' : 'shadow-sm hover:shadow-md'} ${isDeleting ? 'animate-fade-out scale-90 translate-x-10' : ''}`}>
+      <div className="flex items-start gap-2 sm:gap-4">
         <button 
           onClick={handleToggle} 
           title={task.completed ? "Mark as incomplete" : "Mark as complete"}
-          className={`mt-1 flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition active:scale-75 ${task.completed ? 'bg-accent border-accent' : 'border-secondary hover:border-accent'}`}
+          className="flex-shrink-0 w-11 h-11 rounded-full flex items-center justify-center transition active:scale-75 focus:outline-none"
         >
-          {task.completed && <Check className="w-3.5 h-3.5 text-accent-fg" />}
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${task.completed ? 'bg-accent border-accent' : 'border-secondary hover:border-accent'}`}>
+            {task.completed && <Check className="w-3.5 h-3.5 text-accent-fg" />}
+          </div>
         </button>
-        <div className="flex-grow">
+        <div className="flex-grow pt-2">
           <span className={`block text-lg transition duration-300 ${task.completed ? 'line-through text-secondary' : 'text-primary'}`}>{task.text}</span>
           <div className="flex items-center gap-2 mt-1">
             <PriorityBadge priority={task.priority} onClick={() => {
@@ -94,27 +106,59 @@ const TaskItem: React.FC<{
             )}
           </div>
         </div>
-        <div className="flex flex-col gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        <div className="flex flex-row sm:flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity pt-1">
           <button 
-            onClick={() => { if (task.subtasks?.length) setIsExpanded(!isExpanded); else handleGenerateSubtasks(); }} 
+            onClick={() => { if (task.subtasks?.length || suggestedSubtasks.length) setIsExpanded(!isExpanded); else handleGenerateSubtasks(); }} 
             disabled={loadingSubtasks} 
             title="AI Breakdown (Subtasks)"
-            className="p-1.5 text-secondary hover:text-accent rounded-lg transition-colors active:scale-[0.97]"
+            className="w-11 h-11 flex items-center justify-center text-secondary hover:text-accent rounded-lg transition-colors active:scale-[0.97]"
           >
-             {loadingSubtasks ? <Bot className="w-4 h-4 animate-pulse text-accent" /> : <Bot className="w-4 h-4"/>}
+             {loadingSubtasks ? <Bot className="w-5 h-5 animate-pulse text-accent" /> : <Bot className="w-5 h-5"/>}
           </button>
-          <button onClick={handleDelete} title="Delete Task" className="p-1.5 text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-[0.97]"><Trash2 className="w-4 h-4" /></button>
+          <button onClick={handleDelete} title="Delete Task" className="w-11 h-11 flex items-center justify-center text-secondary hover:text-red-600 rounded-lg transition-colors active:scale-[0.97]"><Trash2 className="w-5 h-5" /></button>
         </div>
       </div>
       {(isExpanded || loadingSubtasks) && (
-        <div className="mt-4 pl-8 space-y-3 animate-slide-up">
+        <div className="mt-4 pl-4 sm:pl-12 space-y-4 animate-slide-up">
            {loadingSubtasks && (
-             <div className="py-1">
+             <div className="py-2 space-y-3">
+               <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 flex items-center justify-center"><div className="w-4 h-4 rounded border border-surface-highlight/50 bg-surface-highlight/20 animate-pulse"></div></div>
+                  <div className="h-4 bg-surface-highlight/30 rounded w-3/4 animate-pulse"></div>
+               </div>
+               <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 flex items-center justify-center"><div className="w-4 h-4 rounded border border-surface-highlight/50 bg-surface-highlight/20 animate-pulse"></div></div>
+                  <div className="h-4 bg-surface-highlight/30 rounded w-1/2 animate-pulse"></div>
+               </div>
                <AiGlitterPill label="AI is decomposing task into actionable steps..." />
              </div>
            )}
+           
+           {!loadingSubtasks && suggestedSubtasks.length > 0 && (
+             <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 space-y-3 relative overflow-hidden">
+               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-accent via-purple-500 to-accent opacity-50"></div>
+               <div className="flex items-center gap-2 mb-2 text-sm font-medium text-accent">
+                 <Bot className="w-4 h-4" />
+                 <span>AI Suggestions</span>
+               </div>
+               {suggestedSubtasks.map(st => (
+                 <div key={st.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 group/sub">
+                    <span className="text-base text-primary flex-grow">{st.text}</span>
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button onClick={() => handleAcceptSubtask(st)} className="px-3 py-1.5 text-xs font-semibold bg-accent text-accent-fg rounded-full hover:opacity-90 active:scale-95 transition">
+                        + Add
+                      </button>
+                      <button onClick={() => handleDismissSubtask(st.id)} className="px-3 py-1.5 text-xs font-semibold bg-surface-highlight text-secondary rounded-full hover:text-primary transition active:scale-95">
+                        Dismiss
+                      </button>
+                    </div>
+                 </div>
+               ))}
+             </div>
+           )}
+
            {task.subtasks?.map(st => (
-             <div key={st.id} className="flex items-center gap-3 group/sub">
+             <div key={st.id} className="flex items-start gap-1 group/sub">
                 <button 
                   onClick={() => {
                     if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
@@ -122,11 +166,13 @@ const TaskItem: React.FC<{
                     }
                     onUpdate({ ...task, subtasks: task.subtasks?.map(s => s.id === st.id ? { ...s, completed: !s.completed } : s) });
                   }} 
-                  className={`w-4 h-4 rounded border transition active:scale-75 ${st.completed ? 'bg-secondary border-secondary' : 'border-secondary hover:border-accent'}`}
+                  className="w-11 h-11 flex-shrink-0 flex items-center justify-center transition active:scale-75"
                 >
-                  {st.completed && <Check className="w-3 h-3 text-white" />}
+                  <div className={`w-4 h-4 rounded border transition-colors ${st.completed ? 'bg-secondary border-secondary' : 'border-secondary hover:border-accent'} flex items-center justify-center`}>
+                    {st.completed && <Check className="w-3 h-3 text-white" />}
+                  </div>
                 </button>
-                <span className={`text-base transition-colors ${st.completed ? 'text-secondary line-through' : 'text-primary'}`}>{st.text}</span>
+                <span className={`text-base pt-2.5 transition-colors ${st.completed ? 'text-secondary line-through' : 'text-primary'}`}>{st.text}</span>
              </div>
            ))}
         </div>
