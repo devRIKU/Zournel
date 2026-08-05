@@ -113,7 +113,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     const unsubscribe = listenToAuthChanges((u) => {
       setGoogleUser(u);
       if (u) {
-        setName(prev => prev || u.displayName || 'Google Member');
+        if (u.displayName) setName(u.displayName);
+        if (u.photoURL && !picture) setPicture(u.photoURL);
       }
     });
     return () => unsubscribe();
@@ -125,9 +126,32 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     try {
       const u = await signInWithGoogleAccount();
       setGoogleUser(u);
-      if (!name) setName(u.displayName);
-      if (!picture && u.photoURL) setPicture(u.photoURL);
-      setSyncStatusMsg(`Connected Google Account (${u.email})!`);
+      if (u.displayName) setName(u.displayName);
+      if (u.photoURL) setPicture(u.photoURL);
+      setSyncStatusMsg(`Connected Google Account (${u.email})! Auto-pulling cloud data...`);
+      
+      // Auto pull memories from cloud when logged in
+      const remote = await fetchMemoriesFromCloud(u.uid);
+      if (remote) {
+        let msg = '';
+        if (remote.entries && remote.entries.length > 0 && onImportEntries) {
+          onImportEntries(remote.entries, false);
+          msg += `Pulled ${remote.entries.length} memories. `;
+        }
+        if (remote.config && onUpdateSettings) {
+          onUpdateSettings(remote.config);
+          msg += 'Pulled config. ';
+        }
+        if (remote.profile) {
+          if (remote.profile.name) setName(remote.profile.name);
+          if (remote.profile.bio) setBio(remote.profile.bio);
+          if (remote.profile.thought) setThought(remote.profile.thought);
+          if (remote.profile.picture) setPicture(remote.profile.picture);
+        }
+        setSyncStatusMsg(msg ? `Connected & ${msg}` : `Connected as ${u.displayName || u.email}!`);
+      } else {
+        setSyncStatusMsg(`Connected as ${u.displayName || u.email}! Ready to sync.`);
+      }
     } catch (err: any) {
       console.error("Google sign-in error", err);
       setSyncStatusMsg(`Google sign-in notice: ${err.message || 'Cancelled or popup closed'}`);

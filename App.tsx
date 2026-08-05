@@ -12,8 +12,8 @@ import { LandingPage } from './components/LandingPage';
 import { AddModal } from './components/AddModal';
 import { ProfileView, PublicProfileView } from './components/ProfileView';
 import { ImportModal } from './components/ImportModal';
-import { getLocalUserId } from './services/authService';
-import { syncMemoriesToCloud } from './services/dbService';
+import { getLocalUserId, listenToAuthChanges, getSavedGoogleUser } from './services/authService';
+import { syncMemoriesToCloud, fetchMemoriesFromCloud } from './services/dbService';
 import { AutoBackupPill } from './components/AutoBackupPill';
 import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, extractAutoTitle } from './services/geminiService';
 
@@ -168,6 +168,47 @@ const App: React.FC = () => {
     setLoaded(true);
   }, []);
 
+  // Google Auth Listener: Connect user name to Google Account & Auto-Pull cloud data on login
+  useEffect(() => {
+    if (!loaded) return;
+    const unsubscribe = listenToAuthChanges(async (googleUser) => {
+      if (googleUser) {
+        // 1. Auto connect display name & picture to user profile if available
+        setSettings(prev => ({
+          ...prev,
+          profile: {
+            name: googleUser.displayName || prev.profile?.name || '',
+            bio: prev.profile?.bio || '',
+            picture: googleUser.photoURL || prev.profile?.picture || '',
+            thought: prev.profile?.thought || '',
+            sharedEntries: prev.profile?.sharedEntries || [],
+            username: prev.profile?.username || ''
+          }
+        }));
+
+        // 2. Auto pull memories & settings from cloud on login
+        try {
+          const remote = await fetchMemoriesFromCloud(googleUser.uid);
+          if (remote) {
+            if (remote.entries && Array.isArray(remote.entries) && remote.entries.length > 0) {
+              setJournalEntries(prev => {
+                const existingIds = new Set(prev.map(e => e.id));
+                const newEntries = remote.entries!.filter(e => !existingIds.has(e.id));
+                return [...newEntries, ...prev];
+              });
+            }
+            if (remote.config) {
+              setSettings(prev => ({ ...prev, ...remote.config }));
+            }
+          }
+        } catch (err) {
+          console.warn("Auto pull memories failed on Google login:", err);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [loaded]);
+
   // System theme detection listener (only if user hasn't set a custom theme scheme, auto-switches default cozy theme)
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
@@ -207,9 +248,11 @@ const App: React.FC = () => {
     
     setIsAutoBackingUp(true);
     try {
-      const targetId = getLocalUserId();
+      const savedUser = getSavedGoogleUser();
+      const targetId = savedUser?.uid || getLocalUserId();
       await syncMemoriesToCloud(targetId, currentEntries, {
-        deviceKey: targetId,
+        googleEmail: savedUser?.email,
+        deviceKey: getLocalUserId(),
         config: currentSettings,
         profile: currentSettings.profile
       });
