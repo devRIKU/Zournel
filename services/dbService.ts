@@ -3,21 +3,40 @@ import { collection, doc, getDoc, setDoc, updateDoc, deleteDoc, query, where, ge
 import { getLocalUserId } from './authService';
 import { JournalEntry, UserProfile } from '../types';
 
+// Helper to prevent any Firestore operation from hanging indefinitely
+const withTimeout = <T>(promise: Promise<T>, ms = 4000, fallback: T): Promise<T> => {
+  let timer: any;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([
+    promise.then((res) => {
+      clearTimeout(timer);
+      return res;
+    }).catch((err) => {
+      clearTimeout(timer);
+      console.warn("Firestore query failed or rejected:", err);
+      return fallback;
+    }),
+    timeoutPromise
+  ]);
+};
+
 export const shareJournalEntry = async (entry: JournalEntry, username?: string) => {
   const ownerId = getLocalUserId();
   const entryRef = doc(db, 'shared_entries', entry.id);
-  await setDoc(entryRef, {
+  await withTimeout(setDoc(entryRef, {
     ...entry,
     ownerId,
     username: username || null
-  });
+  }), 5000, null);
   return entry.id;
 };
 
 export const getSharedEntry = async (entryId: string) => {
   const entryRef = doc(db, 'shared_entries', entryId);
-  const snapshot = await getDoc(entryRef);
-  if (snapshot.exists()) {
+  const snapshot = await withTimeout(getDoc(entryRef), 4000, null);
+  if (snapshot && snapshot.exists()) {
     return snapshot.data() as JournalEntry;
   }
   return null;
@@ -27,21 +46,21 @@ export const claimPublicProfile = async (username: string, profile: UserProfile)
   const ownerId = getLocalUserId();
   const profileRef = doc(db, 'profiles', username);
   
-  const snapshot = await getDoc(profileRef);
-  if (snapshot.exists() && snapshot.data().ownerId !== ownerId) {
+  const snapshot = await withTimeout(getDoc(profileRef), 4000, null);
+  if (snapshot && snapshot.exists() && snapshot.data().ownerId !== ownerId) {
     throw new Error('Username is already taken by someone else.');
   }
 
-  await setDoc(profileRef, {
+  await withTimeout(setDoc(profileRef, {
     ...profile,
     ownerId
-  });
+  }), 5000, null);
 };
 
 export const getPublicProfile = async (username: string) => {
   const profileRef = doc(db, 'profiles', username);
-  const snapshot = await getDoc(profileRef);
-  if (snapshot.exists()) {
+  const snapshot = await withTimeout(getDoc(profileRef), 4000, null);
+  if (snapshot && snapshot.exists()) {
     return snapshot.data() as UserProfile & { ownerId: string };
   }
   return null;
@@ -50,11 +69,13 @@ export const getPublicProfile = async (username: string) => {
 export const getSharedEntriesForUsername = async (username: string) => {
   const entriesRef = collection(db, 'shared_entries');
   const q = query(entriesRef, where('username', '==', username));
-  const querySnapshot = await getDocs(q);
+  const querySnapshot = await withTimeout(getDocs(q), 4000, null);
   const entries: JournalEntry[] = [];
-  querySnapshot.forEach((doc) => {
-    entries.push(doc.data() as JournalEntry);
-  });
+  if (querySnapshot) {
+    querySnapshot.forEach((doc: any) => {
+      entries.push(doc.data() as JournalEntry);
+    });
+  }
   return entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 };
 
@@ -90,24 +111,24 @@ export const syncMemoriesToCloud = async (
 
   for (const currentDb of targetDbs) {
     try {
-      // Primary document write (userIdentifier - e.g. Google UID, Username, or Device Key)
+      // Primary document write with 4s timeout
       const syncRef = doc(currentDb, 'user_memories', userIdentifier);
-      await setDoc(syncRef, updateData, { merge: true });
+      await withTimeout(setDoc(syncRef, updateData, { merge: true }), 4000, null);
 
-      // Dual-write index documents for username, email, and device key
+      // Secondary index writes with 4s timeout
       const promises: Promise<any>[] = [];
 
       if (username && username.toLowerCase() !== userIdentifier.toLowerCase()) {
-        promises.push(setDoc(doc(currentDb, 'user_memories', username.toLowerCase()), updateData, { merge: true }));
-        promises.push(setDoc(doc(currentDb, 'profiles', username, 'usermemories', 'data'), updateData, { merge: true }));
+        promises.push(withTimeout(setDoc(doc(currentDb, 'user_memories', username.toLowerCase()), updateData, { merge: true }), 4000, null));
+        promises.push(withTimeout(setDoc(doc(currentDb, 'profiles', username, 'usermemories', 'data'), updateData, { merge: true }), 4000, null));
       }
 
       if (googleEmail && googleEmail.toLowerCase() !== userIdentifier.toLowerCase()) {
-        promises.push(setDoc(doc(currentDb, 'user_memories', googleEmail.toLowerCase()), updateData, { merge: true }));
+        promises.push(withTimeout(setDoc(doc(currentDb, 'user_memories', googleEmail.toLowerCase()), updateData, { merge: true }), 4000, null));
       }
 
       if (deviceKey && deviceKey !== userIdentifier) {
-        promises.push(setDoc(doc(currentDb, 'user_memories', deviceKey), updateData, { merge: true }));
+        promises.push(withTimeout(setDoc(doc(currentDb, 'user_memories', deviceKey), updateData, { merge: true }), 4000, null));
       }
 
       await Promise.allSettled(promises);
@@ -135,101 +156,109 @@ const fetchFromDbInstance = async (
   const lowerId = cleanId.toLowerCase();
   const candidates = Array.from(new Set([cleanId, lowerId]));
 
-  // 1. Parallel direct document lookups
-  const docRefPromises: Promise<{ snap: any; type: string; id: string }>[] = [];
-  
+  // 1. Direct document lookups with timeouts
   for (const id of candidates) {
-    docRefPromises.push(getDoc(doc(targetDb, 'user_memories', id)).then(snap => ({ snap, type: 'user_memories', id })));
-    docRefPromises.push(getDoc(doc(targetDb, 'profiles', id)).then(snap => ({ snap, type: 'profiles', id })));
-    docRefPromises.push(getDoc(doc(targetDb, 'profiles', id, 'usermemories', 'data')).then(snap => ({ snap, type: 'subcol_data', id })));
-  }
-
-  const docResults = await Promise.allSettled(docRefPromises);
-  for (const res of docResults) {
-    if (res.status === 'fulfilled' && res.value.snap.exists()) {
-      const data = res.value.snap.data();
-      const entries = extractEntriesFromObject(data);
-      if (entries && entries.length > 0) {
-        return { entries, config: data.config || null, profile: data.profile || null };
-      }
-    }
-  }
-
-  // 2. Parallel subcollection lookups under profiles/{id}/[usermemories, user_memories, memories, entries]
-  const subcolNames = ['usermemories', 'user_memories', 'memories', 'entries'];
-  const subcolPromises: Promise<{ snap: any; id: string; subcol: string }>[] = [];
-
-  for (const id of candidates) {
-    for (const subcol of subcolNames) {
-      subcolPromises.push(
-        getDocs(collection(targetDb, 'profiles', id, subcol))
-          .then(snap => ({ snap, id, subcol }))
-          .catch(() => ({ snap: null, id, subcol }))
-      );
-    }
-  }
-
-  const subcolResults = await Promise.allSettled(subcolPromises);
-  for (const res of subcolResults) {
-    if (res.status === 'fulfilled' && res.value.snap && !res.value.snap.empty) {
-      const colSnap = res.value.snap;
-      
-      // Check if any doc has an array of entries
-      for (const d of colSnap.docs) {
-        const data = d.data();
+    try {
+      const snap = await withTimeout(getDoc(doc(targetDb, 'user_memories', id)), 3000, null);
+      if (snap && snap.exists()) {
+        const data = snap.data();
         const entries = extractEntriesFromObject(data);
         if (entries && entries.length > 0) {
           return { entries, config: data.config || null, profile: data.profile || null };
         }
       }
+    } catch (e) { /* ignore */ }
 
-      // Otherwise, aggregate individual entry documents
-      const collectedEntries: JournalEntry[] = [];
-      colSnap.docs.forEach((d: any) => {
-        const data = d.data();
-        if (data && (data.content || data.text || data.title || data.id)) {
-          collectedEntries.push({
-            id: data.id || d.id,
-            content: data.content || data.text || '',
-            createdAt: data.createdAt || data.created_at || data.timestamp || Date.now(),
-            title: data.title || '',
-            mood: data.mood,
-            image: data.image || data.img || data.photo,
-            aiInsight: data.aiInsight || data.ai_insight
-          });
+    try {
+      const snap = await withTimeout(getDoc(doc(targetDb, 'profiles', id)), 3000, null);
+      if (snap && snap.exists()) {
+        const data = snap.data();
+        const entries = extractEntriesFromObject(data);
+        if (entries && entries.length > 0) {
+          return { entries, config: data.config || null, profile: data.profile || null };
         }
-      });
-
-      if (collectedEntries.length > 0) {
-        return { entries: collectedEntries, config: null, profile: null };
       }
+    } catch (e) { /* ignore */ }
+
+    try {
+      const snap = await withTimeout(getDoc(doc(targetDb, 'profiles', id, 'usermemories', 'data')), 3000, null);
+      if (snap && snap.exists()) {
+        const data = snap.data();
+        const entries = extractEntriesFromObject(data);
+        if (entries && entries.length > 0) {
+          return { entries, config: data.config || null, profile: data.profile || null };
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // 2. Subcollection lookups with timeouts
+  const subcolNames = ['usermemories', 'user_memories', 'memories', 'entries'];
+  for (const id of candidates) {
+    for (const subcol of subcolNames) {
+      try {
+        const colSnap = await withTimeout(getDocs(collection(targetDb, 'profiles', id, subcol)), 3000, null);
+        if (colSnap && !colSnap.empty) {
+          for (const d of colSnap.docs) {
+            const data = d.data();
+            const entries = extractEntriesFromObject(data);
+            if (entries && entries.length > 0) {
+              return { entries, config: data.config || null, profile: data.profile || null };
+            }
+          }
+
+          const collectedEntries: JournalEntry[] = [];
+          colSnap.docs.forEach((d: any) => {
+            const data = d.data();
+            if (data && (data.content || data.text || data.title || data.id)) {
+              collectedEntries.push({
+                id: data.id || d.id,
+                content: data.content || data.text || '',
+                createdAt: data.createdAt || data.created_at || data.timestamp || Date.now(),
+                title: data.title || '',
+                mood: data.mood,
+                image: data.image || data.img || data.photo,
+                aiInsight: data.aiInsight || data.ai_insight
+              });
+            }
+          });
+
+          if (collectedEntries.length > 0) {
+            return { entries: collectedEntries, config: null, profile: null };
+          }
+        }
+      } catch (e) { /* ignore */ }
     }
   }
 
-  // 3. Parallel query fallback across user_memories and profiles collections
+  // 3. Query fallbacks with timeouts
   const fieldsToQuery = ['username', 'owner_id', 'ownerId', 'user_id', 'userId', 'profile.username', 'deviceKey', 'googleEmail'];
-  const queryPromises: Promise<any>[] = [];
   const memRef = collection(targetDb, 'user_memories');
   const profRef = collection(targetDb, 'profiles');
 
   for (const field of fieldsToQuery) {
     for (const val of candidates) {
-      queryPromises.push(getDocs(query(memRef, where(field, '==', val))).catch(() => null));
-      queryPromises.push(getDocs(query(profRef, where(field, '==', val))).catch(() => null));
-    }
-  }
-
-  const queryResults = await Promise.allSettled(queryPromises);
-  for (const res of queryResults) {
-    if (res.status === 'fulfilled' && res.value && !res.value.empty) {
-      const qSnap = res.value;
-      for (const profDoc of qSnap.docs) {
-        const data = profDoc.data();
-        const entries = extractEntriesFromObject(data);
-        if (entries && entries.length > 0) {
-          return { entries, config: data.config || null, profile: data.profile || null };
+      try {
+        const qSnap = await withTimeout(getDocs(query(memRef, where(field, '==', val))), 3000, null);
+        if (qSnap && !qSnap.empty) {
+          const data = qSnap.docs[0].data();
+          const entries = extractEntriesFromObject(data);
+          if (entries && entries.length > 0) {
+            return { entries, config: data.config || null, profile: data.profile || null };
+          }
         }
-      }
+      } catch (e) { /* ignore */ }
+
+      try {
+        const qSnap = await withTimeout(getDocs(query(profRef, where(field, '==', val))), 3000, null);
+        if (qSnap && !qSnap.empty) {
+          const data = qSnap.docs[0].data();
+          const entries = extractEntriesFromObject(data);
+          if (entries && entries.length > 0) {
+            return { entries, config: data.config || null, profile: data.profile || null };
+          }
+        }
+      } catch (e) { /* ignore */ }
     }
   }
 
@@ -240,15 +269,15 @@ export const fetchMemoriesFromCloud = async (userIdentifier: string): Promise<{ 
   if (!userIdentifier || !userIdentifier.trim()) return null;
   const cleanId = userIdentifier.trim();
 
-  // Try customDb first
-  let result = await fetchFromDbInstance(db, cleanId);
+  // Try customDb first with 5s timeout
+  const result = await withTimeout(fetchFromDbInstance(db, cleanId), 5000, null);
   if (result && result.entries && result.entries.length > 0) {
     return result;
   }
 
-  // Fallback to defaultDb if distinct
+  // Fallback to defaultDb if distinct with 5s timeout
   if (defaultDb && defaultDb !== db) {
-    const defaultResult = await fetchFromDbInstance(defaultDb, cleanId);
+    const defaultResult = await withTimeout(fetchFromDbInstance(defaultDb, cleanId), 5000, null);
     if (defaultResult && defaultResult.entries && defaultResult.entries.length > 0) {
       return defaultResult;
     }

@@ -241,13 +241,14 @@ const App: React.FC = () => {
   const [lastAutoBackupTime, setLastAutoBackupTime] = useState<number | null>(() => {
     return settings.lastAutoBackupTime || null;
   });
+  const isBackingUpRef = React.useRef(false);
 
   const performAutoBackup = React.useCallback(async () => {
-    if (!loaded) return;
-    const { journalEntries: currentEntries, settings: currentSettings } = latestDataRef.current;
-    
+    if (!loaded || isBackingUpRef.current) return;
+    isBackingUpRef.current = true;
     setIsAutoBackingUp(true);
     try {
+      const { journalEntries: currentEntries, settings: currentSettings } = latestDataRef.current;
       const savedUser = getSavedGoogleUser();
       const targetId = savedUser?.uid || getLocalUserId();
       await syncMemoriesToCloud(targetId, currentEntries, {
@@ -258,10 +259,10 @@ const App: React.FC = () => {
       });
       const now = Date.now();
       setLastAutoBackupTime(now);
-      setSettings(prev => ({ ...prev, lastAutoBackupTime: now }));
     } catch (e) {
       console.warn("Auto-backup failed gracefully:", e);
     } finally {
+      isBackingUpRef.current = false;
       setIsAutoBackingUp(false);
     }
   }, [loaded]);
