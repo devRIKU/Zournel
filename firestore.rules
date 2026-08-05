@@ -2,20 +2,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /profiles/{username} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if request.resource.data.ownerId == resource.data.ownerId;
-      allow delete: if true;
+      allow read, write: if true;
+    }
+    match /profiles/{username}/{document=**} {
+      allow read, write: if true;
     }
     match /shared_entries/{entryId} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if request.resource.data.ownerId == resource.data.ownerId;
-      allow delete: if true;
+      allow read, write: if true;
     }
     match /user_memories/{userIdentifier} {
       allow read, write: if true;
     }
+    match /user_memories/{userIdentifier}/{document=**} {
+      allow read, write: if true;
+    }
   }
 }
+
 

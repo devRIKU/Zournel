@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, Firestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
@@ -12,5 +12,16 @@ const firebaseConfig = {
 };
 
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-export const db = getFirestore(app, "ai-studio-zournel-4c8942e9-d185-4bf1-a595-35ec5545428c");
+
+export const defaultDb: Firestore = getFirestore(app);
+
+let customDb: Firestore;
+try {
+  customDb = getFirestore(app, "ai-studio-zournel-4c8942e9-d185-4bf1-a595-35ec5545428c");
+} catch (e) {
+  customDb = defaultDb;
+}
+
+export const db: Firestore = customDb;
 export const auth = getAuth(app);
+
