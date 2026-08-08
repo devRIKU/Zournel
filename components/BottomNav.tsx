@@ -17,7 +17,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           <button 
             onClick={() => onTabChange(Tab.TODO)}
             title="Switch to Tasks View"
-            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-2 outline-none ${
+            className={`relative px-3 sm:px-5 py-3 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-1.5 outline-none ${
                 activeTab === Tab.TODO 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -30,7 +30,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
                 transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               />
             )}
-            <span className="relative z-10 flex items-center gap-2">
+            <span className="relative z-10 flex items-center gap-1.5">
               <ListTodo className="w-4 h-4 hidden sm:block" />
               <span>Tasks</span>
             </span>
@@ -74,7 +74,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
                 transition={{ type: 'spring', stiffness: 380, damping: 32 }}
               />
              )}
-             <span className="relative z-10 flex items-center gap-2">
+             <span className="relative z-10 flex items-center gap-1.5">
                <User className="w-4 h-4 hidden sm:block" />
                <span>Profile</span>
              </span>

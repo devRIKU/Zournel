@@ -8,17 +8,12 @@ const imageModelName = 'gemini-3.1-flash-lite-image';
 export type AiActionType = 'PROOFREAD' | 'REWRITE' | 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE' | 'EXPAND';
 
 const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
-  // Gracefully route models based on specialization requested:
-  // - Gemini 3.5 flash-lite (default) for fast tasks, extraction, and general processing
-  // - Gemini 3.6 flash for polishing / summarizing and general insights
-  // - Gemma 4 31b mapped to open weights model
   if (!model) {
-    return type === 'POLISH' ? 'gemini-3.6-flash' : 'gemini-3.5-flash-lite';
+    return 'gemini-3.6-flash';
   }
-  if (model === 'gemma-4-31b-it') {
-    return 'gemma-2-27b-it';
-  }
-  return model;
+  if (model === 'gemini-3.1-pro-preview') return 'gemini-3.1-pro-preview';
+  if (model === 'gemini-3.5-flash-lite') return 'gemini-3.5-flash-lite';
+  return 'gemini-3.6-flash';
 };
 
 const handleAiError = (error: any) => {
@@ -62,7 +57,7 @@ const getAiClient = (apiKeyOverride?: string) => {
 };
 
 const generateContentWithFallback = async (ai: GoogleGenAI, primaryModel: string, params: any) => {
-  const modelsToTry = [primaryModel, 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  const modelsToTry = [primaryModel, 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-pro-preview'];
   const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
   let lastError: any = null;
 

@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal';
 import { OnboardingModal } from './components/OnboardingModal';
 import { LandingPage } from './components/LandingPage';
 import { AddModal } from './components/AddModal';
+import { AiChatbotModal } from './components/AiChatbotModal';
 import { ProfileView, PublicProfileView } from './components/ProfileView';
 import { ImportModal } from './components/ImportModal';
 import { getLocalUserId, listenToAuthChanges, getSavedGoogleUser } from './services/authService';
@@ -538,7 +539,7 @@ const App: React.FC = () => {
                onOpenSettings={() => setIsSettingsOpen(true)}
              />
            </div>
-           <button onClick={() => setIsAddModalOpen(true)} title="AI Brain Dump" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
+           <button onClick={() => setIsAddModalOpen(true)} title="AI Companion Chat" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
            <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97]">
@@ -606,10 +607,12 @@ const App: React.FC = () => {
         onUpdateSettings={setSettings} 
       />
 
-      <AddModal
+      <AiChatbotModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAddData={handleAddDataFromAI}
+        journalEntries={journalEntries}
+        userName={settings.profile?.name || ''}
       />
 
       <ImportModal

@@ -118,6 +118,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFullBreakdownModal, setShowFullBreakdownModal] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Automatically close search bar when switching subTab or when not in timeline view
@@ -165,8 +166,12 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
   }, [entries]);
 
-  const trendData = useMemo(() => {
-    return moodEntries.map(entry => {
+  const { trendData, fullTrendData } = useMemo(() => {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+    const cutoffTime = threeMonthsAgo.getTime();
+
+    const mapEntryToPoint = (entry: JournalEntry) => {
       const moodInfo = getMoodData(entry.mood);
       const date = new Date(entry.createdAt || Date.now());
       const formattedDate = !isNaN(date.getTime())
@@ -183,7 +188,14 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
         contentSnippet: entry.content.replace(/[#*`_~[\]()]/g, '').trim().slice(0, 60),
         rawEntry: entry,
       };
-    });
+    };
+
+    const threeMonthEntries = moodEntries.filter(entry => (entry.createdAt || 0) >= cutoffTime);
+
+    return {
+      trendData: threeMonthEntries.map(mapEntryToPoint),
+      fullTrendData: moodEntries.map(mapEntryToPoint),
+    };
   }, [moodEntries]);
 
   const distributionData = useMemo(() => {
@@ -715,16 +727,37 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               </div>
             </div>
 
-            {/* Main Trend Line Chart */}
-            <div className="p-8 bg-surface border border-surface-highlight rounded-[2.5rem] shadow-sm">
+            {/* Main Trend Line Chart (Last 3 Months View) */}
+            <div 
+              onClick={() => setShowFullBreakdownModal(true)}
+              className="p-8 bg-surface border border-surface-highlight rounded-[2.5rem] shadow-sm cursor-pointer transition-all hover:border-accent/40 hover:shadow-md group relative overflow-hidden"
+              title="Click to open full emotional breakdown through time"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                 <div>
-                  <h3 className="text-xl font-display font-bold text-primary">Emotional Journey Over Time</h3>
-                  <p className="text-xs text-secondary">A continuous visual flow mapping your emotional changes</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xl font-display font-bold text-primary">Emotional Journey Over Time</h3>
+                    <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full">
+                      Last 3 Months
+                    </span>
+                  </div>
+                  <p className="text-xs text-secondary mt-1">A visual flow mapping your emotional changes. Click to view full breakdown.</p>
                 </div>
-                <span className="text-xs font-semibold px-3 py-1.5 bg-accent/5 text-accent rounded-full border border-accent/10 select-none">
-                  {trendData.length} data point{trendData.length !== 1 ? 's' : ''} mapped
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold px-3 py-1.5 bg-accent/5 text-accent rounded-full border border-accent/10 select-none">
+                    {trendData.length} data point{trendData.length !== 1 ? 's' : ''}
+                  </span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFullBreakdownModal(true);
+                    }}
+                    className="p-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition flex items-center gap-1.5 text-xs font-bold"
+                  >
+                    <span>Full Breakdown</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
               <div className="w-full h-80">
@@ -873,6 +906,118 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             </div>
           </div>
         )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Emotional Breakdown Modal / Full View */}
+      <AnimatePresence>
+        {showFullBreakdownModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-bg/90 backdrop-blur-md p-4 sm:p-6 md:p-8 flex items-center justify-center overflow-y-auto"
+          >
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="bg-surface border border-surface-highlight rounded-[2.5rem] shadow-2xl p-6 sm:p-10 w-full max-w-5xl my-auto flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar relative"
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4 pb-6 border-b border-surface-highlight/50 mb-6">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <LineChart className="w-6 h-6 text-accent" />
+                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary">Full Emotional Breakdown Through Time</h2>
+                  </div>
+                  <p className="text-xs sm:text-sm text-secondary">A complete historical timeline of every emotional state logged in your memories.</p>
+                </div>
+                <button 
+                  onClick={() => setShowFullBreakdownModal(false)}
+                  className="p-2.5 rounded-full bg-surface-highlight/50 text-secondary hover:text-primary hover:bg-surface-highlight transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Stats Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
+                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">Total Points</span>
+                  <span className="text-2xl font-display font-bold text-primary">{fullTrendData.length}</span>
+                </div>
+                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
+                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">3-Month Points</span>
+                  <span className="text-2xl font-display font-bold text-primary">{trendData.length}</span>
+                </div>
+                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
+                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">First Log</span>
+                  <span className="text-sm font-semibold text-primary">{fullTrendData[0]?.fullDate || 'N/A'}</span>
+                </div>
+                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
+                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">Latest Log</span>
+                  <span className="text-sm font-semibold text-primary">{fullTrendData[fullTrendData.length - 1]?.fullDate || 'N/A'}</span>
+                </div>
+              </div>
+
+              {/* Full Timeline Area Chart */}
+              <div className="w-full h-96 mb-8 p-4 bg-surface-highlight/10 rounded-2xl border border-surface-highlight/20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={fullTrendData}
+                    margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
+                  >
+                    <defs>
+                      <linearGradient id="colorMoodFull" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.35}/>
+                        <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.02}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-highlight)" opacity={0.6} />
+                    <XAxis 
+                      dataKey="date" 
+                      stroke="var(--color-secondary)" 
+                      fontSize={11}
+                      tickLine={false}
+                      axisLine={false}
+                      dy={10}
+                    />
+                    <YAxis 
+                      stroke="var(--color-secondary)" 
+                      fontSize={14}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={[0.5, 5.5]}
+                      ticks={[1, 2, 3, 4, 5]}
+                      tickFormatter={yAxisFormatter}
+                      dx={-5}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
+                    <Area 
+                      type="monotone" 
+                      dataKey="score" 
+                      stroke="var(--color-accent)" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorMoodFull)" 
+                      activeDot={{ r: 8, strokeWidth: 0, fill: 'var(--color-accent)' }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Footer action */}
+              <div className="flex justify-end pt-4 border-t border-surface-highlight/40">
+                <button 
+                  onClick={() => setShowFullBreakdownModal(false)}
+                  className="px-6 py-2.5 rounded-full bg-accent text-accent-fg font-bold text-xs uppercase tracking-wider hover:opacity-90 transition"
+                >
+                  Close View
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
