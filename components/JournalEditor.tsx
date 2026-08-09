@@ -162,6 +162,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [slashQuery, setSlashQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [previewText, setPreviewText] = useState<string | null>(null);
+  const [aiTargetText, setAiTargetText] = useState<string | null>(null);
   const editorRef = useRef<Editor | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [slashMenuPos, setSlashMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -402,6 +403,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     try {
       const result = await editJournalText(textToProcess, type, selectedModel);
       if (result && result !== textToProcess) {
+        setAiTargetText(explicitText !== undefined ? explicitText : null);
         setPreviewText(result);
       }
     } catch (e) {
@@ -606,14 +608,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   const applyAiPreview = () => {
     if (previewText && editorRef.current) {
-      editorRef.current.action(replaceAll(previewText));
-      setContent(previewText);
+      if (aiTargetText !== null) {
+        const newContent = content.replace(aiTargetText, previewText);
+        editorRef.current.action(replaceAll(newContent));
+        setContent(newContent);
+      } else {
+        editorRef.current.action(replaceAll(previewText));
+        setContent(previewText);
+      }
       setPreviewText(null);
+      setAiTargetText(null);
     }
   };
 
   const discardAiPreview = () => {
     setPreviewText(null);
+    setAiTargetText(null);
   };
 
   const handleAutoDetectMood = async (manualTrigger: boolean = true) => {
@@ -867,69 +877,46 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         </AnimatePresence>
       </div>
 
-      {/* AI Preview Modal */}
+      {/* AI Preview Inline/Floating Widget */}
       <AnimatePresence>
         {previewText && (
           <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50, transition: { duration: 0.15 } }}
+            className="fixed bottom-4 left-4 right-4 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-2xl z-[150] bg-surface/95 backdrop-blur-xl border border-accent/30 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] rounded-2xl md:rounded-[2rem] overflow-hidden flex flex-col"
           >
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 240 }}
-              className="bg-surface rounded-[2.5rem] w-full max-w-2xl shadow-2xl flex flex-col max-h-[85vh] overflow-hidden border border-accent/20"
-            >
-              <div className="p-8 border-b border-surface-highlight flex justify-between items-center bg-accent/5">
-                 <div className="flex items-center gap-4">
-                    <div className="p-3 bg-accent rounded-2xl">
-                      <Sparkles className="w-6 h-6 text-accent-fg" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-display font-bold text-primary">Preview AI Changes</h3>
-                      <p className="text-[10px] text-secondary font-bold uppercase tracking-widest mt-1">Review the suggested rewrite below</p>
-                    </div>
+            <div className="p-3 md:p-5 bg-accent/10 border-b border-surface-highlight flex justify-between items-center">
+               <div className="flex items-center gap-2 md:gap-3">
+                 <div className="p-1.5 md:p-2 bg-accent rounded-lg md:rounded-xl">
+                   <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-accent-fg" />
                  </div>
-                 <button onClick={discardAiPreview} className="p-2 hover:bg-surface-highlight rounded-xl"><X className="w-5 h-5 text-secondary" /></button>
-              </div>
-              
-              <div className="flex-grow overflow-y-auto p-8 bg-surface">
-                 <div className="flex gap-6">
-                    <div className="flex-1 space-y-4">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-secondary/50 flex items-center gap-2"><History className="w-3 h-3" /> Current</span>
-                       <div className="p-6 bg-surface-highlight rounded-2xl text-primary text-sm leading-relaxed line-clamp-[12] font-medium italic border border-secondary/20 bg-surface/30 shadow-inner">
-                          {content || "(Empty)" }
-                       </div>
-                    </div>
-                    <div className="flex-1 space-y-4">
-                       <span className="text-[9px] font-bold uppercase tracking-widest text-accent flex items-center gap-2"><Sparkles className="w-3 h-3 text-accent animate-spin" style={{ animationDuration: '3s' }} /> AI Suggestion</span>
-                       <div className="p-6 bg-accent/15 border-2 border-accent/45 rounded-2xl text-primary text-sm leading-relaxed font-semibold shadow-inner min-h-[140px]">
-                          <AiGlitterTypewriter text={previewText} badgeText="Glittering AI Rewrite" speed={18} />
-                       </div>
-                    </div>
-                 </div>
-              </div>
+                 <span className="text-xs md:text-sm font-bold text-primary uppercase tracking-wider">Review AI Suggestion</span>
+               </div>
+            </div>
+            
+            <div className="p-4 md:p-6 bg-surface/50 max-h-[40vh] overflow-y-auto">
+               <div className="text-sm md:text-base text-primary leading-relaxed font-medium italic border-l-4 border-accent/50 pl-3 md:pl-4">
+                  <AiGlitterTypewriter text={previewText} badgeText="Polished Result" speed={15} />
+               </div>
+            </div>
 
-              <div className="p-8 border-t border-surface-highlight flex gap-4 bg-surface-highlight/10">
-                 <button 
-                    onClick={discardAiPreview}
-                    className="flex-1 py-4 px-6 rounded-2xl border border-surface-highlight text-secondary font-bold text-xs uppercase tracking-widest hover:bg-surface-highlight transition active:scale-[0.97] flex items-center justify-center gap-2"
-                 >
-                    <XCircle className="w-4 h-4" />
-                    Discard
-                 </button>
-                 <button 
-                    onClick={applyAiPreview}
-                    className="flex-[2] py-4 px-6 rounded-2xl bg-accent text-accent-fg font-bold text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition active:scale-[0.97] flex items-center justify-center gap-2"
-                 >
-                    <CheckCircle className="w-4 h-4" />
-                    Apply Changes
-                 </button>
-              </div>
-            </motion.div>
+            <div className="p-3 md:p-5 bg-surface flex gap-2 md:gap-3 border-t border-surface-highlight">
+               <button 
+                  onClick={discardAiPreview}
+                  className="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl border border-surface-highlight text-secondary font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-surface-highlight transition active:scale-[0.98] flex items-center justify-center gap-2"
+               >
+                  <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  Reject
+               </button>
+               <button 
+                  onClick={applyAiPreview}
+                  className="flex-[2] py-3 md:py-4 rounded-xl md:rounded-2xl bg-accent text-accent-fg font-bold text-[10px] md:text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition active:scale-[0.98] flex items-center justify-center gap-2"
+               >
+                  <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                  Accept
+               </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
