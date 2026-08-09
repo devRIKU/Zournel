@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { X, Mail, Youtube, Instagram, Twitter, Github, ArrowUpRight, UserCircle2 } from 'lucide-react';
+import { X, Mail, Youtube, Instagram, Twitter, Github, ArrowUpRight, UserCircle2 } from './Icons';
 
 interface ContactsModalProps {
   isOpen: boolean;

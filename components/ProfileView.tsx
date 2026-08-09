@@ -6,7 +6,7 @@ import {
   Sparkles, Lock, Globe, Calendar, ArrowRight, Heart, Cloud, Compass,
   MessageSquare, Edit3, Shield, BookOpen, Layers, Zap, X, Upload, Download,
   CloudUpload, CloudDownload, LogOut, RefreshCw, CheckCircle2, AlertCircle
-} from 'lucide-react';
+} from './Icons';
 import { 
   getLocalUserId, setLocalUserId, signInWithGoogleAccount, signOutGoogleAccount, 
   getSavedGoogleUser, listenToAuthChanges, GoogleAccountUser 

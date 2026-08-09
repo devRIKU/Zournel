@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Globe, Copy, Check, ArrowRight, User, Calendar, Clock, BookOpen, Share2, Heart, ExternalLink, Bookmark, Sun, Moon } from 'lucide-react';
+import { Sparkles, Globe, Copy, Check, ArrowRight, User, Calendar, Clock, BookOpen, Share2, Heart, ExternalLink, Bookmark, Sun, Moon } from './Icons';
 import { JournalEntry, UserProfile } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 

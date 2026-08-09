@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Wand2 } from 'lucide-react';
+import { Sparkles, Wand2 } from './Icons';
 
 interface AiGlitterTypewriterProps {
   text: string;

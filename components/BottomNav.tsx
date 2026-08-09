@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { Tab } from '../types';
-import { ListTodo, Library, User } from 'lucide-react';
+import { ListTodo, Library, User } from './Icons';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -31,7 +31,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               />
             )}
             <span className="relative z-10 flex items-center gap-1.5">
-              <ListTodo className="w-4 h-4 hidden sm:block" />
+              <ListTodo className="w-4 h-4 shrink-0" />
               <span>Tasks</span>
             </span>
           </button>
@@ -53,7 +53,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               />
              )}
              <span className="relative z-10 flex items-center gap-2">
-               <Library className="w-4 h-4 hidden sm:block" />
+               <Library className="w-4 h-4 shrink-0" />
                <span>Memories</span>
              </span>
           </button>
@@ -75,7 +75,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               />
              )}
              <span className="relative z-10 flex items-center gap-1.5">
-               <User className="w-4 h-4 hidden sm:block" />
+               <User className="w-4 h-4 shrink-0" />
                <span>Profile</span>
              </span>
           </button>

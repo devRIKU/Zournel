@@ -1,0 +1,75 @@
+Activity
+AlertCircle
+ArrowRight
+ArrowRight  Sparkles
+ArrowUpRight
+ArrowUpRight  Sparkles
+Bookmark
+BookOpen
+Bot
+Calendar
+Cat
+Check
+CheckCircle
+CheckCircle2 
+ChevronDown  Sparkles
+ClipboardList
+Clock
+Cloud
+CloudCheck
+CloudDownload
+CloudUpload
+Code
+Code2  X
+Code  Sparkles
+Coffee
+Copy
+Cpu
+Database
+Edit3  ArrowRight
+ExternalLink
+ExternalLink  X
+Feather
+FileJson
+FileText
+GitBranch
+Github
+Globe
+Grid
+Heart
+Image as ImageIcon
+Instagram
+Key
+Library
+LineChart
+Loader2
+Mail
+Moon
+Moon  ListTodo
+Palette
+Pencil
+Plus
+PlusCircle
+RefreshCw
+RefreshCw  Check
+Search
+Send
+Share2
+ShieldCheck
+Smile
+Sparkles
+Sparkles  Key
+Star
+Sun
+Trash2
+TreePine
+TrendingUp
+Twitter
+Type
+Upload
+User
+UserCircle2  Upload
+User  X
+Wand2  CloudCheck
+X
+Youtube

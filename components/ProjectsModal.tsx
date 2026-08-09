@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { X, GitBranch, Star, ExternalLink, Loader2, Github, Code2 } from 'lucide-react';
+import { X, GitBranch, Star, ExternalLink, Loader2, Github, Code2 } from './Icons';
 
 interface ProjectsModalProps {
   isOpen: boolean;

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CloudCheck, CloudUpload, RefreshCw, ShieldCheck, Clock, ArrowUpRight } from 'lucide-react';
+import { CloudCheck, CloudUpload, RefreshCw, ShieldCheck, Clock, ArrowUpRight } from './Icons';
 
 interface AutoBackupPillProps {
   isBackingUp: boolean;

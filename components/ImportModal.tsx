@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Upload, FileText, Check, AlertCircle, X, Sparkles, CloudDownload, FileJson, RefreshCw, Code } from 'lucide-react';
+import { Upload, FileText, Check, AlertCircle, X, Sparkles, CloudDownload, FileJson, RefreshCw, Code } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { fetchMemoriesFromCloud } from '../services/dbService';

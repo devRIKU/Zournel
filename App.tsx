@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Settings, Plus, Sparkles, BookOpen } from 'lucide-react';
+import { Settings, Plus, Sparkles, BookOpen } from './components/Icons';
 import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
 import { BottomNav } from './components/BottomNav';
 import { TodoView } from './components/TodoView';

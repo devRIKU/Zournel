@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Key, ArrowRight, ExternalLink } from 'lucide-react';
+import { Key, ArrowRight, ExternalLink } from './Icons';
 
 interface OnboardingModalProps {
   onSave: (apiKey: string) => void;

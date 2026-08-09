@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Send, Bot, User, Loader2, PlusCircle, CheckCircle, Database, Cpu, ChevronDown } from 'lucide-react';
+import { Sparkles, X, Send, Bot, User, Loader2, PlusCircle, CheckCircle, Database, Cpu, ChevronDown } from './Icons';
 import { GoogleGenAI } from '@google/genai';
 import { JournalEntry } from '../types';
 

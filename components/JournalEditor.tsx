@@ -7,7 +7,7 @@ import {
   MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search,
   CheckSquare, MessageSquareCode, Table as TableIcon, Lightbulb,
   GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown
-} from 'lucide-react';
+} from './Icons';
 import { motion, AnimatePresence } from 'motion/react';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
@@ -687,27 +687,35 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         >
           {/* Cover Image Header */}
           <div className="relative h-48 md:h-64 w-full shrink-0 group bg-surface-highlight overflow-hidden">
-        {imgLoading && (
-          <div className="absolute inset-0 bg-surface-highlight animate-pulse flex items-center justify-center z-0">
-             <Loader2 className="w-8 h-8 text-accent animate-spin opacity-50" />
-          </div>
-        )}
-        {imgError && (
-          <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-surface-highlight flex items-center justify-center">
-            <div className="flex flex-col items-center gap-2 text-secondary/50">
-              <ImageOff className="w-8 h-8" />
-              <span className="text-[10px] font-bold uppercase tracking-widest">Image unavailable</span>
-            </div>
-          </div>
-        )}
+        {image ? (
+          <>
+            {imgLoading && (
+              <div className="absolute inset-0 bg-surface-highlight animate-pulse flex items-center justify-center z-0">
+                 <Loader2 className="w-8 h-8 text-accent animate-spin opacity-50" />
+              </div>
+            )}
+            {imgError && (
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-surface-highlight flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2 text-secondary/50">
+                  <ImageOff className="w-8 h-8" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Image unavailable</span>
+                </div>
+              </div>
+            )}
 
-        <img 
-          src={image} 
-          alt="Cover" 
-          onLoad={() => setImgLoading(false)}
-          onError={() => { setImgError(true); setImgLoading(false); }}
-          className={`w-full h-full object-cover transition duration-700 ${imgLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`} 
-        />
+            <img 
+              src={image} 
+              alt="Cover" 
+              onLoad={() => setImgLoading(false)}
+              onError={() => { setImgError(true); setImgLoading(false); }}
+              className={`w-full h-full object-cover transition duration-700 ${imgLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`} 
+            />
+          </>
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-accent/20 via-surface-highlight to-bg flex items-center justify-center opacity-60">
+            <span className="text-xs font-mono text-secondary uppercase tracking-widest">No Cover Selected</span>
+          </div>
+        )}
         
         <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-bg"></div>
         
@@ -748,8 +756,19 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 title="Change Cover"
              >
                 <LayoutTemplate className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span>Gallery</span>
+                <span>{image ? 'Gallery' : 'Add Cover'}</span>
              </button>
+
+             {image ? (
+               <button 
+                  onClick={() => { setImage(''); setImgError(false); }}
+                  className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-black/40 hover:bg-black/60 text-white/90 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border border-white/10"
+                  title="Remove cover photo"
+               >
+                  <ImageOff className="w-3.5 h-3.5 md:w-4 h-4 text-white/70" />
+                  <span className="hidden sm:inline">Remove</span>
+               </button>
+             ) : null}
 
              {initialId && onDelete && (
                <button 

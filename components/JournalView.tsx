@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code } from 'lucide-react';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3 } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { 
@@ -120,6 +120,30 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const [searchQuery, setSearchQuery] = useState('');
   const [showFullBreakdownModal, setShowFullBreakdownModal] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  const [pageTitle, setPageTitle] = useState(() => localStorage.getItem('journalPageTitle') || 'Memories');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const titleInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  const handleTitleBlur = () => {
+    setIsEditingTitle(false);
+    const newTitle = pageTitle.trim() || 'Memories';
+    setPageTitle(newTitle);
+    localStorage.setItem('journalPageTitle', newTitle);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleTitleBlur();
+    }
+  };
 
   // Automatically close search bar when switching subTab or when not in timeline view
   React.useEffect(() => {
@@ -301,9 +325,38 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                    <LineChart className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
                 )}
              </div>
-             <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-primary tracking-tight break-words">
-               {subTab === 'timeline' ? 'Memories' : 'Reflections'}
-             </h2>
+             <div className="group/header relative inline-flex items-center">
+               {isEditingTitle && subTab === 'timeline' ? (
+                 <input
+                   ref={titleInputRef}
+                   value={pageTitle}
+                   onChange={(e) => setPageTitle(e.target.value)}
+                   onBlur={handleTitleBlur}
+                   onKeyDown={handleTitleKeyDown}
+                   className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-black text-primary tracking-tighter bg-transparent outline-none w-full border-b-2 border-accent/50 focus:border-accent p-0 m-0 leading-tight placeholder-primary/30"
+                   placeholder="Untitled"
+                   style={{ width: `${Math.max(pageTitle.length, 3)}ch` }}
+                 />
+               ) : (
+                 <>
+                   <h2 
+                     onClick={() => subTab === 'timeline' && setIsEditingTitle(true)}
+                     className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-black text-primary tracking-tighter break-words ${subTab === 'timeline' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                   >
+                     {subTab === 'timeline' ? pageTitle : 'Reflections'}
+                   </h2>
+                   {subTab === 'timeline' && (
+                     <button 
+                       onClick={() => setIsEditingTitle(true)}
+                       className="opacity-0 group-hover/header:opacity-100 transition-all duration-300 ml-3 p-1.5 md:p-2 bg-surface-highlight/50 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary active:scale-95 flex items-center justify-center shadow-sm border border-surface-highlight"
+                       title="Edit Title"
+                     >
+                       <Edit3 className="w-4 h-4 md:w-5 md:h-5" />
+                     </button>
+                   )}
+                 </>
+               )}
+             </div>
           </div>
           <div className="flex items-center gap-3">
               <div className="h-0.5 w-10 sm:w-12 bg-accent rounded-full"></div>
@@ -521,10 +574,10 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                           }
                         }}
                         title="View & Edit Memory"
-                        whileHover={{ y: -6, scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight/60 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_60px_-8px_rgba(0,0,0,0.08)] hover:border-accent/40 transition-all duration-500 overflow-hidden outline-none cursor-pointer ${
+                        whileHover={{ y: -8, scale: 1.015 }}
+                        whileTap={{ scale: 0.97 }}
+                        transition={{ type: 'spring', damping: 22, stiffness: 300 }}
+                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight/60 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.15)] hover:border-accent/50 transition-all duration-500 overflow-hidden outline-none cursor-pointer ${
                           isHero ? 'md:col-span-2' : ''
                         }`}
                       >

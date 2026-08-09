@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Sun, Moon, Cloud, CheckCircle, BookOpen, Coffee, Sparkles } from 'lucide-react';
+import { ArrowRight, Sun, Moon, Cloud, CheckCircle, BookOpen, Coffee, Sparkles } from './Icons';
 import { Task, JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 

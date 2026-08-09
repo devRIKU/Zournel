@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Check, Trash2, Bot, ClipboardList } from 'lucide-react';
+import { Check, Trash2, Bot, ClipboardList, Plus, CheckCircle2 } from './Icons';
 import confetti from 'canvas-confetti';
 import { Task, CompletionAnimation, DeleteAnimation, Priority } from '../types';
 import { generateSubtasks } from '../services/geminiService';
@@ -202,7 +202,7 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
         </div>
         <h2 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-display font-bold text-primary tracking-tight break-words">Tasks</h2>
       </div>
-      <div className="relative mb-12">
+      <div className="relative mb-12 flex items-center">
         <input 
           ref={inputRef} 
           type="text" 
@@ -211,16 +211,35 @@ export const TodoView: React.FC<TodoViewProps> = ({ tasks, onToggleTask, onDelet
           onKeyDown={handleKeyDown} 
           placeholder="What's on your list?" 
           title="Type a task and press Enter"
-          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl py-4 transition duration-300 placeholder:opacity-30"
+          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl py-4 transition duration-300 placeholder:opacity-30 pr-14"
         />
+        {inputText.trim().length > 0 && (
+          <button
+            onClick={() => { onAddTask(inputText); setInputText(''); }}
+            title="Add task"
+            className="absolute right-2 p-2.5 bg-accent text-accent-fg rounded-full shadow-md hover:scale-105 active:scale-95 transition"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
       </div>
       {tasks.length === 0 ? (
-        <div className="py-24 text-center opacity-30 flex flex-col items-center gap-4">
-          <Check className="w-12 h-12 text-accent/50" />
-          <p className="font-display text-2xl">Nothing to do</p>
+        <div className="py-24 text-center opacity-40 flex flex-col items-center gap-4">
+          <Check className="w-12 h-12 text-accent/60" />
+          <p className="font-display text-2xl font-bold">Nothing to do</p>
+          <p className="text-xs text-secondary font-mono">Type a task above to start building momentum.</p>
         </div>
       ) : (
         <div className="space-y-1">
+          {activeTasks.length === 0 && completedTasks.length > 0 && (
+            <div className="mb-8 p-6 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 flex items-center gap-4">
+              <CheckCircle2 className="w-8 h-8 shrink-0 text-emerald-500" />
+              <div>
+                <h4 className="font-bold text-base">All tasks completed!</h4>
+                <p className="text-xs opacity-80">You've cleared all your active tasks. Great focus!</p>
+              </div>
+            </div>
+          )}
           {activeTasks.map(task => <TaskItem key={task.id} task={task} onToggle={() => onToggleTask(task.id)} onDelete={() => onDeleteTask(task.id)} onUpdate={onUpdateTask} completionAnim={completionAnim} deleteAnim={deleteAnim} selectedModel={selectedModel} />)}
           {completedTasks.length > 0 && (
             <>

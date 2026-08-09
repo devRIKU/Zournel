@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, X, Loader2, ArrowRight } from 'lucide-react';
+import { Sparkles, X, Loader2, ArrowRight } from './Icons';
 import { processUserInput } from '../services/geminiService';
 
 interface AddModalProps {
