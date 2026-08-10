@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile, JournalEntry, AppSettings } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
+import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { 
   Camera, Copy, Check, Share, ExternalLink, User, Key, Eye, EyeOff, 
   Sparkles, Lock, Globe, Calendar, ArrowRight, Heart, Cloud, Compass,

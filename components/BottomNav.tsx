@@ -2,6 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { Tab } from '../types';
 import { ListTodo, Library, User } from './Icons';
+import { triggerHaptic } from '../utils/uiSprings';
 
 interface BottomNavProps {
   activeTab: Tab;
@@ -9,15 +10,20 @@ interface BottomNavProps {
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) => {
+  const handleTabSelect = (tab: Tab) => {
+    triggerHaptic(10);
+    onTabChange(tab);
+  };
+
   return (
     <div className="fixed bottom-0 left-0 w-full z-40 pointer-events-none pb-8">
       <div className="w-full flex justify-center items-end px-4">
         <div className="pointer-events-auto flex items-center bg-surface/90 backdrop-blur-2xl shadow-2xl rounded-full p-1.5 border border-surface-highlight relative overflow-hidden">
           
           <button 
-            onClick={() => onTabChange(Tab.TODO)}
+            onClick={() => handleTabSelect(Tab.TODO)}
             title="Switch to Tasks View"
-            className={`relative px-3 sm:px-5 py-3 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-1.5 outline-none ${
+            className={`relative px-3 sm:px-5 py-3 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.15em] uppercase transition duration-200 active:scale-[0.96] flex items-center gap-1.5 outline-none select-none ${
                 activeTab === Tab.TODO 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -27,7 +33,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               <motion.div 
                 layoutId="active-tab-indicator"
                 className="absolute inset-0 bg-primary rounded-full z-0"
-                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
               />
             )}
             <span className="relative z-10 flex items-center gap-1.5">
@@ -37,9 +43,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           </button>
 
           <button 
-            onClick={() => onTabChange(Tab.JOURNAL)}
+            onClick={() => handleTabSelect(Tab.JOURNAL)}
             title="Switch to Memories View"
-            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-200 active:scale-[0.96] flex items-center gap-2 outline-none select-none ${
                 activeTab === Tab.JOURNAL 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -49,7 +55,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               <motion.div 
                 layoutId="active-tab-indicator"
                 className="absolute inset-0 bg-primary rounded-full z-0"
-                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
               />
              )}
              <span className="relative z-10 flex items-center gap-2">
@@ -59,9 +65,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
           </button>
 
           <button 
-            onClick={() => onTabChange(Tab.PROFILE)}
+            onClick={() => handleTabSelect(Tab.PROFILE)}
             title="Switch to Profile View"
-            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-300 active:scale-[0.97] flex items-center gap-2 outline-none ${
+            className={`relative px-4 sm:px-6 py-3.5 rounded-full font-grotesk text-[10px] sm:text-xs font-bold tracking-[0.2em] uppercase transition duration-200 active:scale-[0.96] flex items-center gap-2 outline-none select-none ${
                 activeTab === Tab.PROFILE 
                 ? 'text-bg font-extrabold' 
                 : 'text-secondary hover:text-primary'
@@ -71,7 +77,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange }) 
               <motion.div 
                 layoutId="active-tab-indicator"
                 className="absolute inset-0 bg-primary rounded-full z-0"
-                transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
               />
              )}
              <span className="relative z-10 flex items-center gap-1.5">

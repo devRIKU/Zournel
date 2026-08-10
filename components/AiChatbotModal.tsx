@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, X, Send, Bot, User, Loader2, PlusCircle, CheckCircle, Database, Cpu, ChevronDown } from './Icons';
 import { GoogleGenAI } from '@google/genai';
 import { JournalEntry } from '../types';
+import { iosSpring, iosSpringGentle, triggerHaptic } from '../utils/uiSprings';
 
 interface Message {
   id: string;

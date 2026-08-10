@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3 } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
+import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { 
   ResponsiveContainer, 
   AreaChart, 

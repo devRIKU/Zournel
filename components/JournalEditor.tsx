@@ -9,6 +9,7 @@ import {
   GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown
 } from './Icons';
 import { motion, AnimatePresence } from 'motion/react';
+import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
 import { 
