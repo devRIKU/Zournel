@@ -43,6 +43,7 @@ export const App: React.FC = () => {
     setIsEditorOpen, 
     saveEntry: saveJournalEntryStore, 
     deleteEntry: deleteJournalEntryStore, 
+    deleteEntries: deleteJournalEntriesStore,
     renameEntry: renameJournalEntryStore, 
     importEntries: handleImportEntriesStore,
     setEntries: setJournalEntries
@@ -343,9 +344,10 @@ export const App: React.FC = () => {
     title?: string, 
     scribble?: string, 
     song?: JournalEntry['song'],
-    lyrics?: string
+    lyrics?: string,
+    id?: string
   ) => {
-    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics);
+    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics, id);
   };
 
   if (isRouteLoading) {
@@ -449,6 +451,7 @@ export const App: React.FC = () => {
                 entries={journalEntries} 
                 onEdit={e => { setEditingEntry(e); setIsEditorOpen(true); }} 
                 onDeleteEntry={deleteJournalEntryStore} 
+                onDeleteEntries={deleteJournalEntriesStore}
                 onRenameEntry={renameJournalEntryStore}
                 onImportClick={() => setIsImportModalOpen(true)}
                 onImportEntries={handleImportEntriesStore}

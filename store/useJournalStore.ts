@@ -18,9 +18,11 @@ interface JournalState {
     model?: string,
     scribble?: string,
     song?: JournalEntry['song'],
-    lyrics?: string
-  ) => void;
+    lyrics?: string,
+    id?: string
+  ) => string;
   deleteEntry: (id: string) => void;
+  deleteEntries: (ids: string[]) => void;
   renameEntry: (id: string, newTitle: string) => void;
   updateEntry: (entry: JournalEntry) => void;
   importEntries: (newEntries: JournalEntry[], replace?: boolean) => void;
@@ -58,14 +60,16 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     });
   },
 
-  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.5-flash-lite', scribble, song, lyrics) => {
+  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.5-flash-lite', scribble, song, lyrics, id) => {
     const { editingEntry, entries, setEntries } = get();
-    let entryId = editingEntry?.id;
+    let entryId = id || editingEntry?.id;
     let isNew = false;
     const computedTitle = title?.trim() || extractAutoTitle(content);
     const resolvedLyrics = lyrics !== undefined ? lyrics : (song?.lyrics || undefined);
 
-    if (entryId) {
+    const exists = Boolean(entryId && entries.some((e) => e.id === entryId));
+
+    if (exists && entryId) {
       setEntries((prev) =>
         prev.map((e) =>
           e.id === entryId
@@ -84,9 +88,11 @@ export const useJournalStore = create<JournalState>((set, get) => ({
       );
     } else {
       isNew = true;
-      entryId = crypto.randomUUID
-        ? crypto.randomUUID()
-        : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      if (!entryId) {
+        entryId = typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      }
       const newEntry: JournalEntry = {
         id: entryId,
         content,
@@ -103,10 +109,24 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
     if (!isAutoSave) {
       set({ isEditorOpen: false, editingEntry: null });
+    } else if (get().editingEntry) {
+      // Keep store's existing editingEntry synced without converting null to non-null
+      set((state) => ({
+        editingEntry: state.editingEntry ? {
+          ...state.editingEntry,
+          content,
+          title: computedTitle,
+          image: image !== undefined ? image : state.editingEntry.image,
+          mood: mood !== undefined ? mood : state.editingEntry.mood,
+          scribble: scribble !== undefined ? scribble : state.editingEntry.scribble,
+          song: song !== undefined ? song : state.editingEntry.song,
+          lyrics: resolvedLyrics !== undefined ? resolvedLyrics : state.editingEntry.lyrics,
+        } : null
+      }));
     }
 
     // Background Title & Insights generation
-    const currentId = entryId;
+    const currentId = entryId!;
     if (content.trim().length > 30) {
       if (isNew || !title?.trim()) {
         generateAutoTitle(content, model).then((aiTitle) => {
@@ -123,10 +143,17 @@ export const useJournalStore = create<JournalState>((set, get) => ({
         }
       });
     }
+
+    return currentId;
   },
 
   deleteEntry: (id) => {
     get().setEntries((prev) => prev.filter((e) => e.id !== id));
+  },
+
+  deleteEntries: (ids) => {
+    const idSet = new Set(ids);
+    get().setEntries((prev) => prev.filter((e) => !idSet.has(e.id)));
   },
 
   renameEntry: (id, newTitle) => {

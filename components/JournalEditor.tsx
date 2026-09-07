@@ -11,7 +11,7 @@ import {
 import { ScribblePadModal } from './ScribblePadModal';
 import { SongAttachmentModal } from './SongAttachmentModal';
 import { AttachedSong } from '../types';
-import { Play as LucidePlay, Pause as LucidePause, Disc as LucideDisc } from 'lucide-react';
+import { Play as LucidePlay, Pause as LucidePause, Disc as LucideDisc, MoreVertical } from 'lucide-react';
 import { toggleAudioPreview, subscribeToAudio, stopAudioPreview } from '../services/songService';
 import { motion, AnimatePresence } from 'motion/react';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
@@ -67,7 +67,8 @@ interface JournalEditorProps {
     title?: string, 
     scribble?: string, 
     song?: AttachedSong,
-    lyrics?: string
+    lyrics?: string,
+    id?: string
   ) => void;
   onDelete?: (id: string) => void;
   initialContent?: string;
@@ -204,6 +205,30 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isInitialMountRef = useRef<boolean>(true);
+  const currentIdRef = useRef<string>(
+    initialId || (typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`)
+  );
+
+  // Top header menus
+  const [showPlusDropdown, setShowPlusDropdown] = useState(false);
+  const [showKebabDropdown, setShowKebabDropdown] = useState(false);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
+  const kebabMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleMenuClickOutside = (e: MouseEvent) => {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setShowPlusDropdown(false);
+      }
+      if (kebabMenuRef.current && !kebabMenuRef.current.contains(e.target as Node)) {
+        setShowKebabDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleMenuClickOutside);
+    return () => document.removeEventListener('mousedown', handleMenuClickOutside);
+  }, []);
 
   // Notion/BlockNote Style Floating Selection Toolbar & Block Handle State
   const [bubbleMenuPos, setBubbleMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -320,6 +345,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   useEffect(() => {
     if (isOpen) {
       isInitialMountRef.current = true;
+      currentIdRef.current = initialId || (typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
       setSaveStatus(null);
       setContent(initialContent || '');
       setImage(initialImage || getRandomCover());
@@ -328,6 +356,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setSong(initialSong);
       setShowScribbleModal(false);
       setShowSongModal(false);
+      setShowPlusDropdown(false);
+      setShowKebabDropdown(false);
+      setShowDeleteConfirm(false);
       setAutoMoodActive(initialMood === '✨ Auto');
       setCustomMoodInput('');
       setIsAutoDetectingMood(false);
@@ -346,7 +377,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setBlockHandlePos(null);
       setShowBlockMenu(false);
     }
-  }, [isOpen, initialContent, initialImage, initialMood, initialScribble, initialSong]);
+  }, [isOpen, initialId, initialContent, initialImage, initialMood, initialScribble, initialSong]);
 
   const handleAutoGenerateTitle = async () => {
     if (!content || content.trim().length < 5) return;
@@ -380,7 +411,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     autoSaveTimerRef.current = setTimeout(() => {
       setSaveStatus('saving');
       const activeTitle = title.trim() || extractAutoTitle(content);
-      onSave(content, image, mood, true, activeTitle, scribble, song, lyrics || song?.lyrics);
+      onSave(content, image, mood, true, activeTitle, scribble, song, lyrics || song?.lyrics, currentIdRef.current);
       setTimeout(() => {
         setSaveStatus('saved');
         setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -731,7 +762,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       }
     }
     const finalTitle = title.trim() || extractAutoTitle(content);
-    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics);
+    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics, currentIdRef.current);
     onClose();
   };
 
@@ -810,76 +841,185 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             )}
           </div>
           
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-wrap justify-end">
-             <button 
-                onClick={() => setShowScribbleModal(true)}
-                className={`flex items-center gap-1.5 px-3 md:px-4 py-2 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border ${
-                  scribble 
-                    ? 'bg-accent text-accent-fg border-accent shadow-sm' 
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {/* 1. Plus Button with Dropdown (Scribbles & Song) */}
+            <div className="relative" ref={plusMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPlusDropdown((prev) => !prev);
+                  setShowKebabDropdown(false);
+                }}
+                className={`p-2.5 sm:p-3 backdrop-blur-md rounded-full transition active:scale-[0.97] border flex items-center justify-center ${
+                  showPlusDropdown
+                    ? 'bg-accent text-accent-fg border-accent shadow-md ring-2 ring-accent/30'
+                    : (scribble || song)
+                      ? 'bg-white/25 text-white border-white/30'
+                      : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                }`}
+                title="Add media (Scribbles, Song)"
+              >
+                <Plus className="w-5 h-5 stroke-[2.4]" />
+              </button>
+
+              <AnimatePresence>
+                {showPlusDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute right-0 top-full mt-2 w-56 bg-surface/95 backdrop-blur-xl border border-surface-highlight rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 text-left"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPlusDropdown(false);
+                        setShowScribbleModal(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Pencil className="w-4 h-4 text-accent" />
+                        <span>Scribbles</span>
+                      </div>
+                      {scribble && (
+                        <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          Attached
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPlusDropdown(false);
+                        setShowSongModal(true);
+                      }}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Music className="w-4 h-4 text-accent shrink-0" />
+                        <span className="truncate">{song ? song.title : 'Song & Soundtrack'}</span>
+                      </div>
+                      {song && (
+                        <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ml-1">
+                          Attached
+                        </span>
+                      )}
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* 2. Kebab Menu (3-dot vertical) right next to it */}
+            <div className="relative" ref={kebabMenuRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowKebabDropdown((prev) => !prev);
+                  setShowPlusDropdown(false);
+                }}
+                className={`p-2.5 sm:p-3 backdrop-blur-md rounded-full transition active:scale-[0.97] border flex items-center justify-center ${
+                  showKebabDropdown
+                    ? 'bg-accent text-accent-fg border-accent shadow-md ring-2 ring-accent/30'
                     : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
                 }`}
-                title={scribble ? "Edit or view attached scribble" : "Attach a hand-drawn scribble"}
-             >
-                <Pencil className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span>{scribble ? 'Scribble ✓' : 'Scribble'}</span>
-             </button>
+                title="Options (Save, Gallery, Delete)"
+              >
+                <MoreVertical className="w-5 h-5 stroke-[2.2]" />
+              </button>
 
-             <button 
-                onClick={() => setShowSongModal(true)}
-                className={`flex items-center gap-1.5 px-3 md:px-4 py-2 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border ${
-                  song 
-                    ? 'bg-accent text-accent-fg border-accent shadow-sm' 
-                    : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
-                }`}
-                title={song ? `Attached song: ${song.title}` : "Attach a soundtrack to this memory"}
-             >
-                <Music className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span className="max-w-[70px] sm:max-w-[100px] truncate">{song ? song.title : 'Song'}</span>
-             </button>
+              <AnimatePresence>
+                {showKebabDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                    transition={{ duration: 0.15, ease: 'easeOut' }}
+                    className="absolute right-0 top-full mt-2 w-56 bg-surface/95 backdrop-blur-xl border border-surface-highlight rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 text-left"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowKebabDropdown(false);
+                        handleSave();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-accent/15 text-accent text-xs font-bold transition text-left"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save Memory</span>
+                    </button>
 
-             <button 
-                onClick={() => setShowGallery(true)}
-                className="flex items-center gap-2 px-3 sm:px-4 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white border border-white/10"
-                title="Change Cover"
-             >
-                <LayoutTemplate className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span>{image ? 'Gallery' : 'Cover'}</span>
-             </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowKebabDropdown(false);
+                        setShowGallery(true);
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                    >
+                      <LayoutTemplate className="w-4 h-4 text-secondary" />
+                      <span>{image ? 'Change Cover (Gallery)' : 'Add Cover (Gallery)'}</span>
+                    </button>
 
-             {image ? (
-               <button 
-                  onClick={() => { setImage(''); setImgError(false); }}
-                  className="flex items-center gap-1.5 px-2.5 sm:px-3 md:px-4 py-2 bg-black/40 hover:bg-black/60 text-white/90 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border border-white/10"
-                  title="Remove cover photo"
-               >
-                  <ImageOff className="w-3.5 h-3.5 md:w-4 h-4 text-white/70" />
-                  <span className="hidden sm:inline">Remove</span>
-               </button>
-             ) : null}
+                    {image && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowKebabDropdown(false);
+                          setImage('');
+                          setImgError(false);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-primary text-xs font-semibold transition text-left"
+                      >
+                        <ImageOff className="w-4 h-4 text-secondary" />
+                        <span>Remove Cover Photo</span>
+                      </button>
+                    )}
 
-             {initialId && onDelete && (
-               <button 
-                  onClick={() => {
-                    if (showDeleteConfirm) {
-                      onDelete(initialId);
-                      onClose();
-                    } else {
-                      setShowDeleteConfirm(true);
-                      setTimeout(() => setShowDeleteConfirm(false), 3000);
-                    }
-                  }}
-                  className={`p-2 md:p-2.5 backdrop-blur-md rounded-full transition active:scale-[0.97] border flex items-center gap-2 ${showDeleteConfirm ? 'bg-red-600 hover:bg-red-700 text-white border-red-600' : 'bg-red-500/20 hover:bg-red-600/90 text-white border-red-500/30'}`}
-                  title="Delete Memory"
-               >
-                  <Trash2 className="w-4 h-4" />
-                  {showDeleteConfirm && <span className="text-xs font-bold uppercase tracking-wider pr-1">Confirm</span>}
-               </button>
-             )}
+                    {onDelete && (
+                      <>
+                        <div className="h-px bg-surface-highlight/70 my-1"></div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (showDeleteConfirm) {
+                              setShowKebabDropdown(false);
+                              onDelete(currentIdRef.current);
+                              onClose();
+                            } else {
+                              setShowDeleteConfirm(true);
+                              setTimeout(() => setShowDeleteConfirm(false), 4000);
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition text-left ${
+                            showDeleteConfirm
+                              ? 'bg-red-600 text-white'
+                              : 'hover:bg-red-500/15 text-red-500 hover:text-red-600'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Trash2 className="w-4 h-4" />
+                            <span>{showDeleteConfirm ? 'Confirm Delete?' : 'Delete Memory'}</span>
+                          </div>
+                          {showDeleteConfirm && (
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Confirm</span>
+                          )}
+                        </button>
+                      </>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-             <Button onClick={handleSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-6 rounded-full font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg">
-                <Save className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span>Save</span>
-             </Button>
+            {/* Direct Save Button */}
+            <Button onClick={handleSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-5 rounded-full font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg">
+              <Save className="w-3.5 h-3.5 md:w-4 h-4" />
+              <span>Save</span>
+            </Button>
           </div>
         </div>
 

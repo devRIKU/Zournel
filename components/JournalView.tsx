@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink } from './Icons';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink, Check, CheckSquare } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
@@ -24,6 +24,7 @@ interface JournalViewProps {
   entries: JournalEntry[];
   onEdit: (entry: JournalEntry) => void;
   onDeleteEntry?: (id: string) => void;
+  onDeleteEntries?: (ids: string[]) => void;
   onRenameEntry?: (id: string, newTitle: string) => void;
   onImportClick?: () => void;
   onImportEntries?: (entries: JournalEntry[], replaceExisting?: boolean) => void;
@@ -118,12 +119,17 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onRenameEntry, onImportClick, onImportEntries, selectedModel }) => {
+export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onDeleteEntries, onRenameEntry, onImportClick, onImportEntries, selectedModel }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFullBreakdownModal, setShowFullBreakdownModal] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Bulk selection state
+  const [isBulkSelecting, setIsBulkSelecting] = useState(false);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   const [pageTitle, setPageTitle] = useState(() => localStorage.getItem('journalPageTitle') || 'Memories');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -146,6 +152,45 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const handleTitleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleTitleBlur();
+    }
+  };
+
+  const toggleSelectEntry = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedEntryIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const selectAllEntries = (allIds: string[]) => {
+    setSelectedEntryIds(new Set(allIds));
+  };
+
+  const deselectAllEntries = () => {
+    setSelectedEntryIds(new Set());
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedEntryIds.size === 0) return;
+    if (bulkDeleteConfirm) {
+      const idsToDelete = Array.from(selectedEntryIds);
+      if (onDeleteEntries) {
+        onDeleteEntries(idsToDelete);
+      } else if (onDeleteEntry) {
+        idsToDelete.forEach(id => onDeleteEntry(id));
+      }
+      setSelectedEntryIds(new Set());
+      setBulkDeleteConfirm(false);
+      setIsBulkSelecting(false);
+    } else {
+      setBulkDeleteConfirm(true);
+      setTimeout(() => setBulkDeleteConfirm(false), 4000);
     }
   };
 
@@ -473,19 +518,51 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             </button>
           </div>
 
-          {/* 3. Import Button (RIGHT of toggle) */}
-          {subTab === 'timeline' && onImportClick && (
+          {/* 3. Action Buttons (Select & Import) */}
+          {subTab === 'timeline' && (
             <div className="flex items-center gap-2 shrink-0">
-              <motion.button
-                type="button"
-                whileTap={{ scale: 0.97 }}
-                onClick={onImportClick}
-                className="px-3 py-2 sm:px-3.5 sm:py-2.5 bg-surface-highlight/30 hover:bg-surface-highlight border border-surface-highlight/40 text-secondary hover:text-accent rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0"
-                title="Import old memories"
-              >
-                <Upload className="w-4 h-4 text-accent shrink-0" />
-                <span className="hidden sm:inline">Import</span>
-              </motion.button>
+              {entries.length > 0 && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    setIsBulkSelecting(prev => {
+                      if (prev) {
+                        setSelectedEntryIds(new Set());
+                        setBulkDeleteConfirm(false);
+                      }
+                      return !prev;
+                    });
+                  }}
+                  className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0 border ${
+                    isBulkSelecting
+                      ? 'bg-accent text-accent-fg border-accent'
+                      : 'bg-surface-highlight/30 hover:bg-surface-highlight border-surface-highlight/40 text-secondary hover:text-accent'
+                  }`}
+                  title={isBulkSelecting ? "Exit select mode" : "Select memories to bulk delete"}
+                >
+                  <CheckSquare className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">{isBulkSelecting ? 'Done' : 'Select'}</span>
+                  {isBulkSelecting && selectedEntryIds.size > 0 && (
+                    <span className="px-1.5 py-0.5 bg-black/25 rounded-full text-[10px] font-mono leading-none">
+                      {selectedEntryIds.size}
+                    </span>
+                  )}
+                </motion.button>
+              )}
+
+              {onImportClick && (
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.97 }}
+                  onClick={onImportClick}
+                  className="px-3 py-2 sm:px-3.5 sm:py-2.5 bg-surface-highlight/30 hover:bg-surface-highlight border border-surface-highlight/40 text-secondary hover:text-accent rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0"
+                  title="Import old memories"
+                >
+                  <Upload className="w-4 h-4 text-accent shrink-0" />
+                  <span className="hidden sm:inline">Import</span>
+                </motion.button>
+              )}
             </div>
           )}
         </div>
@@ -565,27 +642,60 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     const displayTitle = entry.title || extractAutoTitle(entry.content);
                     const { words, readTime } = getEntryStats(entry.content);
                     
+                    const isSelected = selectedEntryIds.has(entry.id);
+
                     return (
                       <motion.div 
                         key={entry.id} 
-                        onClick={() => onEdit(entry)}
+                        onClick={(e) => {
+                          if (isBulkSelecting) {
+                            e.preventDefault();
+                            toggleSelectEntry(entry.id);
+                          } else {
+                            onEdit(entry);
+                          }
+                        }}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            onEdit(entry);
+                            if (isBulkSelecting) {
+                              toggleSelectEntry(entry.id);
+                            } else {
+                              onEdit(entry);
+                            }
                           }
                         }}
-                        title="View & Edit Memory"
+                        title={isBulkSelecting ? (isSelected ? "Deselect Memory" : "Select Memory") : "View & Edit Memory"}
                         whileHover={{ y: -8, scale: 1.015 }}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border border-surface-highlight/60 shadow-[0_4px_24px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.15)] hover:border-accent/50 transition-all duration-500 overflow-hidden outline-none cursor-pointer ${
+                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_4px_24px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.15)] hover:border-accent/50 transition-all duration-500 overflow-hidden outline-none cursor-pointer ${
                           isHero ? 'md:col-span-2' : ''
+                        } ${
+                          isBulkSelecting && isSelected
+                            ? 'ring-2 ring-accent border-accent shadow-xl bg-accent/5'
+                            : 'border-surface-highlight/60'
                         }`}
                       >
-                        {onDeleteEntry && (
+                        {isBulkSelecting && (
+                          <div 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSelectEntry(entry.id);
+                            }}
+                            className={`absolute top-4 left-4 z-30 w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-md ${
+                              isSelected
+                                ? 'bg-accent text-accent-fg ring-2 ring-accent shadow-accent/30'
+                                : 'bg-black/50 hover:bg-black/70 text-white/50 border border-white/40'
+                            }`}
+                          >
+                            {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                          </div>
+                        )}
+
+                        {!isBulkSelecting && onDeleteEntry && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1104,6 +1214,75 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Bulk Action Bar */}
+      <AnimatePresence>
+        {isBulkSelecting && (
+          <motion.div
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-auto max-w-[95vw] px-4 sm:px-5 py-3 bg-surface/95 backdrop-blur-2xl border border-surface-highlight rounded-2xl shadow-2xl flex items-center gap-3 sm:gap-4"
+          >
+            <div className="text-xs font-semibold text-primary whitespace-nowrap pl-1">
+              <span className="text-accent font-bold">{selectedEntryIds.size}</span> of {filteredEntries.length} selected
+            </div>
+
+            <div className="h-4 w-px bg-surface-highlight shrink-0"></div>
+
+            {selectedEntryIds.size === filteredEntries.length ? (
+              <button
+                type="button"
+                onClick={deselectAllEntries}
+                className="px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary transition rounded-lg hover:bg-surface-highlight shrink-0"
+              >
+                Deselect All
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => selectAllEntries(filteredEntries.map(e => e.id))}
+                className="px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary transition rounded-lg hover:bg-surface-highlight shrink-0"
+              >
+                Select All
+              </button>
+            )}
+
+            <button
+              type="button"
+              disabled={selectedEntryIds.size === 0}
+              onClick={handleBulkDelete}
+              className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-40 disabled:pointer-events-none shrink-0 ${
+                bulkDeleteConfirm
+                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                  : 'bg-red-500/15 hover:bg-red-500/25 text-red-600 border border-red-500/20'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>
+                {bulkDeleteConfirm 
+                  ? `Confirm Delete (${selectedEntryIds.size})?` 
+                  : `Delete (${selectedEntryIds.size})`
+                }
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsBulkSelecting(false);
+                setSelectedEntryIds(new Set());
+                setBulkDeleteConfirm(false);
+              }}
+              className="p-1.5 rounded-xl text-secondary hover:text-primary hover:bg-surface-highlight transition shrink-0"
+              title="Close selection"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
