@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo, useMemo } from 'react';
 import { 
   ArrowLeft, Sparkles, Wand2, Save, X, 
   Bold, Italic, List, ListOrdered, Strikethrough, Code, Undo, Redo, 
@@ -1884,7 +1884,16 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         setSong(undefined);
         setLyrics(undefined);
       }}
-      initialSong={song || (lyrics ? { title: '', lyrics } : undefined)}
+      initialSong={useMemo(() => song || (lyrics ? { title: '', lyrics } : undefined), [
+        song?.title,
+        song?.artist,
+        song?.album,
+        song?.coverArt,
+        song?.previewUrl,
+        song?.url,
+        song?.lyrics,
+        lyrics
+      ])}
     />
   </>
   );

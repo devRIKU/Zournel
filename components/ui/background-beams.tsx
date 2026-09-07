@@ -39,15 +39,15 @@ export const GridBackground: React.FC<{
 export const SpotlightGlow: React.FC<{
   className?: string;
   fill?: string;
-}> = ({ className, fill = 'rgba(198, 156, 109, 0.15)' }) => {
+}> = ({ className, fill = 'rgba(198, 156, 109, 0.08)' }) => {
   return (
     <div
       className={cn(
-        'pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[350px] sm:w-[900px] sm:h-[450px] rounded-full blur-3xl opacity-60 transform-gpu',
+        'pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-[600px] h-[300px] sm:w-[800px] sm:h-[380px] rounded-full opacity-60',
         className
       )}
       style={{
-        background: `radial-gradient(circle, ${fill} 0%, transparent 70%)`,
+        background: `radial-gradient(ellipse at center, ${fill} 0%, transparent 68%)`,
       }}
     />
   );

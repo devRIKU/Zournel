@@ -78,8 +78,10 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
     }
   }, [isOpen]);
 
+  const wasOpenRef = useRef(false);
+
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpenRef.current) {
       setTitle(initialSong?.title || '');
       setArtist(initialSong?.artist || '');
       setAlbum(initialSong?.album || '');
@@ -96,7 +98,8 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
         setActiveTab('search');
       }
     }
-  }, [isOpen, initialSong]);
+    wasOpenRef.current = isOpen;
+  }, [isOpen]);
 
   // Debounced live search
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -193,17 +196,21 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { stopAudioPreview(); onClose(); } }}>
-      <DialogContent onClose={() => { stopAudioPreview(); onClose(); }} className="max-w-lg w-full max-h-[92vh] flex flex-col p-5 sm:p-6 overflow-hidden">
-        <DialogHeader className="shrink-0 pb-3 border-b border-surface-highlight/50">
+      <DialogContent 
+        onClose={() => { stopAudioPreview(); onClose(); }} 
+        className="w-[94vw] max-w-lg max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-surface-highlight bg-surface text-left"
+        dir="ltr"
+      >
+        <DialogHeader className="shrink-0 pb-3 border-b border-surface-highlight/50 text-left">
           <div className="flex items-center justify-between w-full pr-7">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-accent/15 text-accent rounded-2xl border border-accent/25 shadow-xs shrink-0">
+              <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-xl sm:rounded-2xl border border-accent/25 shadow-xs shrink-0">
                 <Music className="w-5 h-5" />
               </div>
-              <div>
-                <DialogTitle className="text-lg sm:text-xl font-display font-bold">Soundtrack &amp; Lyrics</DialogTitle>
+              <div className="text-left">
+                <DialogTitle className="text-base sm:text-xl font-display font-bold">Soundtrack &amp; Lyrics</DialogTitle>
                 <DialogDescription className="text-xs text-secondary">
-                  Attach real songs, cover art, audio previews, and lyrics
+                  Attach songs, cover art, and lyrics
                 </DialogDescription>
               </div>
             </div>
@@ -229,27 +236,27 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
 
         {/* Selected Track Banner (if selected) */}
         {title && (
-          <div className="mt-3 p-3 bg-surface-highlight/40 border border-accent/30 rounded-2xl flex items-center justify-between gap-3 shrink-0">
+          <div className="mt-2.5 p-2.5 sm:p-3 bg-surface-highlight/40 border border-accent/30 rounded-2xl flex items-center justify-between gap-3 shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               {coverArt ? (
                 <img 
                   src={coverArt} 
                   alt={title} 
-                  className="w-12 h-12 rounded-xl object-cover shadow-sm shrink-0 border border-surface-highlight"
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover shadow-sm shrink-0 border border-surface-highlight"
                 />
               ) : (
-                <div className="w-12 h-12 rounded-xl bg-accent/15 text-accent flex items-center justify-center shrink-0">
-                  <Disc className="w-6 h-6 animate-spin-slow" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-accent/15 text-accent flex items-center justify-center shrink-0">
+                  <Disc className="w-5 h-5" />
                 </div>
               )}
               <div className="min-w-0 text-left">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-sm text-primary truncate block">{title}</span>
+                  <span className="font-bold text-xs sm:text-sm text-primary truncate block">{title}</span>
                   <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold shrink-0">
                     Selected
                   </span>
                 </div>
-                <p className="text-xs text-secondary truncate">
+                <p className="text-[11px] sm:text-xs text-secondary truncate">
                   {artist || 'Unknown Artist'} {album ? `• ${album}` : ''}
                 </p>
               </div>
@@ -260,17 +267,17 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
                 <button
                   type="button"
                   onClick={(e) => handleTogglePreview(e, previewUrl)}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
+                  className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition active:scale-90 cursor-pointer ${
                     playingPreviewUrl === previewUrl
-                      ? 'bg-accent text-accent-fg ring-4 ring-accent/25 animate-pulse'
+                      ? 'bg-accent text-accent-fg ring-4 ring-accent/25'
                       : 'bg-surface-highlight hover:bg-accent/20 text-accent'
                   }`}
                   title={playingPreviewUrl === previewUrl ? "Pause Preview" : "Play 30s Preview"}
                 >
                   {playingPreviewUrl === previewUrl ? (
-                    <Pause className="w-4 h-4 fill-current" />
+                    <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current" />
                   ) : (
-                    <Play className="w-4 h-4 ml-0.5 fill-current" />
+                    <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 ml-0.5 fill-current" />
                   )}
                 </button>
               )}
@@ -279,29 +286,30 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
         )}
 
         {/* Tabs for Navigation */}
-        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="flex-1 flex flex-col min-h-0 mt-3">
-          <TabsList className="grid grid-cols-3 mb-3 shrink-0">
-            <TabsTrigger value="search" className="text-xs gap-1.5 py-1.5">
-              <Search className="w-3.5 h-3.5" />
-              <span>Live Search</span>
+        <Tabs value={activeTab} onValueChange={(val: any) => setActiveTab(val)} className="flex-1 flex flex-col min-h-0 mt-2.5">
+          <TabsList className="grid grid-cols-3 mb-2.5 shrink-0 h-9 p-1">
+            <TabsTrigger value="search" className="text-[11px] sm:text-xs gap-1 sm:gap-1.5 py-1 px-1 sm:px-2">
+              <Search className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Search</span>
             </TabsTrigger>
-            <TabsTrigger value="lyrics" className="text-xs gap-1.5 py-1.5">
-              <FileText className="w-3.5 h-3.5" />
-              <span>Lyrics {lyrics.trim() ? '•' : ''}</span>
+            <TabsTrigger value="lyrics" className="text-[11px] sm:text-xs gap-1 sm:gap-1.5 py-1 px-1 sm:px-2">
+              <FileText className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Lyrics {lyrics.trim() ? '•' : ''}</span>
             </TabsTrigger>
-            <TabsTrigger value="manual" className="text-xs gap-1.5 py-1.5">
-              <Disc className="w-3.5 h-3.5" />
-              <span>Details</span>
+            <TabsTrigger value="manual" className="text-[11px] sm:text-xs gap-1 sm:gap-1.5 py-1 px-1 sm:px-2">
+              <Disc className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Details</span>
             </TabsTrigger>
           </TabsList>
 
           {/* TAB 1: LIVE SEARCH */}
-          <TabsContent value="search" className="flex-1 flex flex-col min-h-0 space-y-3 overflow-hidden">
+          <TabsContent value="search" className="flex-1 flex flex-col min-h-0 space-y-2.5 overflow-hidden">
             {/* Search Input Bar */}
             <div className="relative shrink-0">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary" />
               <Input
                 type="text"
+                dir="ltr"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onKeyDown={(e) => {
@@ -310,9 +318,11 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
                     performSearch(searchQuery);
                   }
                 }}
-                placeholder="Search song title, artist, or album..."
-                className="pl-9 pr-20 h-10 text-sm bg-surface/80 rounded-xl"
-                autoFocus
+                placeholder="Search song, artist, album..."
+                className="pl-9 pr-20 h-10 text-xs sm:text-sm bg-surface/80 rounded-xl text-left"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 {isSearching ? (
@@ -475,10 +485,12 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
             </div>
 
             <Textarea
+              dir="ltr"
               value={lyrics}
               onChange={(e) => setLyrics(e.target.value)}
               placeholder="Paste or write lyrics, verses, or lines from this song that capture this memory..."
-              className="flex-1 min-h-[180px] p-3 text-xs sm:text-sm font-serif leading-relaxed bg-surface/80 rounded-xl resize-none"
+              className="flex-1 min-h-[160px] sm:min-h-[180px] p-3 text-xs sm:text-sm font-serif leading-relaxed bg-surface/80 rounded-xl resize-none text-left"
+              autoComplete="off"
             />
             <p className="text-[10px] text-secondary shrink-0">
               Lyrics are saved directly to this journal memory and displayed with poetic formatting.
@@ -493,10 +505,12 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
               </label>
               <Input
                 type="text"
+                dir="ltr"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Yellow, Clair de Lune..."
-                className="h-9 text-xs"
+                className="h-9 text-xs text-left"
+                autoComplete="off"
               />
             </div>
 
@@ -505,20 +519,24 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
                 <label className="block text-xs font-bold text-primary mb-1">Artist</label>
                 <Input
                   type="text"
+                  dir="ltr"
                   value={artist}
                   onChange={(e) => setArtist(e.target.value)}
                   placeholder="e.g. Coldplay"
-                  className="h-9 text-xs"
+                  className="h-9 text-xs text-left"
+                  autoComplete="off"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-primary mb-1">Album</label>
                 <Input
                   type="text"
+                  dir="ltr"
                   value={album}
                   onChange={(e) => setAlbum(e.target.value)}
                   placeholder="e.g. Parachutes"
-                  className="h-9 text-xs"
+                  className="h-9 text-xs text-left"
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -527,10 +545,12 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
               <label className="block text-xs font-bold text-primary mb-1">Cover Art URL</label>
               <Input
                 type="url"
+                dir="ltr"
                 value={coverArt}
                 onChange={(e) => setCoverArt(e.target.value)}
                 placeholder="https://... cover image"
-                className="h-9 text-xs"
+                className="h-9 text-xs text-left"
+                autoComplete="off"
               />
             </div>
 
@@ -538,10 +558,12 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
               <label className="block text-xs font-bold text-primary mb-1">Audio Preview Link (30s MP3/M4A)</label>
               <Input
                 type="url"
+                dir="ltr"
                 value={previewUrl}
                 onChange={(e) => setPreviewUrl(e.target.value)}
                 placeholder="https://... audio preview"
-                className="h-9 text-xs"
+                className="h-9 text-xs text-left"
+                autoComplete="off"
               />
             </div>
 
@@ -549,16 +571,18 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
               <label className="block text-xs font-bold text-primary mb-1">Stream Link (Apple Music / Spotify)</label>
               <Input
                 type="url"
+                dir="ltr"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
                 placeholder="https://open.spotify.com/..."
-                className="h-9 text-xs"
+                className="h-9 text-xs text-left"
+                autoComplete="off"
               />
             </div>
           </TabsContent>
         </Tabs>
 
-        <DialogFooter className="shrink-0 pt-3 border-t border-surface-highlight/50 flex items-center justify-between sm:justify-end gap-2">
+        <div className="shrink-0 pt-3 border-t border-surface-highlight/50 flex flex-row items-center justify-between sm:justify-end gap-2">
           <Button
             type="button"
             variant="ghost"
@@ -576,12 +600,12 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
             size="sm"
             disabled={!title.trim() && !lyrics.trim()}
             onClick={handleSubmit}
-            className="gap-1.5"
+            className="gap-1.5 text-xs h-9 px-3"
           >
             <Check className="w-3.5 h-3.5" />
             <span>Attach to Memory</span>
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

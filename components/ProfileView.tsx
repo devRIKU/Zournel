@@ -320,10 +320,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* Primary Creator Profile Card */}
       <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm relative overflow-hidden mb-8">
         
-        {/* Soft decorative background radial glow */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-
         <div className="flex flex-col items-center mb-8 relative z-10 pt-8">
           
           {/* Avatar Container with Instagram Notes Thought Bubble */}
@@ -856,9 +852,6 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
   // 2. ENTIRE USER PUBLIC PROFILE VIEW
   return (
     <div className="min-h-screen bg-bg text-primary font-sans flex items-center justify-center p-4 sm:p-6 transition duration-500 animate-fade-in relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/5 rounded-full blur-3xl pointer-events-none" />
-
       <div className="w-full max-w-xl bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-12 shadow-lg relative flex flex-col items-center my-8 backdrop-blur-md">
         
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-highlight border border-surface-highlight text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-12">

@@ -384,19 +384,19 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative overflow-x-hidden">
       <SpotlightGlow className="opacity-40" />
-      <header className="relative z-10 pt-6 sm:pt-10 px-4 sm:px-6 md:px-8 pb-3 sm:pb-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
+      <header className="relative z-10 pt-4 sm:pt-8 px-4 sm:px-6 md:px-8 pb-3 sm:pb-4 flex justify-between items-center">
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-xl sm:rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
             <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-primary tracking-tight leading-tight break-words">
-              <SparklesText text="Zournel" sparklesCount={3} />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-black text-primary tracking-tight leading-tight">
+              Zournel
             </h1>
-            <span className="text-accent italic font-grotesk text-xs sm:text-sm font-semibold">Reflect &amp; Execute</span>
+            <span className="text-accent italic font-grotesk text-[11px] sm:text-xs font-semibold">Reflect &amp; Execute</span>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2.5">
            <div className="hidden md:block">
              <AutoBackupPill
                isBackingUp={isAutoBackingUp}
@@ -409,14 +409,14 @@ export const App: React.FC = () => {
            <button 
              onClick={() => setIsAddModalOpen(true)} 
              title="AI Companion Chat" 
-             className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-accent flex items-center justify-center"
+             className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] p-2 sm:p-2.5 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-accent flex items-center justify-center"
            >
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
            <button 
              onClick={() => setIsSettingsOpen(true)} 
              title="Preferences & Themes" 
-             className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-primary flex items-center justify-center"
+             className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] p-2 sm:p-2.5 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-primary flex items-center justify-center"
            >
             <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
@@ -474,13 +474,13 @@ export const App: React.FC = () => {
       </main>
 
       {/* Floating Action Button */}
-      <div className={`fixed bottom-24 sm:bottom-28 right-4 sm:right-6 z-40 transition-all duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
+      <div className={`fixed bottom-20 sm:bottom-24 right-4 sm:right-6 z-40 transition-all duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
         <button 
           onClick={handlePlusClick} 
           title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} 
-          className="w-14 h-14 sm:w-16 sm:h-16 bg-accent text-accent-fg rounded-full shadow-2xl shadow-accent/30 ring-4 ring-accent/20 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
+          className="w-16 h-16 sm:w-20 sm:h-20 bg-accent text-accent-fg rounded-full shadow-2xl shadow-accent/40 ring-4 sm:ring-6 ring-accent/25 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
         >
-          <Plus className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.5]" />
+          <Plus className="w-8 h-8 sm:w-10 sm:h-10 stroke-[3]" />
         </button>
       </div>
 

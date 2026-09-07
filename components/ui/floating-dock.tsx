@@ -31,11 +31,11 @@ const FloatingDockMobile: React.FC<{
   return (
     <div
       className={cn(
-        'fixed bottom-5 inset-x-0 z-50 flex items-center justify-center md:hidden pointer-events-auto px-4 pb-[env(safe-area-inset-bottom)]',
+        'fixed bottom-4 inset-x-0 z-50 flex items-center justify-center md:hidden pointer-events-auto px-4 pb-[env(safe-area-inset-bottom)]',
         className
       )}
     >
-      <div className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-surface/90 backdrop-blur-2xl border border-surface-highlight/70 shadow-2xl shadow-black/10">
+      <div className="w-full max-w-[350px] sm:max-w-[390px] flex items-center justify-between gap-1 px-3 py-2 rounded-full bg-surface/95 backdrop-blur-md border border-surface-highlight/80 shadow-xl shadow-black/10">
         {items.map((item, idx) => (
           <button
             key={item.title + idx}
@@ -44,7 +44,7 @@ const FloatingDockMobile: React.FC<{
               item.onClick?.();
             }}
             className={cn(
-              'relative flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1.5 px-2.5 rounded-full transition-all duration-200 select-none active:scale-95',
+              'relative flex-1 flex flex-col items-center justify-center min-w-[70px] min-h-[46px] py-1 px-2 rounded-full transition-all duration-200 select-none active:scale-95',
               item.active
                 ? 'text-primary font-semibold'
                 : 'text-secondary hover:text-primary opacity-80 hover:opacity-100'
@@ -54,13 +54,13 @@ const FloatingDockMobile: React.FC<{
               <motion.div
                 layoutId="floating-dock-active-pill"
                 className="absolute inset-0 bg-accent/15 border border-accent/25 rounded-full -z-10 shadow-xs"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.35 }}
               />
             )}
             <div className="flex items-center justify-center w-5 h-5 mb-0.5">
               {item.icon}
             </div>
-            <span className="text-[10px] tracking-tight leading-tight whitespace-nowrap">
+            <span className="text-[11px] font-medium tracking-tight leading-tight whitespace-nowrap">
               {item.title}
             </span>
           </button>
@@ -81,7 +81,7 @@ const FloatingDockDesktop: React.FC<{
       onMouseMove={(e) => mouseX.set(e.pageX)}
       onMouseLeave={() => mouseX.set(Infinity)}
       className={cn(
-        'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden md:flex items-end gap-3 px-4 py-2.5 rounded-3xl bg-surface/85 backdrop-blur-2xl border border-surface-highlight/80 shadow-2xl shadow-black/15 pointer-events-auto',
+        'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden md:flex items-center gap-4 px-6 py-3 rounded-full bg-surface/95 backdrop-blur-md border border-surface-highlight/80 shadow-xl shadow-black/10 pointer-events-auto',
         className
       )}
     >
@@ -110,8 +110,8 @@ function IconContainer({
     return val - bounds.x - bounds.width / 2;
   });
 
-  const widthTransform = useTransform(distance, [-150, 0, 150], [44, 60, 44]);
-  const heightTransform = useTransform(distance, [-150, 0, 150], [44, 60, 44]);
+  const widthTransform = useTransform(distance, [-150, 0, 150], [48, 62, 48]);
+  const heightTransform = useTransform(distance, [-150, 0, 150], [48, 62, 48]);
 
   const width = useSpring(widthTransform, { mass: 0.1, stiffness: 150, damping: 12 });
   const height = useSpring(heightTransform, { mass: 0.1, stiffness: 150, damping: 12 });

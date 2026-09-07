@@ -277,8 +277,8 @@ export const TodoView: React.FC<TodoViewProps> = ({
       {/* Header */}
       <div className="mb-6 mt-3 sm:mt-5 flex items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-display font-bold text-primary tracking-tight">
-            <SparklesText text="Focus Tasks" sparklesCount={4} />
+          <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight">
+            Focus Tasks
           </h2>
           <p className="text-xs sm:text-sm text-secondary font-medium">
             {activeTasks.length} active &bull; {completedTasks.length} completed
