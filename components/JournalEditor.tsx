@@ -6,8 +6,13 @@ import {
   History, CheckCircle, XCircle, Heading1, Heading2, Heading3, Heading4, Quote, Minus,
   MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search,
   CheckSquare, MessageSquareCode, Table as TableIcon, Lightbulb,
-  GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown
+  GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown, Pencil, Music
 } from './Icons';
+import { ScribblePadModal } from './ScribblePadModal';
+import { SongAttachmentModal } from './SongAttachmentModal';
+import { AttachedSong } from '../types';
+import { Play as LucidePlay, Pause as LucidePause, Disc as LucideDisc } from 'lucide-react';
+import { toggleAudioPreview, subscribeToAudio, stopAudioPreview } from '../services/songService';
 import { motion, AnimatePresence } from 'motion/react';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
@@ -30,6 +35,8 @@ import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
 import { editJournalText, detectMoodFromJournal, AiActionType, generateAutoTitle, extractAutoTitle } from '../services/geminiService';
 import { AiGlitterTypewriter, AiGlitterPill } from './AiGlitterTypewriter';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 
 const PRESET_MOODS = [
   { emoji: '😊', label: 'Happy' },
@@ -52,13 +59,25 @@ const PRESET_MOODS = [
 interface JournalEditorProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean, title?: string) => void;
+  onSave: (
+    content: string, 
+    image: string | undefined, 
+    mood?: string, 
+    isAutoSave?: boolean, 
+    title?: string, 
+    scribble?: string, 
+    song?: AttachedSong,
+    lyrics?: string
+  ) => void;
   onDelete?: (id: string) => void;
   initialContent?: string;
   initialTitle?: string;
   initialImage?: string;
   initialId?: string;
   initialMood?: string;
+  initialScribble?: string;
+  initialSong?: AttachedSong;
+  initialLyrics?: string;
   selectedModel?: string;
 }
 
@@ -141,13 +160,25 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
 });
 
 export const JournalEditor: React.FC<JournalEditorProps> = ({ 
-  isOpen, onClose, onSave, onDelete, initialContent = '', initialTitle = '', initialImage, initialId, initialMood, selectedModel 
+  isOpen, onClose, onSave, onDelete, initialContent = '', initialTitle = '', initialImage, initialId, initialMood, initialScribble, initialSong, initialLyrics, selectedModel 
 }) => {
   const [content, setContent] = useState(() => initialContent);
   const [title, setTitle] = useState<string>(() => initialTitle || extractAutoTitle(initialContent || ''));
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
+  const [scribble, setScribble] = useState<string | undefined>(() => initialScribble);
+  const [song, setSong] = useState<AttachedSong | undefined>(() => initialSong);
+  const [lyrics, setLyrics] = useState<string | undefined>(() => initialLyrics || initialSong?.lyrics);
+  const [playingPreviewUrl, setPlayingPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return subscribeToAudio((isPlaying, url) => {
+      setPlayingPreviewUrl(isPlaying ? url : null);
+    });
+  }, []);
+  const [showScribbleModal, setShowScribbleModal] = useState(false);
+  const [showSongModal, setShowSongModal] = useState(false);
   const [showMoodMenu, setShowMoodMenu] = useState(false);
   const [customMoodInput, setCustomMoodInput] = useState('');
   const [isAutoDetectingMood, setIsAutoDetectingMood] = useState(false);
@@ -293,6 +324,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setContent(initialContent || '');
       setImage(initialImage || getRandomCover());
       setMood(initialMood);
+      setScribble(initialScribble);
+      setSong(initialSong);
+      setShowScribbleModal(false);
+      setShowSongModal(false);
       setAutoMoodActive(initialMood === '✨ Auto');
       setCustomMoodInput('');
       setIsAutoDetectingMood(false);
@@ -311,7 +346,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setBlockHandlePos(null);
       setShowBlockMenu(false);
     }
-  }, [isOpen, initialContent, initialImage, initialMood]);
+  }, [isOpen, initialContent, initialImage, initialMood, initialScribble, initialSong]);
 
   const handleAutoGenerateTitle = async () => {
     if (!content || content.trim().length < 5) return;
@@ -345,7 +380,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     autoSaveTimerRef.current = setTimeout(() => {
       setSaveStatus('saving');
       const activeTitle = title.trim() || extractAutoTitle(content);
-      onSave(content, image, mood, true, activeTitle);
+      onSave(content, image, mood, true, activeTitle, scribble, song, lyrics || song?.lyrics);
       setTimeout(() => {
         setSaveStatus('saved');
         setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -355,7 +390,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [content, image, mood, title, isOpen, onSave]);
+  }, [content, image, mood, title, scribble, song, isOpen, onSave]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
@@ -532,6 +567,18 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         setContent(clean);
       }
       handleRandomCover();
+    } else if (cmdId === 'music') {
+      if (editorRef.current) {
+        editorRef.current.action(replaceAll(clean));
+        setContent(clean);
+      }
+      setShowSongModal(true);
+    } else if (cmdId === 'scribble') {
+      if (editorRef.current) {
+        editorRef.current.action(replaceAll(clean));
+        setContent(clean);
+      }
+      setShowScribbleModal(true);
     }
   };
 
@@ -555,6 +602,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     { id: 'summarize', label: 'Summarize', desc: 'Key insight paragraph', cat: 'AI Assistant', icon: FileText, keywords: ['summarize', 'summary', 'overview', 'ai', 'insights'] },
     { id: 'expand', label: 'Expand Reflection', desc: 'Deepen thoughts & details', cat: 'AI Assistant', icon: Maximize2, keywords: ['expand', 'elaborate', 'detail', 'ai', 'more'] },
     { id: 'random', label: 'Random Cover Photo', desc: 'Shuffle full Picsum catalogue', cat: 'Media', icon: Shuffle, keywords: ['cover', 'photo', 'image', 'shuffle', 'random', 'background', 'picsum'] },
+    { id: 'music', label: 'Soundtrack & Lyrics', desc: 'Attach song, audio preview & lyrics', cat: 'Media', icon: Music, keywords: ['music', 'song', 'audio', 'soundtrack', 'lyrics', 'itunes', 'track'] },
+    { id: 'scribble', label: 'Hand-drawn Scribble', desc: 'Draw a sketch or doodle', cat: 'Media', icon: Pencil, keywords: ['scribble', 'draw', 'sketch', 'doodle', 'pencil'] },
   ];
 
   const COMMAND_CATEGORIES = ['All', 'Styling', 'AI Assistant', 'Media'];
@@ -682,13 +731,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       }
     }
     const finalTitle = title.trim() || extractAutoTitle(content);
-    onSave(content, image, finalMood, false, finalTitle);
+    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics);
     onClose();
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
+    <>
+      <AnimatePresence>
+        {isOpen && (
         <motion.div 
           initial={{ opacity: 0, y: 35, scale: 0.99 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -760,20 +810,46 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             )}
           </div>
           
-          <div className="flex items-center gap-2 md:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-wrap justify-end">
+             <button 
+                onClick={() => setShowScribbleModal(true)}
+                className={`flex items-center gap-1.5 px-3 md:px-4 py-2 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border ${
+                  scribble 
+                    ? 'bg-accent text-accent-fg border-accent shadow-sm' 
+                    : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                }`}
+                title={scribble ? "Edit or view attached scribble" : "Attach a hand-drawn scribble"}
+             >
+                <Pencil className="w-3.5 h-3.5 md:w-4 h-4" />
+                <span>{scribble ? 'Scribble ✓' : 'Scribble'}</span>
+             </button>
+
+             <button 
+                onClick={() => setShowSongModal(true)}
+                className={`flex items-center gap-1.5 px-3 md:px-4 py-2 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border ${
+                  song 
+                    ? 'bg-accent text-accent-fg border-accent shadow-sm' 
+                    : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
+                }`}
+                title={song ? `Attached song: ${song.title}` : "Attach a soundtrack to this memory"}
+             >
+                <Music className="w-3.5 h-3.5 md:w-4 h-4" />
+                <span className="max-w-[70px] sm:max-w-[100px] truncate">{song ? song.title : 'Song'}</span>
+             </button>
+
              <button 
                 onClick={() => setShowGallery(true)}
-                className="flex items-center gap-2 px-4 md:px-6 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest"
+                className="flex items-center gap-2 px-3 sm:px-4 md:px-5 py-2 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest text-white border border-white/10"
                 title="Change Cover"
              >
                 <LayoutTemplate className="w-3.5 h-3.5 md:w-4 h-4" />
-                <span>{image ? 'Gallery' : 'Add Cover'}</span>
+                <span>{image ? 'Gallery' : 'Cover'}</span>
              </button>
 
              {image ? (
                <button 
                   onClick={() => { setImage(''); setImgError(false); }}
-                  className="flex items-center gap-1.5 px-3 md:px-4 py-2 bg-black/40 hover:bg-black/60 text-white/90 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border border-white/10"
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 md:px-4 py-2 bg-black/40 hover:bg-black/60 text-white/90 backdrop-blur-md rounded-full transition font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest border border-white/10"
                   title="Remove cover photo"
                >
                   <ImageOff className="w-3.5 h-3.5 md:w-4 h-4 text-white/70" />
@@ -800,10 +876,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                </button>
              )}
 
-             <button onClick={handleSave} className="flex items-center gap-1.5 md:gap-2 px-4 md:px-6 py-2 bg-accent text-accent-fg rounded-full hover:bg-accent/90 shadow-lg transition active:scale-[0.97] font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest">
+             <Button onClick={handleSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-6 rounded-full font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg">
                 <Save className="w-3.5 h-3.5 md:w-4 h-4" />
                 <span>Save</span>
-             </button>
+             </Button>
           </div>
         </div>
 
@@ -923,6 +999,116 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       </AnimatePresence>
 
       <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full overflow-hidden">
+        {/* Attached Media Micro-Chips (Non-intrusive) */}
+        {(scribble || song) && (
+          <div className="flex items-center gap-2 mb-2 px-1 flex-wrap shrink-0">
+            {scribble && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface/90 border border-surface-highlight rounded-full shadow-xs text-xs">
+                <button 
+                  onClick={() => setShowScribbleModal(true)} 
+                  className="flex items-center gap-1.5 text-primary hover:text-accent font-medium text-[11px]"
+                >
+                  <Pencil className="w-3 h-3 text-accent" />
+                  <span>Scribble</span>
+                  <img src={scribble} alt="Scribble thumbnail" className="w-5 h-4 object-contain rounded bg-surface-highlight border border-surface-highlight" />
+                </button>
+                <button 
+                  onClick={() => setScribble(undefined)} 
+                  className="p-0.5 text-secondary hover:text-red-500 rounded-full transition"
+                  title="Remove scribble"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+            {song && (
+              <div className="inline-flex items-center gap-2 px-2.5 py-1 bg-surface/90 border border-surface-highlight rounded-full shadow-xs text-xs">
+                {song.coverArt ? (
+                  <img 
+                    src={song.coverArt} 
+                    alt={song.title} 
+                    className="w-5 h-5 rounded-full object-cover shrink-0 border border-surface-highlight" 
+                  />
+                ) : (
+                  <Music className="w-3.5 h-3.5 text-accent shrink-0" />
+                )}
+
+                {song.previewUrl && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleAudioPreview(song.previewUrl);
+                    }}
+                    className={`p-1 rounded-full transition active:scale-90 ${
+                      playingPreviewUrl === song.previewUrl
+                        ? 'bg-accent text-accent-fg animate-pulse'
+                        : 'bg-surface-highlight text-accent hover:bg-accent/20'
+                    }`}
+                    title={playingPreviewUrl === song.previewUrl ? "Pause preview snippet" : "Play 30s preview snippet"}
+                  >
+                    {playingPreviewUrl === song.previewUrl ? (
+                      <LucidePause className="w-2.5 h-2.5 fill-current" />
+                    ) : (
+                      <LucidePlay className="w-2.5 h-2.5 ml-0.5 fill-current" />
+                    )}
+                  </button>
+                )}
+
+                <button 
+                  onClick={() => setShowSongModal(true)} 
+                  className="flex items-center gap-1 text-primary hover:text-accent font-medium text-[11px] max-w-[140px] truncate"
+                  title="Edit soundtrack & lyrics"
+                >
+                  <span className="font-semibold truncate">{song.title}</span>
+                  {song.artist && <span className="text-secondary text-[10px] truncate">({song.artist})</span>}
+                </button>
+
+                {(song.lyrics || lyrics) && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSongModal(true)}
+                    className="px-1.5 py-0.5 rounded-full bg-accent/15 text-accent text-[9px] font-bold uppercase tracking-wider"
+                    title="View / edit lyrics"
+                  >
+                    Lyrics
+                  </button>
+                )}
+
+                <button 
+                  onClick={() => {
+                    stopAudioPreview();
+                    setSong(undefined);
+                  }} 
+                  className="p-0.5 text-secondary hover:text-red-500 rounded-full transition"
+                  title="Remove song"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {!song && lyrics && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface/90 border border-surface-highlight rounded-full shadow-xs text-xs">
+                <button 
+                  onClick={() => setShowSongModal(true)} 
+                  className="flex items-center gap-1.5 text-primary hover:text-accent font-medium text-[11px]"
+                >
+                  <FileText className="w-3 h-3 text-accent" />
+                  <span className="font-semibold">Lyrics attached</span>
+                </button>
+                <button 
+                  onClick={() => setLyrics(undefined)} 
+                  className="p-0.5 text-secondary hover:text-red-500 rounded-full transition"
+                  title="Remove lyrics"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Optimized Compact Toolbar */}
         <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-[1.5rem] p-1 flex items-center mb-2 md:mb-4 shrink-0 relative z-40">
           
@@ -1537,5 +1723,29 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     </motion.div>
     )}
     </AnimatePresence>
+
+    <ScribblePadModal
+      isOpen={showScribbleModal}
+      onClose={() => setShowScribbleModal(false)}
+      onSave={(dataUrl) => setScribble(dataUrl)}
+      onRemove={() => setScribble(undefined)}
+      initialScribble={scribble}
+    />
+
+    <SongAttachmentModal
+      isOpen={showSongModal}
+      onClose={() => setShowSongModal(false)}
+      onSave={(newSong) => {
+        setSong(newSong);
+        if (newSong.lyrics) setLyrics(newSong.lyrics);
+      }}
+      onRemove={() => {
+        stopAudioPreview();
+        setSong(undefined);
+        setLyrics(undefined);
+      }}
+      initialSong={song || (lyrics ? { title: '', lyrics } : undefined)}
+    />
+  </>
   );
 };

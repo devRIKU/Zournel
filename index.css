@@ -1,0 +1,27 @@
+/* Ambient grain / paper texture */
+.paper-texture {
+  background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+.dark .paper-texture {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Base Theme Tokens mapped to active theme */
+:root {
+  --surface-lowest: var(--color-bg);
+  --surface-low: var(--color-surface);
+  --surface-default: var(--color-surface);
+  --surface-high: var(--color-surface-highlight);
+  --surface-highest: var(--color-surface-highlight);
+}
+
+.dark {
+  --surface-lowest: var(--color-bg);
+  --surface-low: var(--color-surface);
+  --surface-default: var(--color-surface);
+  --surface-high: var(--color-surface-highlight);
+  --surface-highest: var(--color-surface-highlight);
+}

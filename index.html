@@ -5,6 +5,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Zournel</title>
+    <meta name="description" content="A minimalist, AI-integrated To-Do and Journaling application with intelligent task breakdown and reflective insights." />
+    <meta property="og:title" content="Zournel" />
+    <meta property="og:description" content="A minimalist, AI-integrated To-Do and Journaling application with intelligent task breakdown and reflective insights." />
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C69C6D' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z'/%3E%3Cpolyline points='7.5 18 16.5 6'/%3E%3Cpath d='m12 12 3 3-3 3'/%3E%3Cpath d='m12 6-3 3 3 3'/%3E%3C/svg%3E">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300..700;1,300..700&family=Playfair+Display:ital,wght@0,400..800;1,400..800&family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&family=Lora:ital,wght@0,400..700;1,400..700&family=Merriweather:ital,wght@0,300;0,400;0,700;1,300&family=Space+Grotesk:wght@300..700&family=JetBrains+Mono:ital,wght@0,300..700;1,300..700&family=Syncopate:wght@400;700&family=Syne:wght@400..800&family=Cormorant+Garamond:ital,wght@0,400..700;1,400..700&family=Outfit:wght@400..800&family=Cinzel:wght@400..800&display=swap" rel="stylesheet">
@@ -29,20 +32,33 @@
               '9xl': ['clamp(5.5rem, 5rem + 3vw, 8rem)', { lineHeight: '1.1' }],
             },
             fontFamily: {
-              sans: ['var(--font-body)', 'Inter', 'sans-serif'],
+              serif: ['"Newsreader"', '"Playfair Display"', 'serif'],
+              sans: ['var(--font-body)', 'Inter', '"Outfit"', 'sans-serif'],
               display: ['var(--font-heading)', 'Outfit', 'Playfair Display', 'sans-serif'],
               grotesk: ['Space Grotesk', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
               bg: 'var(--color-bg)',
-              surface: 'var(--color-surface)',
+              surface: {
+                lowest: 'var(--surface-lowest)',
+                low: 'var(--surface-low)',
+                DEFAULT: 'var(--surface-default)',
+                high: 'var(--surface-high)',
+                highest: 'var(--surface-highest)',
+              },
               'surface-highlight': 'var(--color-surface-highlight)',
               primary: 'var(--color-primary)',
               secondary: 'var(--color-secondary)',
               accent: 'var(--color-accent)',
               'accent-fg': 'var(--color-accent-fg)',
               'accent-dim': 'var(--color-accent-dim)',
+            },
+            boxShadow: {
+              'tactile-card': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.45), 0 2px 4px rgba(0,0,0,0.03), 0 8px 16px rgba(0,0,0,0.06)',
+              'tactile-card-dark': 'inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 4px 12px rgba(0,0,0,0.4)',
+              'debossed': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.06), 0 1px 0 0 rgba(255, 255, 255, 0.8)',
+              'debossed-dark': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.4), 0 1px 0 0 rgba(255, 255, 255, 0.05)',
             },
             animation: {
               'fade-in': 'fadeIn 0.2s cubic-bezier(0.23, 1, 0.32, 1)',
@@ -63,19 +79,45 @@
       }
     </script>
     <style>
+      /* Ambient grain / paper texture */
+      .paper-texture {
+        background-image: radial-gradient(rgba(0, 0, 0, 0.04) 1px, transparent 0);
+        background-size: 20px 20px;
+      }
+
+      .dark .paper-texture {
+        background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0);
+        background-size: 20px 20px;
+      }
+
+      /* Base Theme Tokens */
       :root { 
+        --surface-lowest: var(--color-bg);
+        --surface-low: var(--color-surface);
+        --surface-default: var(--color-surface);
+        --surface-high: var(--color-surface-highlight);
+        --surface-highest: var(--color-surface-highlight);
+
         --font-heading: 'Playfair Display', serif;
         --font-body: 'Inter', sans-serif;
 
         /* COZY LIGHT DEFAULT */
-        --color-bg: #FAF8F4; 
+        --color-bg: #F7F3EB; 
         --color-surface: #FFFFFF; 
-        --color-surface-highlight: #EFEAD8; 
-        --color-primary: #3D352E; 
-        --color-secondary: #786C60; 
-        --color-accent: #C69C6D; 
+        --color-surface-highlight: #E5DAC4; 
+        --color-primary: #1F1710; 
+        --color-secondary: #5E4C3B; 
+        --color-accent: #B86B1E; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #F7EFE1; 
+        --color-accent-dim: #F5E5D0; 
+      }
+
+      .dark {
+        --surface-lowest: var(--color-bg);
+        --surface-low: var(--color-surface);
+        --surface-default: var(--color-surface);
+        --surface-high: var(--color-surface-highlight);
+        --surface-highest: var(--color-surface-highlight);
       }
 
       body {
@@ -83,91 +125,91 @@
       }
 
       .theme-cozy-light { 
-        --color-bg: #FAF8F4; 
+        --color-bg: #F7F3EB; 
         --color-surface: #FFFFFF; 
-        --color-surface-highlight: #EFEAD8; 
-        --color-primary: #3D352E; 
-        --color-secondary: #786C60; 
-        --color-accent: #C69C6D; 
+        --color-surface-highlight: #E5DAC4; 
+        --color-primary: #1F1710; 
+        --color-secondary: #5E4C3B; 
+        --color-accent: #B86B1E; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #F7EFE1; 
+        --color-accent-dim: #F5E5D0; 
       }
       
       .theme-cozy-dark { 
-        --color-bg: #1B1512; 
-        --color-surface: #261F1A; 
-        --color-surface-highlight: #3B312A; 
-        --color-primary: #F2EAE4; 
-        --color-secondary: #9E8E83; 
-        --color-accent: #D9AB7E; 
-        --color-accent-fg: #1B1512; 
-        --color-accent-dim: #2E221A; 
+        --color-bg: #110D0A; 
+        --color-surface: #1E1713; 
+        --color-surface-highlight: #3A2D24; 
+        --color-primary: #FFF7F0; 
+        --color-secondary: #D4C1B2; 
+        --color-accent: #F59E0B; 
+        --color-accent-fg: #110D0A; 
+        --color-accent-dim: #3B2412; 
       }
       
       .theme-evergreen-light { 
-        --color-bg: #F2F5F2; 
+        --color-bg: #EDF5EF; 
         --color-surface: #FFFFFF; 
-        --color-surface-highlight: #DFE6DF; 
-        --color-primary: #1C2E1F; 
-        --color-secondary: #59735C; 
-        --color-accent: #2A5C3C; 
+        --color-surface-highlight: #CBE0D1; 
+        --color-primary: #0A1C0E; 
+        --color-secondary: #245030; 
+        --color-accent: #059669; 
         --color-accent-fg: #FFFFFF; 
-        --color-accent-dim: #E6EFE6; 
+        --color-accent-dim: #D1FAE5; 
       }
       
       .theme-evergreen-dark { 
-        --color-bg: #0C140E; 
-        --color-surface: #132016; 
-        --color-surface-highlight: #213526; 
-        --color-primary: #ECF5ED; 
-        --color-secondary: #7E9B82; 
-        --color-accent: #34D399; 
-        --color-accent-fg: #052414; 
-        --color-accent-dim: #112E1B; 
+        --color-bg: #071209; 
+        --color-surface: #0E2012; 
+        --color-surface-highlight: #1B3821; 
+        --color-primary: #F0FDF4; 
+        --color-secondary: #9BD8AF; 
+        --color-accent: #10B981; 
+        --color-accent-fg: #032311; 
+        --color-accent-dim: #064E3B; 
       }
       
       .theme-catppuccin-light { 
-        --color-bg: #EFF1F5; 
-        --color-surface: #E6E9EF; 
-        --color-surface-highlight: #CCD0DA; 
-        --color-primary: #4C4F69; 
-        --color-secondary: #6C6F85; 
-        --color-accent: #8839EF; 
-        --color-accent-fg: #EFF1F5; 
-        --color-accent-dim: #E8DBFC; 
+        --color-bg: #EFF2F8; 
+        --color-surface: #FFFFFF; 
+        --color-surface-highlight: #D5D9E8; 
+        --color-primary: #181926; 
+        --color-secondary: #4C5069; 
+        --color-accent: #7C3AED; 
+        --color-accent-fg: #FFFFFF; 
+        --color-accent-dim: #EDE9FE; 
       }
 
       .theme-catppuccin-dark { 
-        --color-bg: #1E1E2E; 
+        --color-bg: #0F0F17; 
         --color-surface: #181825; 
-        --color-surface-highlight: #313244; 
-        --color-primary: #CDD6F4; 
-        --color-secondary: #A6ADC8; 
-        --color-accent: #CBA6F7; 
-        --color-accent-fg: #11111B; 
-        --color-accent-dim: #2A203F; 
+        --color-surface-highlight: #363A4F; 
+        --color-primary: #FFFFFF; 
+        --color-secondary: #BAC2DE; 
+        --color-accent: #C084FC; 
+        --color-accent-fg: #0F0F17; 
+        --color-accent-dim: #361F59; 
       }
 
       .theme-gruvbox-light { 
-        --color-bg: #FBF1C7; 
-        --color-surface: #F9F5D7; 
-        --color-surface-highlight: #EBDBB2; 
-        --color-primary: #282828; 
-        --color-secondary: #665C54; 
-        --color-accent: #D65D0E; 
-        --color-accent-fg: #FBF1C7; 
-        --color-accent-dim: #F5E0B8; 
+        --color-bg: #F5E9BC; 
+        --color-surface: #FFF9E0; 
+        --color-surface-highlight: #E0CA94; 
+        --color-primary: #1D2021; 
+        --color-secondary: #4E4641; 
+        --color-accent: #AF3A03; 
+        --color-accent-fg: #FFF9E0; 
+        --color-accent-dim: #FBD6A5; 
       }
 
       .theme-gruvbox-dark { 
-        --color-bg: #1D2021; 
-        --color-surface: #282828; 
-        --color-surface-highlight: #3C3836; 
-        --color-primary: #FBF1C7; 
-        --color-secondary: #A89984; 
-        --color-accent: #FE8019; 
-        --color-accent-fg: #1D2021; 
-        --color-accent-dim: #3A2312; 
+        --color-bg: #121415; 
+        --color-surface: #242728; 
+        --color-surface-highlight: #46403D; 
+        --color-primary: #FDF6D3; 
+        --color-secondary: #D5C4A1; 
+        --color-accent: #FF8700; 
+        --color-accent-fg: #121415; 
+        --color-accent-dim: #4D2605; 
       }
 
       /* Custom background subtle micro-textures for added premium feel */

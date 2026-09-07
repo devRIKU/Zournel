@@ -1,5 +1,6 @@
 
 export enum Tab {
+  SANCTUARY = 'SANCTUARY',
   TODO = 'TODO',
   JOURNAL = 'JOURNAL',
   PROFILE = 'PROFILE'
@@ -52,6 +53,16 @@ export interface Task {
   aiAnalysis?: string; 
 }
 
+export interface AttachedSong {
+  title: string;
+  artist?: string;
+  url?: string;
+  album?: string;
+  coverArt?: string;
+  previewUrl?: string;
+  lyrics?: string;
+}
+
 export interface JournalEntry {
   id: string;
   content: string;
@@ -62,6 +73,9 @@ export interface JournalEntry {
   aiInsight?: string; 
   tags?: string[];
   tasksExtracted?: boolean;
+  scribble?: string;
+  song?: AttachedSong;
+  lyrics?: string;
 }
 
 export interface AIProcessedInput {

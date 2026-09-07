@@ -22,6 +22,8 @@ interface AiChatbotModalProps {
   onAddData: (tasks: string[], journal: string | null, mood: string | null) => void;
   journalEntries?: JournalEntry[];
   userName?: string;
+  apiKey?: string;
+  onUpdateApiKey?: (key: string) => void;
 }
 
 const AVAILABLE_MODELS = [
@@ -62,9 +64,43 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey });
 };
 
-export const AiChatbotModal: React.FC<AiChatbotModalProps> = ({ isOpen, onClose, onAddData, journalEntries = [], userName = '' }) => {
+export const AiChatbotModal: React.FC<AiChatbotModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onAddData, 
+  journalEntries = [], 
+  userName = '', 
+  apiKey = '', 
+  onUpdateApiKey 
+}) => {
   const [selectedModel, setSelectedModel] = useState<string>('gemini-3.6-flash');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [customKeyInput, setCustomKeyInput] = useState('');
+  const [bannerDismissed, setBannerDismissed] = useState(false);
+
+  const hasApiKey = Boolean(
+    apiKey?.trim() || 
+    (typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem('mf_settings') || '{}').apiKey) ||
+    (typeof process !== 'undefined' && process.env && (process.env.GEMINI_API_KEY || process.env.API_KEY)) ||
+    (typeof import.meta !== 'undefined' && import.meta.env && (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY))
+  );
+
+  const handleSaveBannerKey = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (customKeyInput.trim()) {
+      if (onUpdateApiKey) {
+        onUpdateApiKey(customKeyInput.trim());
+      } else {
+        try {
+          const current = JSON.parse(localStorage.getItem('mf_settings') || '{}');
+          current.apiKey = customKeyInput.trim();
+          localStorage.setItem('mf_settings', JSON.stringify(current));
+        } catch (e) {}
+      }
+      setBannerDismissed(true);
+      setCustomKeyInput('');
+    }
+  };
 
   const initialGreeting = useMemo(() => {
     const nameStr = userName && userName.trim() ? `, ${userName.trim()}` : '';
@@ -364,6 +400,40 @@ Output strictly a JSON object:
                 </button>
               </div>
             </div>
+
+            {/* Non-intrusive API Key setup banner if key is not configured */}
+            {!hasApiKey && !bannerDismissed && (
+              <div className="px-5 py-3 bg-amber-500/10 border-b border-amber-500/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shrink-0">
+                <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200">
+                  <Sparkles className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>Connect Gemini for real-time memory analysis &amp; personalized replies</span>
+                </div>
+                <form onSubmit={handleSaveBannerKey} className="flex items-center gap-2 w-full sm:w-auto">
+                  <input
+                    type="password"
+                    value={customKeyInput}
+                    onChange={(e) => setCustomKeyInput(e.target.value)}
+                    placeholder="Paste API Key..."
+                    className="px-3 py-1.5 rounded-xl bg-surface border border-neutral-300 dark:border-neutral-700 text-xs text-primary font-mono outline-none focus:ring-1 focus:ring-amber-500 w-full sm:w-44"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!customKeyInput.trim()}
+                    className="px-3 py-1.5 rounded-xl bg-amber-600 text-white font-semibold text-xs disabled:opacity-40 hover:bg-amber-700 transition shrink-0"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBannerDismissed(true)}
+                    className="p-1 text-secondary hover:text-primary transition shrink-0"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </form>
+              </div>
+            )}
 
             {/* Chat Messages */}
             <div className="flex-grow overflow-y-auto p-4 sm:p-6 space-y-5 no-scrollbar">

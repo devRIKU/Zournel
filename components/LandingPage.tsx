@@ -1,8 +1,15 @@
-
 import React, { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
 import { ArrowRight, Sun, Moon, Cloud, CheckCircle, BookOpen, Coffee, Sparkles } from './Icons';
 import { Task, JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
+import { CardSpotlight } from './ui/card-spotlight';
+import { SpotlightGlow } from './ui/background-beams';
+import { SparklesCore } from './ui/sparkles';
+import { ShimmerButton } from './ui/moving-border';
+import { iosSpring, iosSpringSnappy } from '../utils/uiSprings';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -11,160 +18,180 @@ interface LandingPageProps {
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journalEntries }) => {
-  const [isExiting, setIsExiting] = useState(false);
   const [greeting, setGreeting] = useState('');
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const hour = new Date().getHours();
     if (hour < 12) setGreeting('Good Morning');
     else if (hour < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
   }, []);
 
-  const handleEnterClick = () => {
-    setIsExiting(true);
-    setTimeout(onEnter, 200);
-  };
-
-  // Derived State
-  const pendingTasks = tasks.filter(t => !t.completed);
-  const highPriorityCount = pendingTasks.filter(t => t.priority === 'high').length;
-  const recentEntry = journalEntries.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+  const pendingTasks = tasks.filter((t) => !t.completed);
+  const highPriorityCount = pendingTasks.filter((t) => t.priority === 'high').length;
+  const recentEntry = [...journalEntries].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
   const nextTask = pendingTasks.sort((a, b) => (a.priority === 'high' ? -1 : 1))[0];
 
   return (
-    <div className={`min-h-screen bg-bg text-primary font-sans transition duration-200 flex flex-col items-center justify-center p-4 sm:p-6 ${isExiting ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100'}`}>
-      
-      {/* Texture Overlay */}
-      <div className="fixed inset-0 opacity-[0.02] pointer-events-none z-0" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}></div>
+    <div className="min-h-screen bg-surface-lowest text-primary font-sans flex flex-col items-center justify-center p-4 sm:p-6 md:p-10 relative overflow-hidden select-none">
+      {/* Aceternity Spotlight Glow */}
+      <SpotlightGlow />
 
-      <div className={`relative z-10 w-full max-w-4xl transition duration-200 ${mounted ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-        
-        {/* Header Section */}
-        <header className="text-center mb-10 sm:mb-16 space-y-4">
-           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface/50 border border-surface-highlight shadow-sm mb-4">
-              {greeting.includes('Morning') ? <Sun className="w-4 h-4 text-accent" /> : greeting.includes('Afternoon') ? <Cloud className="w-4 h-4 text-accent" /> : <Moon className="w-4 h-4 text-accent" />}
-              <span className="text-[10px] sm:text-xs font-grotesk font-medium tracking-[0.2em] text-secondary uppercase">{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
-           </div>
-           
-           <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-display font-bold text-primary tracking-tight break-words leading-tight">
-             {greeting}.
-           </h1>
-           <p className="text-lg sm:text-xl text-secondary font-light max-w-lg mx-auto leading-relaxed">
-             Your digital sanctuary is ready. You have <strong className="font-semibold text-accent">{pendingTasks.length} pending tasks</strong> waiting for you.
-           </p>
+      {/* Aceternity Subtle Sparkles in Background */}
+      <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+        <SparklesCore
+          particleDensity={18}
+          minSize={0.8}
+          maxSize={2.2}
+          particleColor="var(--color-accent)"
+        />
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 15, scale: 0.99 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={iosSpring}
+        className="relative z-10 w-full max-w-4xl mx-auto flex flex-col items-center"
+      >
+        {/* Date Pill */}
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-surface/80 backdrop-blur-xl border border-surface-highlight shadow-sm mb-4">
+          {greeting.includes('Morning') ? (
+            <Sun className="w-4 h-4 text-accent" />
+          ) : greeting.includes('Afternoon') ? (
+            <Cloud className="w-4 h-4 text-accent" />
+          ) : (
+            <Moon className="w-4 h-4 text-accent" />
+          )}
+          <span className="text-[10px] sm:text-xs font-grotesk font-semibold tracking-[0.2em] text-secondary uppercase">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </span>
+        </div>
+
+        {/* Hero Title */}
+        <header className="text-center mb-8 sm:mb-12 space-y-3">
+          <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-bold text-primary tracking-tight leading-tight">
+            {greeting}.
+          </h1>
+          <p className="text-base sm:text-xl text-secondary font-normal max-w-md sm:max-w-lg mx-auto leading-relaxed">
+            Your mindful sanctuary. You have{' '}
+            <strong className="font-semibold text-accent">
+              {pendingTasks.length} pending task{pendingTasks.length === 1 ? '' : 's'}
+            </strong>{' '}
+            ready for focus.
+          </p>
         </header>
 
-        {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          
-          {/* Latest Task Card */}
-          <div className="bg-surface p-8 rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
-                <CheckCircle className="w-32 h-32 text-accent" />
-             </div>
-             
-             <div className="relative z-10 flex flex-col h-full items-start">
-                <div className="flex items-center gap-3 mb-6">
-                   <div className="p-2 bg-bg rounded-xl text-accent">
-                      <CheckCircle className="w-5 h-5" />
-                   </div>
-                   <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">Focus</h3>
-                </div>
-                
-                {nextTask ? (
-                  <>
-                     <p className="text-2xl font-display font-medium text-primary line-clamp-3 mb-4 flex-grow leading-snug">
-                       {nextTask.text}
-                     </p>
-                     <div className="flex items-center gap-2 mt-auto">
-                        {nextTask.priority === 'high' && (
-                          <span className="px-3 py-1 bg-red-500/10 text-red-600 text-[10px] font-bold uppercase tracking-wider rounded-full border border-red-200/20">High Priority</span>
-                        )}
-                        <span className="text-xs text-secondary opacity-80">
-                          {highPriorityCount > 0 ? `+ ${highPriorityCount} other high priority` : 'Stay consistent.'}
-                        </span>
-                     </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center w-full h-full text-secondary py-8">
-                     <p>All caught up. Enjoy the calm.</p>
-                  </div>
-                )}
-             </div>
-          </div>
-
-          {/* Latest Memory Card */}
-          <div className="bg-surface p-8 rounded-[2.5rem] border border-surface-highlight shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group text-primary">
-             {recentEntry?.image && (
-                <div className="absolute inset-0 z-0">
-                   <img src={recentEntry.image} alt="Memory" className="w-full h-full object-cover opacity-10 group-hover:opacity-20 transition-opacity duration-700" />
-                   <div className="absolute inset-0 bg-gradient-to-t from-surface via-surface/90 to-transparent"></div>
-                </div>
-             )}
-             
-             <div className="relative z-10 flex flex-col h-full items-start">
-                <div className="flex items-center gap-3 mb-6">
-                   <div className="p-2 bg-bg rounded-xl text-accent">
-                      <BookOpen className="w-5 h-5" />
-                   </div>
-                   <h3 className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">Latest Memory</h3>
-                </div>
-                
-                {recentEntry ? (
-                   <>
-                     <div className="flex-grow">
-                        <h4 className="text-lg font-display font-bold text-primary mb-2 line-clamp-1">
-                           {recentEntry.title || extractAutoTitle(recentEntry.content)}
-                        </h4>
-                        <p className="text-sm font-sans leading-relaxed line-clamp-2 opacity-80 mb-4">
-                           "{recentEntry.content.replace(/[#*`]/g, '').slice(0, 100)}..."
-                        </p>
-                     </div>
-                     <div className="mt-auto flex items-center gap-3">
-                        <span className="text-xs font-mono text-secondary opacity-70 uppercase">
-                           {new Date(recentEntry.createdAt).toLocaleDateString()}
-                        </span>
-                        {recentEntry.mood && (
-                           <span className="px-3 py-1 bg-accent/10 text-accent text-[10px] font-bold uppercase tracking-wider rounded-full border border-accent/20">
-                              {recentEntry.mood}
-                           </span>
-                        )}
-                     </div>
-                   </>
-                ) : (
-                   <div className="flex flex-col items-center justify-center w-full h-full text-secondary opacity-60 py-8">
-                      <p>No memories yet.</p>
-                      <p className="text-sm mt-2">Start writing today.</p>
-                   </div>
-                )}
-             </div>
-          </div>
-
-        </div>
-
-        {/* Action */}
-        <div className="flex justify-center">
-          <button 
-            onClick={handleEnterClick}
-            className="group relative px-12 py-6 bg-accent text-accent-fg rounded-[2rem] font-bold text-sm uppercase tracking-[0.2em] transition hover:opacity-90 hover:scale-[1.03] hover:shadow-xl active:scale-[0.97] shadow-accent/20 shadow-lg"
+        {/* Aceternity Spotlight Bento Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 w-full mb-8 sm:mb-10">
+          {/* Focus Task Card with Aceternity CardSpotlight */}
+          <CardSpotlight
+            onClick={onEnter}
+            className="cursor-pointer border-surface-highlight hover:border-accent/50 transition-all rounded-[2rem] p-6 sm:p-7 flex flex-col justify-between min-h-[220px]"
           >
-            <span className="flex items-center gap-3">
-              Open Workspace <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </span>
-          </button>
-        </div>
-
-        <div className="text-center mt-12">
-            <div className="inline-flex items-center gap-2 text-[10px] text-secondary uppercase tracking-[0.3em] opacity-60">
-               <Coffee className="w-3 h-3" />
-               <span>Designed for Peace</span>
+            <div className="flex items-center justify-between w-full mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-accent/15 text-accent">
+                  <CheckCircle className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
+                  Focus Task
+                </span>
+              </div>
+              <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                Open Tasks →
+              </Badge>
             </div>
+
+            {nextTask ? (
+              <div className="space-y-3 flex-grow flex flex-col justify-between">
+                <p className="text-lg sm:text-xl font-display font-medium text-primary line-clamp-3 leading-snug">
+                  {nextTask.text}
+                </p>
+                <div className="flex items-center gap-2 pt-2 flex-wrap">
+                  {nextTask.priority === 'high' && (
+                    <Badge variant="destructive" className="uppercase font-bold tracking-wider">
+                      High Priority
+                    </Badge>
+                  )}
+                  <span className="text-xs text-secondary/80">
+                    {highPriorityCount > 0 ? `+ ${highPriorityCount} more high priority` : 'Ready to start'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center flex-grow text-secondary text-sm">
+                <span>All tasks clear. Time to unwind.</span>
+              </div>
+            )}
+          </CardSpotlight>
+
+          {/* Latest Memory Card with Aceternity CardSpotlight */}
+          <CardSpotlight
+            onClick={onEnter}
+            className="cursor-pointer border-surface-highlight hover:border-accent/50 transition-all rounded-[2rem] p-6 sm:p-7 flex flex-col justify-between min-h-[220px]"
+          >
+            <div className="flex items-center justify-between w-full mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-accent/15 text-accent">
+                  <BookOpen className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <span className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
+                  Latest Memory
+                </span>
+              </div>
+              <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                Journal →
+              </Badge>
+            </div>
+
+            {recentEntry ? (
+              <div className="space-y-3 flex-grow flex flex-col justify-between">
+                <div>
+                  <h4 className="text-lg sm:text-xl font-display font-bold text-primary line-clamp-1">
+                    {recentEntry.title || extractAutoTitle(recentEntry.content)}
+                  </h4>
+                  <p className="text-xs sm:text-sm text-secondary line-clamp-2 mt-1 leading-relaxed">
+                    "{recentEntry.content.replace(/[#*`]/g, '').slice(0, 90)}..."
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 pt-2 flex-wrap">
+                  <span className="text-xs font-mono text-secondary/80">
+                    {new Date(recentEntry.createdAt).toLocaleDateString()}
+                  </span>
+                  {recentEntry.mood && (
+                    <Badge variant="default" className="uppercase font-bold tracking-wider">
+                      {recentEntry.mood}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center flex-grow text-secondary text-sm">
+                <span>No entries yet. Capture your first thought.</span>
+              </div>
+            )}
+          </CardSpotlight>
         </div>
 
-      </div>
+        {/* Aceternity Shimmer Action Button */}
+        <div className="flex justify-center w-full">
+          <ShimmerButton
+            size="lg"
+            onClick={onEnter}
+            className="w-full sm:w-auto px-8 sm:px-12 py-3 rounded-full text-sm uppercase tracking-[0.15em] font-bold"
+          >
+            <span>Open Zournel</span>
+            <ArrowRight className="w-4 h-4" />
+          </ShimmerButton>
+        </div>
+
+        <div className="mt-8 text-center flex items-center gap-2 text-[10px] text-secondary uppercase tracking-[0.25em] opacity-60">
+          <Sparkles className="w-3.5 h-3.5 text-accent" />
+          <span>Aceternity &amp; shadcn Hybrid Architecture</span>
+        </div>
+      </motion.div>
     </div>
   );
 };
+
+export default LandingPage;

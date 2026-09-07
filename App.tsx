@@ -1,15 +1,13 @@
-
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Settings, Plus, Sparkles, BookOpen } from './components/Icons';
 import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
-import { BottomNav } from './components/BottomNav';
+import { ExpressiveDock } from './components/ExpressiveDock';
 import { TodoView } from './components/TodoView';
 import { JournalView } from './components/JournalView';
 import { JournalEditor } from './components/JournalEditor';
 import { SettingsModal } from './components/SettingsModal';
-import { OnboardingModal } from './components/OnboardingModal';
 import { LandingPage } from './components/LandingPage';
-import { AddModal } from './components/AddModal';
 import { AiChatbotModal } from './components/AiChatbotModal';
 import { ProfileView, PublicProfileView } from './components/ProfileView';
 import { ImportModal } from './components/ImportModal';
@@ -17,35 +15,57 @@ import { getLocalUserId, listenToAuthChanges, getSavedGoogleUser } from './servi
 import { syncMemoriesToCloud, fetchMemoriesFromCloud } from './services/dbService';
 import { AutoBackupPill } from './components/AutoBackupPill';
 import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, extractAutoTitle } from './services/geminiService';
+import { useTaskStore } from './store/useTaskStore';
+import { useJournalStore } from './store/useJournalStore';
+import { SpotlightGlow } from './components/ui/background-beams';
+import { SparklesText } from './components/ui/sparkles';
 
 const ALL_THEME_CLASSES = [
   'theme-cozy-light', 'theme-cozy-dark', 'theme-evergreen-light', 'theme-evergreen-dark', 
   'theme-catppuccin-light', 'theme-catppuccin-dark', 'theme-gruvbox-light', 'theme-gruvbox-dark'
 ];
 
-const App: React.FC = () => {
-  const [hasEntered, setHasEntered] = useState(false);
+export const App: React.FC = () => {
+  const [hasEntered, setHasEntered] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
-  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
   const [focusInputSignal, setFocusInputSignal] = useState(0); 
-  const [editingEntry, setEditingEntry] = useState<JournalEntry | null>(null);
+
+  // Zustand stores
+  const { tasks, addTask, toggleTask, deleteTask, updateTask, setTasks } = useTaskStore();
+  const { 
+    entries: journalEntries, 
+    editingEntry, 
+    isEditorOpen, 
+    setEditingEntry, 
+    setIsEditorOpen, 
+    saveEntry: saveJournalEntryStore, 
+    deleteEntry: deleteJournalEntryStore, 
+    renameEntry: renameJournalEntryStore, 
+    importEntries: handleImportEntriesStore,
+    setEntries: setJournalEntries
+  } = useJournalStore();
   
-  const [settings, setSettings] = useState<AppSettings>({
-    theme: 'cozy-light',
-    fontFamily: 'inter',
-    headingFontFamily: 'outfit',
-    completionAnimation: 'confetti',
-    deleteAnimation: 'shrink',
-    model: 'gemini-3.5-flash-lite',
-    apiKey: ''
+  const [settings, setSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('mf_settings');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {}
+    return {
+      theme: 'cozy-light',
+      fontFamily: 'inter',
+      headingFontFamily: 'outfit',
+      completionAnimation: 'confetti',
+      deleteAnimation: 'shrink',
+      model: 'gemini-3.5-flash-lite',
+      apiKey: ''
+    };
   });
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [publicProfile, setPublicProfile] = useState<UserProfile | null>(null);
 
@@ -63,7 +83,6 @@ const App: React.FC = () => {
       setIsRouteLoading(false);
     };
 
-    // Check for share link (e.g., /share/entry_uuid)
     if (path.startsWith('/share/')) {
       const entryId = path.split('/share/')[1];
       if (entryId) {
@@ -84,10 +103,7 @@ const App: React.FC = () => {
       } else {
         finishRouteLoading();
       }
-    }
-    
-    // Check for public profile (e.g., /p/username)
-    else if (path.startsWith('/p/')) {
+    } else if (path.startsWith('/p/')) {
       const username = path.split('/p/')[1];
       if (username) {
         import('./services/dbService').then(({ getPublicProfile, getSharedEntriesForUsername }) => {
@@ -107,10 +123,7 @@ const App: React.FC = () => {
       } else {
         finishRouteLoading();
       }
-    }
-
-    // Fallback for old base64 encoded URL parameters
-    else {
+    } else {
       const urlParams = new URLSearchParams(window.location.search);
       const profileData = urlParams.get('profile');
       if (profileData) {
@@ -118,63 +131,20 @@ const App: React.FC = () => {
           const decoded = JSON.parse(decodeURIComponent(atob(profileData)));
           setPublicProfile(decoded);
         } catch (e) {
-          console.error("Failed to parse public profile", e);
+          console.error("Failed to parse base64 profile:", e);
         }
       }
       finishRouteLoading();
     }
 
-    const savedTasks = localStorage.getItem('mf_tasks');
-    const savedJournal = localStorage.getItem('mf_journal');
-    const savedSettings = localStorage.getItem('mf_settings');
-    
-    if (savedTasks) {
-      try {
-        setTasks(JSON.parse(savedTasks));
-      } catch (e) {
-        console.error("Failed to parse tasks", e);
-      }
-    }
-
-    if (savedJournal) {
-      try {
-        setJournalEntries(JSON.parse(savedJournal));
-      } catch (e) {
-        console.error("Failed to parse journal", e);
-      }
-    }
-    
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings);
-        const validModels = ['gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.6-flash', 'gemma-4-31b-it'];
-        if (!validModels.includes(parsedSettings.model)) {
-          parsedSettings.model = 'gemini-3.5-flash-lite';
-        }
-        
-        // Migrate older theme preferences gracefully to new premium options
-        const validThemes = ['cozy-light', 'cozy-dark', 'evergreen-light', 'evergreen-dark', 'catppuccin-light', 'catppuccin-dark', 'gruvbox-light', 'gruvbox-dark'];
-        if (!validThemes.includes(parsedSettings.theme)) {
-          parsedSettings.theme = 'cozy-light';
-        }
-        
-        setSettings(prev => ({ ...prev, ...parsedSettings }));
-      } catch (e) {
-        console.error("Failed to parse settings", e);
-        setShowOnboarding(true);
-      }
-    } else {
-      setShowOnboarding(true);
-    }
     setLoaded(true);
   }, []);
 
-  // Google Auth Listener: Connect user name to Google Account & Auto-Pull cloud data on login
+  // Firebase auth & cloud state sync
   useEffect(() => {
     if (!loaded) return;
     const unsubscribe = listenToAuthChanges(async (googleUser) => {
       if (googleUser) {
-        // 1. Auto connect display name & picture to user profile if available
         setSettings(prev => ({
           ...prev,
           profile: {
@@ -187,7 +157,6 @@ const App: React.FC = () => {
           }
         }));
 
-        // 2. Auto pull memories & settings from cloud on login
         try {
           const remote = await fetchMemoriesFromCloud(googleUser.uid);
           if (remote) {
@@ -201,7 +170,6 @@ const App: React.FC = () => {
             if (remote.config) {
               setSettings(prev => {
                 const updated = { ...prev, ...remote.config };
-                // Do not sync appearance preferences from cloud
                 updated.theme = prev.theme;
                 if (prev.fontFamily) updated.fontFamily = prev.fontFamily;
                 if (prev.headingFontFamily) updated.headingFontFamily = prev.headingFontFamily;
@@ -215,9 +183,9 @@ const App: React.FC = () => {
       }
     });
     return () => unsubscribe();
-  }, [loaded]);
+  }, [loaded, setJournalEntries]);
 
-  // System theme detection listener (only if user hasn't set a custom theme scheme, auto-switches default cozy theme)
+  // System theme detection listener
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e: MediaQueryListEvent) => {
@@ -229,17 +197,14 @@ const App: React.FC = () => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, [settings.theme]);
 
-  // Persist settings & local storage
+  // Persist settings
   useEffect(() => {
     if (loaded) {
-      localStorage.setItem('mf_tasks', JSON.stringify(tasks));
-      localStorage.setItem('mf_journal', JSON.stringify(journalEntries));
       localStorage.setItem('mf_settings', JSON.stringify(settings));
     }
-  }, [tasks, journalEntries, settings, loaded]);
+  }, [settings, loaded]);
 
   const latestDataRef = React.useRef({ journalEntries, settings });
-  
   useEffect(() => {
     latestDataRef.current = { journalEntries, settings };
   }, [journalEntries, settings]);
@@ -275,12 +240,11 @@ const App: React.FC = () => {
     }
   }, [loaded]);
 
-  // Debounced Auto Backup Effect when entries or profile change
+  // Debounced Auto Backup Effect
   useEffect(() => {
     if (!loaded) return;
     if (settings.autoBackupEnabled === false) return;
 
-    // Create local backup snapshot
     localStorage.setItem('mf_auto_backup_snapshot', JSON.stringify({
       timestamp: Date.now(),
       entries: journalEntries,
@@ -288,8 +252,6 @@ const App: React.FC = () => {
     }));
 
     const intervalMin = settings.autoBackupIntervalMinutes ?? 5;
-    
-    // If interval is 0 (Instant on change), debounce backup by 3 seconds
     if (intervalMin === 0) {
       const timer = setTimeout(() => {
         performAutoBackup();
@@ -318,7 +280,6 @@ const App: React.FC = () => {
     const themeClass = `theme-${settings.theme}`;
     document.documentElement.classList.add(themeClass);
     
-    // Also toggle dark mode attribute for Tailwind
     const darkThemes = ['cozy-dark', 'evergreen-dark', 'catppuccin-dark', 'gruvbox-dark'];
     if (darkThemes.includes(settings.theme)) {
       document.documentElement.classList.add('dark');
@@ -327,7 +288,7 @@ const App: React.FC = () => {
     }
   }, [settings.theme]);
 
-  // Font Applier (Body & Heading fonts updated dynamically)
+  // Font Applier
   useEffect(() => {
     const bodyFontMap: Record<string, string> = {
       'inter': "'Inter', sans-serif",
@@ -348,6 +309,7 @@ const App: React.FC = () => {
     };
     const selectedBodyFont = bodyFontMap[settings.fontFamily || 'inter'] || "'Inter', sans-serif";
     const selectedHeadingFont = headingFontMap[settings.headingFontFamily || 'outfit'] || "'Outfit', sans-serif";
+
     document.documentElement.style.setProperty('--font-body', selectedBodyFont);
     document.documentElement.style.setProperty('--font-heading', selectedHeadingFont);
     document.documentElement.setAttribute('data-heading-font', settings.headingFontFamily || 'outfit');
@@ -362,148 +324,39 @@ const App: React.FC = () => {
     }
   };
 
-  const addTask = (text: string) => {
-    const newTask: Task = {
-        id: Math.random().toString(36).substr(2, 9),
-        text,
-        completed: false,
-        priority: 'medium',
-        createdAt: Date.now()
-    };
-    setTasks(prev => [newTask, ...prev]);
-  };
-
   const handleAddDataFromAI = (newTasks: string[], journal: string | null, mood: string | null) => {
     if (newTasks.length > 0) {
-       const taskObjects = newTasks.map(t => ({
-          id: Math.random().toString(36).substr(2, 9),
-          text: t,
-          completed: false,
-          priority: 'medium' as const,
-          createdAt: Date.now(),
-          aiAnalysis: 'AI Generated'
-       }));
-       setTasks(prev => [...taskObjects, ...prev]);
+       newTasks.forEach(t => addTask(t));
        if (activeTab !== Tab.TODO) setActiveTab(Tab.TODO);
     }
     
     if (journal) {
-       const entryId = Math.random().toString(36).substr(2, 9);
-       const autoTitle = extractAutoTitle(journal);
-       const newEntry: JournalEntry = {
-          id: entryId,
-          content: journal,
-          title: autoTitle,
-          mood: mood || undefined,
-          createdAt: Date.now(),
-          aiInsight: mood ? `Feeling ${mood}` : undefined
-       };
-       setJournalEntries(prev => [newEntry, ...prev]);
-       generateAutoTitle(journal, settings.model).then(aiTitle => {
-         if (aiTitle) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, title: aiTitle } : e));
-       });
-       // Generate better insight in background
-       generateJournalInsight(journal, settings.model).then(insight => {
-         if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
-       });
+       saveJournalEntryStore(journal, undefined, mood || undefined, false, undefined, settings.model);
     }
   };
 
-  const handleImportEntries = (newEntries: JournalEntry[], replaceExisting: boolean = false) => {
-    if (replaceExisting) {
-      setJournalEntries(newEntries);
-    } else {
-      setJournalEntries(prev => {
-        const existingIds = new Set(prev.map(e => e.id));
-        const filteredNew = newEntries.filter(e => !existingIds.has(e.id));
-        return [...filteredNew, ...prev];
-      });
-    }
-  };
-
-  const deleteJournalEntry = (id: string) => {
-    setJournalEntries(prev => prev.filter(e => e.id !== id));
-  };
-
-  const renameJournalEntry = (id: string, newTitle: string) => {
-    setJournalEntries(prev => prev.map(e => e.id === id ? { ...e, title: newTitle } : e));
-  };
-
-  const saveJournalEntry = (content: string, image: string | undefined, mood?: string, isAutoSave?: boolean, title?: string) => {
-    let entryId = editingEntry?.id;
-    let isNew = false;
-    
-    const computedTitle = title?.trim() || extractAutoTitle(content);
-
-    if (entryId) {
-      setJournalEntries(prev => prev.map(e => e.id === entryId ? { 
-        ...e, 
-        content, 
-        image, 
-        title: computedTitle, 
-        mood: mood !== undefined ? mood : e.mood 
-      } : e));
-    } else {
-      isNew = true;
-      entryId = Math.random().toString(36).substr(2, 9);
-      const newEntry: JournalEntry = { 
-        id: entryId, 
-        content, 
-        image, 
-        title: computedTitle, 
-        mood, 
-        createdAt: Date.now(), 
-        tasksExtracted: false 
-      };
-      setJournalEntries(prev => [newEntry, ...prev]);
-      if (isAutoSave) {
-        setEditingEntry(newEntry);
-      }
-    }
-
-    if (entryId && !isAutoSave) {
-        generateJournalInsight(content, settings.model).then(insight => {
-            if (insight) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, aiInsight: insight } : e));
-        });
-
-        if (!title || title.trim() === 'Untitled Memory' || title.trim() === 'A Quiet Moment') {
-          generateAutoTitle(content, settings.model).then(aiTitle => {
-            if (aiTitle) setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, title: aiTitle } : e));
-          });
-        }
-
-        const entry = journalEntries.find(e => e.id === entryId);
-        if (isNew || (entry && !entry.tasksExtracted)) {
-            extractTasksFromJournal(content, settings.model).then(newAIItems => {
-                if (newAIItems?.length > 0) {
-                    const tasksToAdd = newAIItems.map(item => ({
-                        id: Math.random().toString(36).substr(2, 9),
-                        text: item.text,
-                        priority: item.priority,
-                        completed: false,
-                        createdAt: Date.now(),
-                        aiAnalysis: "Extracted from your memory"
-                    }));
-                    setTasks(prev => [...tasksToAdd, ...prev]);
-                    setJournalEntries(prev => prev.map(e => e.id === entryId ? { ...e, tasksExtracted: true } : e));
-                }
-            });
-        }
-    }
-    if (!isAutoSave) {
-      setEditingEntry(null);
-    }
+  const saveJournalEntry = (
+    content: string, 
+    image: string | undefined, 
+    mood?: string, 
+    isAutoSave?: boolean, 
+    title?: string, 
+    scribble?: string, 
+    song?: JournalEntry['song'],
+    lyrics?: string
+  ) => {
+    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics);
   };
 
   if (isRouteLoading) {
     return (
-      <div className="min-h-screen bg-bg text-primary flex items-center justify-center font-sans">
+      <div className="min-h-screen bg-surface-lowest text-primary flex items-center justify-center font-sans">
         <div className="flex flex-col items-center gap-4">
           <div className="relative w-16 h-16">
             <div className="absolute inset-0 rounded-full border border-accent/20 animate-ping" />
             <div className="absolute inset-2 rounded-full border-2 border-accent border-t-transparent animate-spin" />
           </div>
-          <span className="text-xs font-grotesk tracking-[0.2em] uppercase text-secondary/60 animate-pulse">Entering Sanctuary...</span>
+          <span className="text-xs font-grotesk tracking-[0.2em] uppercase text-secondary/60 animate-pulse">Entering Zournel...</span>
         </div>
       </div>
     );
@@ -514,19 +367,31 @@ const App: React.FC = () => {
   }
 
   if (!hasEntered) {
-    return <LandingPage onEnter={() => setHasEntered(true)} tasks={tasks} journalEntries={journalEntries} />;
+    return (
+      <LandingPage 
+        onEnter={() => {
+          setHasEntered(true);
+          setActiveTab(Tab.TODO);
+        }} 
+        tasks={tasks} 
+        journalEntries={journalEntries} 
+      />
+    );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-primary font-sans transition-colors duration-200 animate-fade-in">
-      <header className="pt-8 sm:pt-12 px-4 sm:px-6 md:px-8 pb-4 flex justify-between items-start">
+    <div className="min-h-screen flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative overflow-x-hidden">
+      <SpotlightGlow className="opacity-40" />
+      <header className="relative z-10 pt-6 sm:pt-10 px-4 sm:px-6 md:px-8 pb-3 sm:pb-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-accent/15 text-accent rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
-            <BookOpen className="w-6 h-6 stroke-[2.5]" />
+          <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-primary tracking-tight leading-tight break-words">Zournel</h1>
-            <span className="text-accent italic font-grotesk text-xs sm:text-sm font-semibold">Reflect & Execute</span>
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-display font-black text-primary tracking-tight leading-tight break-words">
+              <SparklesText text="Zournel" sparklesCount={3} />
+            </h1>
+            <span className="text-accent italic font-grotesk text-xs sm:text-sm font-semibold">Reflect &amp; Execute</span>
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
@@ -539,64 +404,110 @@ const App: React.FC = () => {
                onOpenSettings={() => setIsSettingsOpen(true)}
              />
            </div>
-           <button onClick={() => setIsAddModalOpen(true)} title="AI Companion Chat" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97] text-accent">
+           <button 
+             onClick={() => setIsAddModalOpen(true)} 
+             title="AI Companion Chat" 
+             className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-accent flex items-center justify-center"
+           >
             <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
-           <button onClick={() => setIsSettingsOpen(true)} title="Preferences & Themes" className="p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight transition active:scale-[0.97]">
+           <button 
+             onClick={() => setIsSettingsOpen(true)} 
+             title="Preferences & Themes" 
+             className="min-w-[44px] min-h-[44px] p-2.5 sm:p-3 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-primary flex items-center justify-center"
+           >
             <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
            </button>
         </div>
       </header>
-      <main className="relative flex-grow min-h-[80vh] w-full max-w-7xl mx-auto px-0">
-        <div className={`transition duration-200 ${activeTab === Tab.TODO ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
-           <TodoView 
-              tasks={tasks} onToggleTask={t => setTasks(prev => prev.map(tk => tk.id === t ? {...tk, completed: !tk.completed} : tk))} 
-              onDeleteTask={t => setTasks(prev => prev.filter(tk => tk.id !== t))} 
-              onUpdateTask={t => setTasks(prev => prev.map(tk => tk.id === t.id ? t : tk))}
-              onAddTask={addTask} focusInputSignal={focusInputSignal}
-              completionAnim={settings.completionAnimation} deleteAnim={settings.deleteAnimation}
-              selectedModel={settings.model}
-            />
-        </div>
-        <div className={`transition duration-200 ${activeTab === Tab.JOURNAL ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
-           <JournalView 
-             entries={journalEntries} 
-             onEdit={e => {setEditingEntry(e); setIsEditorOpen(true);}} 
-             onDeleteEntry={deleteJournalEntry} 
-             onRenameEntry={renameJournalEntry}
-             onImportClick={() => setIsImportModalOpen(true)}
-             onImportEntries={handleImportEntries}
-             selectedModel={settings.model}
-           />
-        </div>
-        <div className={`transition duration-200 ${activeTab === Tab.PROFILE ? 'opacity-100' : 'opacity-0 absolute top-0 w-full pointer-events-none'}`}>
-           <ProfileView 
-             profile={settings.profile} 
-             journalEntries={journalEntries} 
-             onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))}
-             onOpenImportModal={() => setIsImportModalOpen(true)}
-             onImportEntries={handleImportEntries}
-             settings={settings}
-             onUpdateSettings={setSettings}
-           />
-        </div>
+
+      {/* Smooth Page Transitions */}
+      <main className="min-h-[80vh] bg-surface-lowest paper-texture pb-28 flex-grow w-full max-w-7xl mx-auto px-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8, scale: 0.99 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.99 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {activeTab === Tab.TODO && (
+              <TodoView 
+                tasks={tasks} 
+                onToggleTask={toggleTask} 
+                onDeleteTask={deleteTask} 
+                onUpdateTask={updateTask}
+                onAddTask={addTask} 
+                focusInputSignal={focusInputSignal}
+                completionAnim={settings.completionAnimation} 
+                deleteAnim={settings.deleteAnimation}
+                selectedModel={settings.model}
+              />
+            )}
+            {activeTab === Tab.JOURNAL && (
+              <JournalView 
+                entries={journalEntries} 
+                onEdit={e => { setEditingEntry(e); setIsEditorOpen(true); }} 
+                onDeleteEntry={deleteJournalEntryStore} 
+                onRenameEntry={renameJournalEntryStore}
+                onImportClick={() => setIsImportModalOpen(true)}
+                onImportEntries={handleImportEntriesStore}
+                selectedModel={settings.model}
+              />
+            )}
+            {activeTab === Tab.PROFILE && (
+              <ProfileView 
+                profile={settings.profile} 
+                journalEntries={journalEntries} 
+                onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))}
+                onOpenImportModal={() => setIsImportModalOpen(true)}
+                onImportEntries={handleImportEntriesStore}
+                settings={settings}
+                onUpdateSettings={setSettings}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
-      <div className={`fixed bottom-24 right-6 z-50 transition-opacity duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
-        <button onClick={handlePlusClick} title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} className="w-16 h-16 bg-accent text-accent-fg rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-[0.97] transition"><Plus className="w-8 h-8" /></button>
+
+      {/* Floating Action Button */}
+      <div className={`fixed bottom-24 sm:bottom-28 right-4 sm:right-6 z-40 transition-all duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
+        <button 
+          onClick={handlePlusClick} 
+          title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} 
+          className="w-14 h-14 sm:w-16 sm:h-16 bg-accent text-accent-fg rounded-full shadow-2xl shadow-accent/30 ring-4 ring-accent/20 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
+        >
+          <Plus className="w-7 h-7 sm:w-8 sm:h-8 stroke-[2.5]" />
+        </button>
       </div>
-      {!isEditorOpen && <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />}
+
+      {!isEditorOpen && (
+        <ExpressiveDock 
+          currentTab={activeTab === Tab.TODO ? 'todos' : activeTab === Tab.JOURNAL ? 'journal' : 'profile'} 
+          onSelectTab={(tabId) => {
+            if (tabId === 'todos') setActiveTab(Tab.TODO);
+            else if (tabId === 'journal') setActiveTab(Tab.JOURNAL);
+            else if (tabId === 'profile') setActiveTab(Tab.PROFILE);
+          }}
+          activeTab={activeTab} 
+          onTabChange={setActiveTab} 
+        />
+      )}
       
       <JournalEditor 
         key={editingEntry ? editingEntry.id : 'new-entry'}
         isOpen={isEditorOpen} 
-        onClose={() => {setIsEditorOpen(false); setEditingEntry(null);}} 
+        onClose={() => { setIsEditorOpen(false); setEditingEntry(null); }} 
         onSave={saveJournalEntry} 
-        onDelete={deleteJournalEntry}
+        onDelete={deleteJournalEntryStore}
         initialId={editingEntry?.id}
         initialTitle={editingEntry?.title}
         initialContent={editingEntry?.content} 
         initialImage={editingEntry?.image} 
         initialMood={editingEntry?.mood}
+        initialScribble={editingEntry?.scribble}
+        initialSong={editingEntry?.song}
+        initialLyrics={editingEntry?.lyrics || editingEntry?.song?.lyrics}
         selectedModel={settings.model} 
       />
       
@@ -613,24 +524,16 @@ const App: React.FC = () => {
         onAddData={handleAddDataFromAI}
         journalEntries={journalEntries}
         userName={settings.profile?.name || ''}
+        apiKey={settings.apiKey}
+        onUpdateApiKey={(key) => setSettings(prev => ({ ...prev, apiKey: key }))}
       />
 
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
-        onImportEntries={handleImportEntries}
+        onImportEntries={handleImportEntriesStore}
         currentDeviceKey={getLocalUserId()}
       />
-
-      {showOnboarding && (
-        <OnboardingModal 
-          onSave={(key) => {
-            setSettings(prev => ({ ...prev, apiKey: key }));
-            setShowOnboarding(false);
-          }} 
-          onSkip={() => setShowOnboarding(false)}
-        />
-      )}
     </div>
   );
 };

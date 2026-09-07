@@ -1,9 +1,12 @@
 import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3 } from './Icons';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { AudioSongPlayer } from './AudioSongPlayer';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -641,9 +644,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                              </div>
 
                              {entry.mood && (
-                               <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent px-3 py-1 bg-accent/10 rounded-full border border-accent/20">
+                               <Badge variant="default" className="text-[10px] font-grotesk font-bold uppercase tracking-wider">
                                  {entry.mood}
-                               </span>
+                               </Badge>
                              )}
                           </div>
                         )}
@@ -658,9 +661,38 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                              </div>
 
                              {/* Content Excerpt */}
-                             <p className="font-sans text-sm sm:text-base leading-relaxed text-primary/75 line-clamp-3 mb-6">
+                             <p className="font-sans text-sm sm:text-base leading-relaxed text-primary/75 line-clamp-3 mb-4">
                                {stripMarkdownAndTruncate(entry.content)}
                              </p>
+
+                             {/* Attached Scribble, Song, or Lyrics */}
+                             {(entry.song || entry.lyrics || entry.scribble) && (
+                               <div className="space-y-2.5 mb-4">
+                                 {entry.song && (
+                                   <AudioSongPlayer song={entry.song} compact={!isHero} />
+                                 )}
+                                 {!entry.song && entry.lyrics && (
+                                   <div className="p-3 rounded-2xl bg-surface-highlight/30 border border-surface-highlight text-left">
+                                     <span className="text-[10px] font-bold text-accent uppercase tracking-wider block mb-1">Attached Lyrics</span>
+                                     <p className="font-serif italic text-xs text-primary/80 line-clamp-3 leading-relaxed whitespace-pre-line">"{entry.lyrics}"</p>
+                                   </div>
+                                 )}
+
+                                 {entry.scribble && (
+                                   <div className="p-2 rounded-xl bg-surface-lowest/70 border border-surface-highlight flex items-center gap-2.5">
+                                     <img
+                                       src={entry.scribble}
+                                       alt="Attached scribble"
+                                       className="h-12 w-16 object-contain rounded-lg bg-surface border border-surface-highlight/70 shrink-0"
+                                     />
+                                     <div className="text-left">
+                                       <span className="text-xs font-bold text-primary block">Scribble Sketch</span>
+                                       <span className="text-[10px] text-secondary font-mono uppercase tracking-wider block">Hand-drawn note</span>
+                                     </div>
+                                   </div>
+                                 )}
+                               </div>
+                             )}
                           </div>
 
                           <div>

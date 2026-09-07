@@ -2,5 +2,5 @@
   "name": "Zournel",
   "description": "A minimalist, AI-integrated To-Do and Journaling application with intelligent task breakdown and reflective insights.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
