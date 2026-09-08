@@ -131,6 +131,27 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
+  const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const handleCardPressStart = (entryId: string) => {
+    longPressTimerRef.current = setTimeout(() => {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(35);
+        }
+      } catch (e) {}
+      setIsBulkSelecting(true);
+      toggleSelectEntry(entryId);
+    }, 500);
+  };
+
+  const handleCardPressEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
   const [pageTitle, setPageTitle] = useState(() => localStorage.getItem('journalPageTitle') || 'Memories');
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const titleInputRef = React.useRef<HTMLInputElement>(null);
@@ -518,39 +539,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             </button>
           </div>
 
-          {/* 3. Action Buttons (Select & Import) */}
+          {/* 3. Action Buttons (Import) */}
           {subTab === 'timeline' && (
             <div className="flex items-center gap-2 shrink-0">
-              {entries.length > 0 && (
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    setIsBulkSelecting(prev => {
-                      if (prev) {
-                        setSelectedEntryIds(new Set());
-                        setBulkDeleteConfirm(false);
-                      }
-                      return !prev;
-                    });
-                  }}
-                  className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0 border ${
-                    isBulkSelecting
-                      ? 'bg-accent text-accent-fg border-accent'
-                      : 'bg-surface-highlight/30 hover:bg-surface-highlight border-surface-highlight/40 text-secondary hover:text-accent'
-                  }`}
-                  title={isBulkSelecting ? "Exit select mode" : "Select memories to bulk delete"}
-                >
-                  <CheckSquare className="w-4 h-4 shrink-0" />
-                  <span className="hidden sm:inline">{isBulkSelecting ? 'Done' : 'Select'}</span>
-                  {isBulkSelecting && selectedEntryIds.size > 0 && (
-                    <span className="px-1.5 py-0.5 bg-black/25 rounded-full text-[10px] font-mono leading-none">
-                      {selectedEntryIds.size}
-                    </span>
-                  )}
-                </motion.button>
-              )}
-
               {onImportClick && (
                 <motion.button
                   type="button"
@@ -647,7 +638,16 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     return (
                       <motion.div 
                         key={entry.id} 
+                        onMouseDown={() => handleCardPressStart(entry.id)}
+                        onMouseUp={handleCardPressEnd}
+                        onMouseLeave={handleCardPressEnd}
+                        onTouchStart={() => handleCardPressStart(entry.id)}
+                        onTouchEnd={handleCardPressEnd}
                         onClick={(e) => {
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
                           if (isBulkSelecting) {
                             e.preventDefault();
                             toggleSelectEntry(entry.id);
@@ -1222,67 +1222,69 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
       <AnimatePresence>
         {isBulkSelecting && (
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 30 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 w-auto max-w-[95vw] px-4 sm:px-5 py-3 bg-surface/95 backdrop-blur-2xl border border-surface-highlight rounded-2xl shadow-2xl flex items-center gap-3 sm:gap-4"
+            className="fixed bottom-24 inset-x-0 z-50 flex justify-center pointer-events-none px-3"
           >
-            <div className="text-xs font-semibold text-primary whitespace-nowrap pl-1">
-              <span className="text-accent font-bold">{selectedEntryIds.size}</span> of {filteredEntries.length} selected
+            <div className="pointer-events-auto w-auto max-w-full px-3.5 sm:px-5 py-2.5 sm:py-3 bg-surface/95 backdrop-blur-2xl border border-surface-highlight rounded-2xl shadow-2xl flex items-center gap-2 sm:gap-4 overflow-x-auto">
+              <div className="text-xs font-semibold text-primary whitespace-nowrap pl-1">
+                <span className="text-accent font-bold">{selectedEntryIds.size}</span> of {filteredEntries.length} selected
+              </div>
+
+              <div className="h-4 w-px bg-surface-highlight shrink-0"></div>
+
+              {selectedEntryIds.size === filteredEntries.length ? (
+                <button
+                  type="button"
+                  onClick={deselectAllEntries}
+                  className="px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary transition rounded-lg hover:bg-surface-highlight shrink-0"
+                >
+                  Deselect All
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => selectAllEntries(filteredEntries.map(e => e.id))}
+                  className="px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary transition rounded-lg hover:bg-surface-highlight shrink-0"
+                >
+                  Select All
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={selectedEntryIds.size === 0}
+                onClick={handleBulkDelete}
+                className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-40 disabled:pointer-events-none shrink-0 ${
+                  bulkDeleteConfirm
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-red-500/15 hover:bg-red-500/25 text-red-600 border border-red-500/20'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {bulkDeleteConfirm 
+                    ? `Confirm Delete (${selectedEntryIds.size})?` 
+                    : `Delete (${selectedEntryIds.size})`
+                  }
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsBulkSelecting(false);
+                  setSelectedEntryIds(new Set());
+                  setBulkDeleteConfirm(false);
+                }}
+                className="p-1.5 rounded-xl text-secondary hover:text-primary hover:bg-surface-highlight transition shrink-0"
+                title="Close selection"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-
-            <div className="h-4 w-px bg-surface-highlight shrink-0"></div>
-
-            {selectedEntryIds.size === filteredEntries.length ? (
-              <button
-                type="button"
-                onClick={deselectAllEntries}
-                className="px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary transition rounded-lg hover:bg-surface-highlight shrink-0"
-              >
-                Deselect All
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => selectAllEntries(filteredEntries.map(e => e.id))}
-                className="px-2.5 py-1 text-xs font-semibold text-secondary hover:text-primary transition rounded-lg hover:bg-surface-highlight shrink-0"
-              >
-                Select All
-              </button>
-            )}
-
-            <button
-              type="button"
-              disabled={selectedEntryIds.size === 0}
-              onClick={handleBulkDelete}
-              className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm active:scale-95 disabled:opacity-40 disabled:pointer-events-none shrink-0 ${
-                bulkDeleteConfirm
-                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                  : 'bg-red-500/15 hover:bg-red-500/25 text-red-600 border border-red-500/20'
-              }`}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span>
-                {bulkDeleteConfirm 
-                  ? `Confirm Delete (${selectedEntryIds.size})?` 
-                  : `Delete (${selectedEntryIds.size})`
-                }
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsBulkSelecting(false);
-                setSelectedEntryIds(new Set());
-                setBulkDeleteConfirm(false);
-              }}
-              className="p-1.5 rounded-xl text-secondary hover:text-primary hover:bg-surface-highlight transition shrink-0"
-              title="Close selection"
-            >
-              <X className="w-4 h-4" />
-            </button>
           </motion.div>
         )}
       </AnimatePresence>

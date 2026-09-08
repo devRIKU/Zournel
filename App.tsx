@@ -474,13 +474,13 @@ export const App: React.FC = () => {
       </main>
 
       {/* Floating Action Button */}
-      <div className={`fixed bottom-20 sm:bottom-24 right-4 sm:right-6 z-40 transition-all duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
+      <div className={`fixed bottom-24 sm:bottom-28 right-5 sm:right-7 z-40 transition-all duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
         <button 
           onClick={handlePlusClick} 
           title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} 
-          className="w-16 h-16 sm:w-20 sm:h-20 bg-accent text-accent-fg rounded-full shadow-2xl shadow-accent/40 ring-4 sm:ring-6 ring-accent/25 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
+          className="w-14 h-14 sm:w-16 sm:h-16 bg-accent text-accent-fg rounded-full shadow-2xl shadow-accent/35 ring-4 ring-accent/25 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
         >
-          <Plus className="w-8 h-8 sm:w-10 sm:h-10 stroke-[3]" />
+          <Plus className="w-7 h-7 sm:w-8 sm:h-8 stroke-[3]" />
         </button>
       </div>
 

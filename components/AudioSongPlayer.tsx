@@ -146,6 +146,11 @@ export const AudioSongPlayer: React.FC<AudioSongPlayerProps> = ({
             <p className="text-xs text-secondary truncate mt-0.5">
               {song.artist || 'Unknown Artist'} {song.album ? `• ${song.album}` : ''}
             </p>
+            {song.favoriteExcerpt && (
+              <p className="text-[11px] font-serif italic text-accent truncate mt-1">
+                &ldquo;{song.favoriteExcerpt}&rdquo;
+              </p>
+            )}
             {isPlaying && (
               <span className="inline-flex items-center gap-1 text-[10px] text-accent font-semibold uppercase tracking-wider mt-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-accent animate-ping" />

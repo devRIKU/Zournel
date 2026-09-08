@@ -35,6 +35,53 @@ const AMBIENT_PRESETS: Partial<AttachedSong>[] = [
   { title: 'Midnight City', artist: 'M83', album: 'Hurry Up, We\'re Dreaming' },
 ];
 
+const YOUTUBE_MUSIC_LIBRARY: AttachedSong[] = [
+  {
+    id: 'yt-1',
+    title: 'Lofi Hip Hop Radio - Beats to Study/Relax to',
+    artist: 'Lofi Girl',
+    album: 'Live Stream Station',
+    coverArt: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=600&auto=format&fit=crop&q=80',
+    url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk',
+    previewUrl: 'https://actions.google.com/sounds/v1/ambiences/coffee_shop.ogg',
+  },
+  {
+    id: 'yt-2',
+    title: 'Weightless (Ambient Relaxation)',
+    artist: 'Marconi Union',
+    album: 'YouTube Music Session',
+    coverArt: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80',
+    url: 'https://www.youtube.com/watch?v=Ufc5Akliio0',
+    previewUrl: 'https://actions.google.com/sounds/v1/weather/rain_heavy.ogg',
+  },
+  {
+    id: 'yt-3',
+    title: 'Peaceful Piano & Soft Rain',
+    artist: 'Relaxing Music Channel',
+    album: 'Calm Sanctuary',
+    coverArt: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80',
+    url: 'https://www.youtube.com/watch?v=4Tr0otuiQuU',
+    previewUrl: 'https://actions.google.com/sounds/v1/weather/light_rain.ogg',
+  },
+  {
+    id: 'yt-4',
+    title: 'Synthwave Radio - Chill Synth / Retro Beats',
+    artist: 'Lofi Girl Synthwave',
+    album: 'Neon Horizon',
+    coverArt: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=600&auto=format&fit=crop&q=80',
+    url: 'https://www.youtube.com/watch?v=4xDzrJKXOOY',
+    previewUrl: 'https://actions.google.com/sounds/v1/science/computer_processing.ogg',
+  },
+  {
+    id: 'yt-5',
+    title: 'Deep Focus - Ambient Electronic Soundscape',
+    artist: 'Ambient Worlds',
+    album: 'Cinematic Soundscapes',
+    coverArt: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80',
+    url: 'https://www.youtube.com/watch?v=77Z1UcdssT8',
+  }
+];
+
 export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
   isOpen,
   onClose,
@@ -43,6 +90,7 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
   initialSong,
 }) => {
   const [activeTab, setActiveTab] = useState<'search' | 'lyrics' | 'manual'>('search');
+  const [searchProvider, setSearchProvider] = useState<'itunes' | 'ytmusic'>('itunes');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SongApiResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -56,7 +104,9 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
   const [previewUrl, setPreviewUrl] = useState(initialSong?.previewUrl || '');
   const [url, setUrl] = useState(initialSong?.url || '');
   const [lyrics, setLyrics] = useState(initialSong?.lyrics || '');
+  const [favoriteExcerpt, setFavoriteExcerpt] = useState<string>(initialSong?.favoriteExcerpt || '');
   const [isFetchingLyrics, setIsFetchingLyrics] = useState(false);
+  const [selectedLyricLine, setSelectedLyricLine] = useState<string | null>(null);
 
   // Audio preview state
   const [playingPreviewUrl, setPlayingPreviewUrl] = useState<string | null>(null);
@@ -89,6 +139,7 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
       setPreviewUrl(initialSong?.previewUrl || '');
       setUrl(initialSong?.url || '');
       setLyrics(initialSong?.lyrics || '');
+      setFavoriteExcerpt(initialSong?.favoriteExcerpt || '');
       setSearchQuery(initialSong?.title ? `${initialSong.title} ${initialSong.artist || ''}`.trim() : '');
       setSearchResults([]);
       setSearchError(null);
@@ -106,7 +157,19 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
 
   const performSearch = async (term: string) => {
     if (!term.trim()) {
-      setSearchResults([]);
+      if (searchProvider === 'ytmusic') {
+        setSearchResults(YOUTUBE_MUSIC_LIBRARY.map(f => ({
+          id: f.id,
+          title: f.title,
+          artist: f.artist,
+          album: f.album,
+          coverArt: f.coverArt,
+          previewUrl: f.previewUrl,
+          url: f.url
+        })));
+      } else {
+        setSearchResults([]);
+      }
       setIsSearching(false);
       return;
     }
@@ -114,10 +177,29 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
     setIsSearching(true);
     setSearchError(null);
     try {
-      const results = await searchSongsOnline(term);
-      setSearchResults(results);
-      if (results.length === 0) {
-        setSearchError('No matching songs found. You can enter details manually.');
+      if (searchProvider === 'ytmusic') {
+        const q = term.toLowerCase();
+        const filtered = YOUTUBE_MUSIC_LIBRARY.filter(t => 
+          t.title.toLowerCase().includes(q) || t.artist.toLowerCase().includes(q) || t.album.toLowerCase().includes(q)
+        );
+        setSearchResults(filtered.map(f => ({
+          id: f.id,
+          title: f.title,
+          artist: f.artist,
+          album: f.album,
+          coverArt: f.coverArt,
+          previewUrl: f.previewUrl,
+          url: f.url
+        })));
+        if (filtered.length === 0) {
+          setSearchError('No matching YouTube Music tracks found.');
+        }
+      } else {
+        const results = await searchSongsOnline(term);
+        setSearchResults(results);
+        if (results.length === 0) {
+          setSearchError('No matching songs found. You can enter details manually.');
+        }
       }
     } catch (err) {
       setSearchError('Could not fetch songs. Please check connection or use manual entry.');
@@ -190,6 +272,7 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
       previewUrl: previewUrl.trim() || undefined,
       url: url.trim() || undefined,
       lyrics: lyrics.trim() || undefined,
+      favoriteExcerpt: favoriteExcerpt.trim() || undefined,
     });
     onClose();
   };
@@ -198,7 +281,7 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { stopAudioPreview(); onClose(); } }}>
       <DialogContent 
         onClose={() => { stopAudioPreview(); onClose(); }} 
-        className="w-[94vw] max-w-lg max-h-[92vh] flex flex-col p-4 sm:p-6 overflow-hidden rounded-2xl sm:rounded-3xl border border-surface-highlight bg-surface text-left"
+        className="w-[96vw] max-w-lg max-h-[85vh] sm:max-h-[82vh] flex flex-col p-3 sm:p-5 overflow-hidden rounded-2xl sm:rounded-3xl border border-surface-highlight bg-surface text-left shadow-2xl"
         dir="ltr"
       >
         <DialogHeader className="shrink-0 pb-3 border-b border-surface-highlight/50 text-left">
@@ -304,6 +387,40 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
 
           {/* TAB 1: LIVE SEARCH */}
           <TabsContent value="search" className="flex-1 flex flex-col min-h-0 space-y-2.5 overflow-hidden">
+            {/* Library Provider Switcher */}
+            <div className="flex items-center gap-2 shrink-0 pb-0.5">
+              <span className="text-[10px] text-secondary uppercase font-bold tracking-wider">Provider:</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchProvider('itunes');
+                  performSearch(searchQuery);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition ${
+                  searchProvider === 'itunes'
+                    ? 'bg-accent text-accent-fg shadow-xs'
+                    : 'bg-surface-highlight/60 text-secondary hover:text-primary'
+                }`}
+              >
+                Global Catalog
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchProvider('ytmusic');
+                  performSearch(searchQuery);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1 ${
+                  searchProvider === 'ytmusic'
+                    ? 'bg-red-500 text-white shadow-xs'
+                    : 'bg-surface-highlight/60 text-secondary hover:text-primary'
+                }`}
+              >
+                <Music className="w-3 h-3 text-red-500" />
+                <span>YouTube Music Extended</span>
+              </button>
+            </div>
+
             {/* Search Input Bar */}
             <div className="relative shrink-0">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary" />
@@ -457,11 +574,11 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
           </TabsContent>
 
           {/* TAB 2: LYRICS */}
-          <TabsContent value="lyrics" className="flex-1 flex flex-col min-h-0 space-y-3 overflow-hidden">
+          <TabsContent value="lyrics" className="flex-1 flex flex-col min-h-0 space-y-2.5 overflow-y-auto pr-1">
             <div className="flex items-center justify-between gap-2 shrink-0">
               <label className="text-xs font-bold text-primary flex items-center gap-1.5">
                 <FileText className="w-3.5 h-3.5 text-accent" />
-                <span>Memory Lyrics / Poetic Lines</span>
+                <span>Memory Lyrics &amp; Favorite Excerpt</span>
               </label>
 
               {title && (
@@ -488,13 +605,66 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
               dir="ltr"
               value={lyrics}
               onChange={(e) => setLyrics(e.target.value)}
-              placeholder="Paste or write lyrics, verses, or lines from this song that capture this memory..."
-              className="flex-1 min-h-[160px] sm:min-h-[180px] p-3 text-xs sm:text-sm font-serif leading-relaxed bg-surface/80 rounded-xl resize-none text-left"
+              placeholder="Paste or write lyrics, verses, or lines from this song..."
+              className="min-h-[100px] sm:min-h-[120px] p-2.5 text-xs sm:text-sm font-serif leading-relaxed bg-surface/80 rounded-xl resize-none text-left"
               autoComplete="off"
             />
-            <p className="text-[10px] text-secondary shrink-0">
-              Lyrics are saved directly to this journal memory and displayed with poetic formatting.
-            </p>
+
+            {/* Favorite Excerpt / Line Picker */}
+            <div className="space-y-1.5 shrink-0 pt-1">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-accent uppercase tracking-wider">
+                  Favorite Excerpt (Tap lines to highlight &amp; save)
+                </span>
+                {favoriteExcerpt && (
+                  <button
+                    type="button"
+                    onClick={() => setFavoriteExcerpt('')}
+                    className="text-[10px] font-mono text-secondary hover:text-primary underline"
+                  >
+                    Clear Excerpt
+                  </button>
+                )}
+              </div>
+
+              {lyrics.trim() ? (
+                <div className="max-h-28 overflow-y-auto space-y-1 p-2 bg-surface-highlight/30 rounded-xl border border-surface-highlight">
+                  {lyrics.split('\n').filter(l => l.trim().length > 0).map((line, idx) => {
+                    const isSelected = favoriteExcerpt === line.trim();
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          triggerHaptic(6);
+                          setFavoriteExcerpt(isSelected ? '' : line.trim());
+                        }}
+                        className={`px-2.5 py-1.5 rounded-lg text-xs font-serif cursor-pointer transition flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-accent text-accent-fg font-bold shadow-xs'
+                            : 'hover:bg-surface-highlight text-primary'
+                        }`}
+                      >
+                        <span className="truncate pr-2">{line}</span>
+                        <span className="text-[10px] font-mono opacity-70 shrink-0">
+                          {isSelected ? '★ Favorite' : `Line ${idx + 1}`}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="p-2 text-center text-xs text-secondary bg-surface-highlight/20 rounded-xl border border-dashed border-surface-highlight">
+                  Add or fetch lyrics above to select a favorite excerpt.
+                </div>
+              )}
+
+              {favoriteExcerpt && (
+                <div className="p-2 bg-accent/10 border border-accent/30 rounded-xl text-xs font-serif italic text-primary">
+                  <span className="font-sans text-[10px] font-bold not-italic text-accent block uppercase tracking-wider mb-0.5">Saved Favorite Excerpt:</span>
+                  &ldquo;{favoriteExcerpt}&rdquo;
+                </div>
+              )}
+            </div>
           </TabsContent>
 
           {/* TAB 3: MANUAL EDITING */}

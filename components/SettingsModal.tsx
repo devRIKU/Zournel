@@ -197,87 +197,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 </div>
               </section>
 
-              <section>
-                <div className="flex items-center justify-between mb-4">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between mb-2">
                   <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
-                    <Type className="w-4 h-4" /> Headings & UI Font
+                    <Type className="w-4 h-4" /> Typography &amp; Fonts
                   </h3>
                   <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent font-semibold">
-                    Display Styles
+                    Compact Controls
                   </span>
                 </div>
-                <p className="text-[11px] text-secondary/70 mb-4 leading-relaxed">
-                  Customize the typography for titles, headings, subheadings, and key UI headers.
+                <p className="text-[11px] text-secondary/70 leading-relaxed mb-4">
+                  Select clean typography preferences using compact dropdown inputs.
                 </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 mb-8">
-                  {[
-                    { id: 'syncopate', name: 'Syncopate', desc: 'Wide Display', previewStyle: { fontFamily: "'Syncopate', sans-serif", textTransform: 'uppercase' as const, letterSpacing: '-0.02em' } },
-                    { id: 'syne', name: 'Syne', desc: 'Avant-Garde', previewStyle: { fontFamily: "'Syne', sans-serif", fontWeight: 700 } },
-                    { id: 'outfit', name: 'Outfit', desc: 'Modern Display', previewStyle: { fontFamily: "'Outfit', sans-serif" } },
-                    { id: 'playfair', name: 'Playfair', desc: 'Editorial Serif', previewStyle: { fontFamily: "'Playfair Display', serif" } },
-                    { id: 'space-grotesk', name: 'Space Grotesk', desc: 'Tech Display', previewStyle: { fontFamily: "'Space Grotesk', sans-serif" } },
-                    { id: 'cormorant', name: 'Cormorant', desc: 'Graceful Serif', previewStyle: { fontFamily: "'Cormorant Garamond', serif" } },
-                    { id: 'cinzel', name: 'Cinzel', desc: 'Cinematic Display', previewStyle: { fontFamily: "'Cinzel', serif" } },
-                  ].map((hf) => {
-                    const isSelected = (settings.headingFontFamily || 'outfit') === hf.id;
-                    return (
-                      <button
-                        key={hf.id}
-                        onClick={() => handleUpdate({ ...settings, headingFontFamily: hf.id })}
-                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition duration-200 active:scale-[0.96] ${
-                          isSelected 
-                            ? 'border-accent bg-accent/10 text-primary shadow-xs' 
-                            : 'border-surface-highlight/70 bg-surface hover:bg-surface-highlight/50 text-secondary'
-                        }`}
-                      >
-                        <span className="text-sm font-bold text-primary truncate" style={hf.previewStyle}>
-                          {hf.name}
-                        </span>
-                        <span className="text-[10px] text-secondary/70 font-mono mt-0.5">
-                          {hf.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
 
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
-                    <Type className="w-4 h-4" /> Body & Editor Font
-                  </h3>
-                </div>
-                <p className="text-[11px] text-secondary/70 mb-4 leading-relaxed">
-                  Choose your preferred font for reading and writing journal entries and task text.
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[
-                    { id: 'inter', name: 'Inter', desc: 'Modern Sans', previewStyle: { fontFamily: "'Inter', sans-serif" } },
-                    { id: 'plus-jakarta', name: 'Plus Jakarta', desc: 'Geometric Sans', previewStyle: { fontFamily: "'Plus Jakarta Sans', sans-serif" } },
-                    { id: 'lora', name: 'Lora', desc: 'Warm Serif', previewStyle: { fontFamily: "'Lora', serif" } },
-                    { id: 'merriweather', name: 'Merriweather', desc: 'Book Serif', previewStyle: { fontFamily: "'Merriweather', serif" } },
-                    { id: 'space-grotesk', name: 'Space Grotesk', desc: 'Tech Minimalist', previewStyle: { fontFamily: "'Space Grotesk', sans-serif" } },
-                    { id: 'jetbrains-mono', name: 'JetBrains Mono', desc: 'Code Monospace', previewStyle: { fontFamily: "'JetBrains Mono', monospace" } },
-                  ].map((f) => {
-                    const isSelected = (settings.fontFamily || 'inter') === f.id;
-                    return (
-                      <button
-                        key={f.id}
-                        onClick={() => handleUpdate({ ...settings, fontFamily: f.id })}
-                        className={`flex flex-col text-left p-3.5 rounded-2xl border-2 transition duration-200 active:scale-[0.96] ${
-                          isSelected 
-                            ? 'border-accent bg-accent/10 text-primary shadow-xs' 
-                            : 'border-surface-highlight/70 bg-surface hover:bg-surface-highlight/50 text-secondary'
-                        }`}
-                      >
-                        <span className="text-sm font-bold text-primary truncate" style={f.previewStyle}>
-                          Aa {f.name}
-                        </span>
-                        <span className="text-[10px] text-secondary/70 font-mono mt-0.5">
-                          {f.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Heading Font Dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-primary">Headings &amp; UI Font</label>
+                    <select
+                      value={settings.headingFontFamily || 'outfit'}
+                      onChange={(e) => handleUpdate({ ...settings, headingFontFamily: e.target.value })}
+                      className="w-full h-11 px-3.5 rounded-2xl bg-surface border border-surface-highlight text-xs sm:text-sm font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-accent/40 transition cursor-pointer"
+                    >
+                      {[
+                        { id: 'syncopate', name: 'Syncopate (Wide Display)' },
+                        { id: 'syne', name: 'Syne (Avant-Garde)' },
+                        { id: 'outfit', name: 'Outfit (Modern Display)' },
+                        { id: 'playfair', name: 'Playfair (Editorial Serif)' },
+                        { id: 'space-grotesk', name: 'Space Grotesk (Tech Display)' },
+                        { id: 'cormorant', name: 'Cormorant (Graceful Serif)' },
+                        { id: 'cinzel', name: 'Cinzel (Cinematic Display)' },
+                      ].map((hf) => (
+                        <option key={hf.id} value={hf.id} className="bg-surface text-primary py-1">
+                          {hf.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Body Font Dropdown */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-primary">Body &amp; Editor Font</label>
+                    <select
+                      value={settings.fontFamily || 'inter'}
+                      onChange={(e) => handleUpdate({ ...settings, fontFamily: e.target.value })}
+                      className="w-full h-11 px-3.5 rounded-2xl bg-surface border border-surface-highlight text-xs sm:text-sm font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-accent/40 transition cursor-pointer"
+                    >
+                      {[
+                        { id: 'inter', name: 'Inter (Modern Sans)' },
+                        { id: 'plus-jakarta', name: 'Plus Jakarta (Geometric Sans)' },
+                        { id: 'lora', name: 'Lora (Warm Serif)' },
+                        { id: 'merriweather', name: 'Merriweather (Book Serif)' },
+                        { id: 'space-grotesk', name: 'Space Grotesk (Tech Minimalist)' },
+                        { id: 'jetbrains-mono', name: 'JetBrains Mono (Monospace)' },
+                      ].map((f) => (
+                        <option key={f.id} value={f.id} className="bg-surface text-primary py-1">
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </section>
 

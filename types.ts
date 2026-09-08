@@ -61,6 +61,7 @@ export interface AttachedSong {
   coverArt?: string;
   previewUrl?: string;
   lyrics?: string;
+  favoriteExcerpt?: string;
 }
 
 export interface JournalEntry {
