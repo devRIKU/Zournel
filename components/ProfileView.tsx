@@ -407,7 +407,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               type="text" 
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-accent/50 transition-colors"
+              className="w-full bg-surface-lowest border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent/50 transition-colors"
               placeholder="What should we call you?"
             />
           </div>
@@ -427,7 +427,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               type="text" 
               value={thought}
               onChange={(e) => setThought(e.target.value)}
-              className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-accent/50 transition-colors"
+              className="w-full bg-surface-lowest border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent/50 transition-colors"
               placeholder="Post a short thought note above your avatar..."
               maxLength={60}
             />
@@ -453,7 +453,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <textarea 
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className="w-full bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary focus:outline-none focus:border-accent/50 transition-colors resize-none min-h-[90px]"
+              className="w-full bg-surface-lowest border border-surface-highlight rounded-2xl px-4 py-3 text-sm text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent/50 transition-colors resize-none min-h-[90px]"
               placeholder="A gentle narrative about who you are..."
             />
           </div>
@@ -462,14 +462,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div className="pt-2">
             <label className="block text-xs font-bold tracking-[0.15em] uppercase text-secondary mb-2">Public Username</label>
             <div className="flex flex-col sm:flex-row gap-2">
-              <span className="bg-bg text-secondary/70 px-4 py-3 rounded-2xl flex items-center justify-center border border-surface-highlight text-xs font-mono shrink-0">
+              <span className="bg-surface-lowest text-secondary/70 px-4 py-3 rounded-2xl flex items-center justify-center border border-surface-highlight text-xs font-mono shrink-0">
                 {window.location.host}/p/
               </span>
               <input 
                 type="text" 
                 value={username}
                 onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
-                className="flex-grow bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent/50 transition-colors text-center sm:text-left font-mono text-sm"
+                className="flex-grow bg-surface-lowest border border-surface-highlight rounded-2xl px-4 py-3 text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent/50 transition-colors text-center sm:text-left font-mono text-sm"
                 placeholder="username"
               />
             </div>
@@ -728,7 +728,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value.trim())}
                 placeholder="Paste your saved Device Key here"
-                className="flex-grow bg-bg border border-surface-highlight rounded-2xl px-4 py-3 text-primary focus:outline-none focus:border-accent transition-colors font-mono text-xs text-center sm:text-left"
+                className="flex-grow bg-surface-lowest border border-surface-highlight rounded-2xl px-4 py-3 text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent transition-colors font-mono text-xs text-center sm:text-left"
               />
               <button 
                 onClick={handleRestoreSession}

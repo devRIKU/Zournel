@@ -164,8 +164,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   isOpen, onClose, onSave, onDelete, initialContent = '', initialTitle = '', initialImage, initialId, initialMood, initialScribble, initialSong, initialLyrics, selectedModel 
 }) => {
   const [content, setContent] = useState(() => initialContent);
-  const [title, setTitle] = useState<string>(() => initialTitle || extractAutoTitle(initialContent || ''));
+  const [title, setTitle] = useState<string>(() => initialTitle || '');
   const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const userHasEditedTitleRef = useRef<boolean>(Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || '')));
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
   const [scribble, setScribble] = useState<string | undefined>(() => initialScribble);
@@ -350,6 +351,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
       setSaveStatus(null);
       setContent(initialContent || '');
+      setTitle(initialTitle || '');
+      userHasEditedTitleRef.current = Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || ''));
       setImage(initialImage || getRandomCover());
       setMood(initialMood);
       setScribble(initialScribble);
@@ -377,7 +380,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setBlockHandlePos(null);
       setShowBlockMenu(false);
     }
-  }, [isOpen, initialId, initialContent, initialImage, initialMood, initialScribble, initialSong]);
+  }, [isOpen, initialId, initialContent, initialTitle, initialImage, initialMood, initialScribble, initialSong]);
 
   const handleAutoGenerateTitle = async () => {
     if (!content || content.trim().length < 5) return;
@@ -393,6 +396,28 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setIsGeneratingTitle(false);
     }
   };
+
+  // Automatically trigger AI title generation while writing if user hasn't typed custom title
+  const autoTitleTimerRef = useRef<any>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    if (userHasEditedTitleRef.current) return;
+    if (isGeneratingTitle) return;
+    if (!content || content.trim().length < 20) return;
+
+    // If title already has an AI-crafted title or different custom title, skip
+    const isDefaultOrEmpty = !title || !title.trim() || title === extractAutoTitle(content);
+    if (!isDefaultOrEmpty) return;
+
+    if (autoTitleTimerRef.current) clearTimeout(autoTitleTimerRef.current);
+    autoTitleTimerRef.current = setTimeout(() => {
+      handleAutoGenerateTitle();
+    }, 2200);
+
+    return () => {
+      if (autoTitleTimerRef.current) clearTimeout(autoTitleTimerRef.current);
+    };
+  }, [content, isOpen, title, isGeneratingTitle, selectedModel]);
 
   // Debounced Auto-Save Effect
   useEffect(() => {
@@ -1844,6 +1869,54 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Document Title Header with AI Generation and Smooth Online Animation */}
+          <div className="mb-4 pb-3 border-b border-surface-highlight/50 flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-3">
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  userHasEditedTitleRef.current = true;
+                }}
+                placeholder="Title (AI auto-generates if left blank)..."
+                className="w-full text-xl sm:text-2xl md:text-3xl font-display font-bold text-primary placeholder:text-secondary/40 bg-transparent border-none outline-none tracking-tight focus:ring-0 p-0"
+              />
+              <div className="shrink-0 flex items-center gap-2">
+                <AnimatePresence mode="wait">
+                  {isGeneratingTitle ? (
+                    <motion.div
+                      key="generating-title-anim"
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.9 }}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-semibold shadow-xs"
+                    >
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                      </span>
+                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                      <span className="hidden sm:inline animate-pulse">AI crafting title...</span>
+                    </motion.div>
+                  ) : (
+                    <motion.button
+                      key="gen-btn"
+                      type="button"
+                      onClick={handleAutoGenerateTitle}
+                      disabled={isGeneratingTitle || !content.trim()}
+                      title="Generate / refresh title using AI"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-highlight/70 hover:bg-accent hover:text-accent-fg border border-surface-highlight text-secondary text-xs font-semibold transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-accent group-hover:text-accent-fg" />
+                      <span>{title ? 'AI Regenerate' : 'AI Title'}</span>
+                    </motion.button>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+          </div>
 
           <MilkdownProvider>
             <EditorInstance 

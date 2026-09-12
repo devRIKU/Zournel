@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink, Check, CheckSquare } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
+import { useJournalStore } from '../store/useJournalStore';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -130,6 +131,34 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const [isBulkSelecting, setIsBulkSelecting] = useState(false);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+
+  // Card inline title editing and AI generation state
+  const { generatingTitleIds = {}, generateAiTitleForEntry } = useJournalStore();
+  const [editingTitleCardId, setEditingTitleCardId] = useState<string | null>(null);
+  const [cardTitleInput, setCardTitleInput] = useState('');
+
+  const startEditingCardTitle = (id: string, currentTitle: string) => {
+    setEditingTitleCardId(id);
+    setCardTitleInput(currentTitle);
+  };
+
+  const cancelEditingCardTitle = () => {
+    setEditingTitleCardId(null);
+    setCardTitleInput('');
+  };
+
+  const saveEditingCardTitle = (id: string) => {
+    const finalTitle = cardTitleInput.trim();
+    if (finalTitle) {
+      if (onRenameEntry) {
+        onRenameEntry(id, finalTitle);
+      } else {
+        useJournalStore.getState().renameEntry(id, finalTitle);
+      }
+    }
+    setEditingTitleCardId(null);
+    setCardTitleInput('');
+  };
 
   const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
@@ -763,11 +792,112 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
                         <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
                           <div>
-                             {/* Auto Title */}
+                             {/* Auto Title with Edit Title button & Smooth AI Gen Online Animation */}
                              <div className="mb-3">
-                               <h3 className="text-xl sm:text-2xl font-display font-bold text-primary group-hover:text-accent transition-colors duration-300 leading-snug tracking-tight line-clamp-2">
-                                 {displayTitle}
-                               </h3>
+                               {/* Live AI Title Generation Pulsing Badge Animation */}
+                               <AnimatePresence>
+                                 {generatingTitleIds[entry.id] && (
+                                   <motion.div
+                                     initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                                     animate={{ opacity: 1, y: 0, scale: 1 }}
+                                     exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                                     className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-semibold shadow-xs mb-2"
+                                   >
+                                     <span className="relative flex h-2 w-2">
+                                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                                       <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
+                                     </span>
+                                     <Sparkles className="w-3.5 h-3.5 animate-spin text-accent" />
+                                     <span className="animate-pulse">AI crafting title...</span>
+                                   </motion.div>
+                                 )}
+                               </AnimatePresence>
+
+                               {editingTitleCardId === entry.id ? (
+                                 <div
+                                   className="p-2 sm:p-2.5 rounded-2xl bg-surface-highlight/50 border border-accent/40 shadow-inner flex flex-col gap-2"
+                                   onClick={(e) => e.stopPropagation()}
+                                 >
+                                   <input
+                                     type="text"
+                                     value={cardTitleInput}
+                                     onChange={(e) => setCardTitleInput(e.target.value)}
+                                     onKeyDown={(e) => {
+                                       if (e.key === 'Enter') {
+                                         e.preventDefault();
+                                         saveEditingCardTitle(entry.id);
+                                       } else if (e.key === 'Escape') {
+                                         e.preventDefault();
+                                         cancelEditingCardTitle();
+                                       }
+                                     }}
+                                     autoFocus
+                                     placeholder="Memory title..."
+                                     className="w-full text-base sm:text-lg font-display font-bold text-primary bg-surface px-3 py-1.5 rounded-xl border border-surface-highlight outline-none focus:ring-1 focus:ring-accent"
+                                   />
+                                   <div className="flex items-center justify-between gap-2">
+                                     <button
+                                       type="button"
+                                       disabled={generatingTitleIds[entry.id] || !entry.content?.trim()}
+                                       onClick={async (e) => {
+                                         e.stopPropagation();
+                                         const aiTitle = await generateAiTitleForEntry(entry.id, selectedModel);
+                                         if (aiTitle) {
+                                           setCardTitleInput(aiTitle);
+                                         }
+                                       }}
+                                       className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-accent/10 hover:bg-accent hover:text-accent-fg text-accent text-xs font-semibold border border-accent/25 transition disabled:opacity-40"
+                                     >
+                                       <Sparkles className={`w-3.5 h-3.5 ${generatingTitleIds[entry.id] ? 'animate-spin' : ''}`} />
+                                       <span>{generatingTitleIds[entry.id] ? 'Generating...' : 'AI Auto Title'}</span>
+                                     </button>
+
+                                     <div className="flex items-center gap-1.5">
+                                       <button
+                                         type="button"
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           cancelEditingCardTitle();
+                                         }}
+                                         className="p-1.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-primary transition"
+                                         title="Cancel (Esc)"
+                                       >
+                                         <X className="w-4 h-4" />
+                                       </button>
+                                       <button
+                                         type="button"
+                                         onClick={(e) => {
+                                           e.stopPropagation();
+                                           saveEditingCardTitle(entry.id);
+                                         }}
+                                         className="p-1.5 rounded-xl bg-accent text-accent-fg hover:opacity-90 shadow-xs transition"
+                                         title="Save Title (Enter)"
+                                       >
+                                         <Check className="w-4 h-4" />
+                                       </button>
+                                     </div>
+                                   </div>
+                                 </div>
+                               ) : (
+                                 <div className="flex items-start justify-between gap-2 group/title">
+                                   <h3 className="text-xl sm:text-2xl font-display font-bold text-primary group-hover:text-accent transition-colors duration-300 leading-snug tracking-tight line-clamp-2 flex-1">
+                                     {displayTitle}
+                                   </h3>
+                                   {!isBulkSelecting && (
+                                     <button
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         startEditingCardTitle(entry.id, displayTitle);
+                                       }}
+                                       title="Edit Title"
+                                       className="opacity-70 sm:opacity-0 group-hover:opacity-100 group-hover/title:opacity-100 focus:opacity-100 transition-all p-1.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-accent shrink-0 border border-transparent hover:border-surface-highlight"
+                                     >
+                                       <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                     </button>
+                                   )}
+                                 </div>
+                               )}
                              </div>
 
                              {/* Content Excerpt */}

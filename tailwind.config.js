@@ -8,6 +8,7 @@ export default {
         sans: ['"Inter"', '"Outfit"', 'sans-serif'],
       },
       colors: {
+        bg: 'var(--color-bg)',
         surface: {
           lowest: 'var(--surface-lowest)',
           low: 'var(--surface-low)',
@@ -15,6 +16,12 @@ export default {
           high: 'var(--surface-high)',
           highest: 'var(--surface-highest)',
         },
+        'surface-highlight': 'var(--color-surface-highlight)',
+        primary: 'var(--color-primary)',
+        secondary: 'var(--color-secondary)',
+        accent: 'var(--color-accent)',
+        'accent-fg': 'var(--color-accent-fg)',
+        'accent-dim': 'var(--color-accent-dim)',
       },
       boxShadow: {
         // Multi-layered skeuomorphic card shadow with specular top rim

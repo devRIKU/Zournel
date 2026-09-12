@@ -459,7 +459,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
               placeholder={`Paste raw JSON array or markdown text here...\nExample:\n[\n  { "title": "First Memory", "content": "Hello world" }\n]`}
-              className="w-full p-3.5 bg-bg border border-surface-highlight rounded-2xl text-xs font-mono text-primary outline-none focus:border-accent placeholder:text-secondary/40"
+              className="w-full p-3.5 bg-surface-lowest border border-surface-highlight rounded-2xl text-xs font-mono text-primary outline-none focus:border-accent placeholder:text-secondary/40"
             />
             <button
               type="button"
@@ -484,7 +484,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   value={cloudKeyInput} 
                   onChange={(e) => setCloudKeyInput(e.target.value)}
                   placeholder="Paste Device Key or user ID..." 
-                  className="flex-grow px-4 py-3 bg-bg border border-surface-highlight rounded-2xl text-xs font-mono text-primary outline-none focus:border-accent"
+                  className="flex-grow px-4 py-3 bg-surface-lowest border border-surface-highlight rounded-2xl text-xs font-mono text-primary placeholder:text-secondary/50 outline-none focus:border-accent"
                 />
                 <button
                   type="button"

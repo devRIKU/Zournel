@@ -13,10 +13,9 @@ interface SettingsModalProps {
 }
 
 const MODELS = [
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash-Lite', badge: 'Default', desc: 'Default for Tasks, Subtasks & Extraction' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', badge: 'Fast', desc: 'Lightweight & instant response model' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash', badge: 'Recommended', desc: 'Default for Polishing, Summaries & Insights' },
-  { id: 'gemma-4-31b-it', label: 'Gemma 4 31B', badge: 'Open Model', desc: 'Open-weights reasoning model' },
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Recommended', desc: 'Fast, multimodal intelligence for auto titles & insights' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', badge: 'Fastest', desc: 'Ultra lightweight & instant response model' },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro', badge: 'Advanced', desc: 'Complex reflection and deep insight analysis' },
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
@@ -96,7 +95,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      value={settings.apiKey}
                      onChange={(e) => handleUpdate({ ...settings, apiKey: e.target.value })}
                      placeholder="Enter your API Key..."
-                     className="w-full bg-surface p-4 rounded-xl border-none outline-none text-primary font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
+                     className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
                    />
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
                      Your key is stored locally on this device. We use it to communicate directly with Google's Gemini API for task analysis and journaling insights.
@@ -261,26 +260,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </section>
 
               <section>
-                 <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
-                  <Cpu className="w-4 h-4" /> AI Model
-                </h3>
-                <div className="space-y-3">
-                   {MODELS.map((m) => (
-                     <button 
-                      key={m.id}
-                      onClick={() => handleUpdate({ ...settings, model: m.id })}
-                      className={`w-full flex items-center justify-between p-5 rounded-[1.5rem] transition border-2 active:scale-[0.97] ${settings.model === m.id ? 'border-accent bg-accent/5' : 'border-surface-highlight bg-surface'}`}
-                     >
-                       <div className="text-left">
-                         <div className="flex items-center gap-3 mb-1">
-                            <p className={`text-lg font-bold ${settings.model === m.id ? 'text-accent' : 'text-primary'}`}>{m.label}</p>
-                            <span className="text-[9px] px-2 py-0.5 rounded-full bg-surface-highlight text-secondary border border-surface-highlight">{m.badge}</span>
-                         </div>
-                         <p className="text-xs text-secondary opacity-70">{m.desc}</p>
-                       </div>
-                       {settings.model === m.id && <div className="w-3 h-3 rounded-full bg-accent animate-pulse"></div>}
-                     </button>
-                   ))}
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
+                    <Cpu className="w-4 h-4" /> AI Model Engine
+                  </h3>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-surface-highlight text-accent">
+                    {MODELS.find(m => m.id === (settings.model || 'gemini-3.8-flash'))?.badge || 'Active'}
+                  </span>
+                </div>
+                <div className="space-y-2 bg-surface-highlight/30 p-4 rounded-[1.8rem] border border-surface-highlight/50">
+                  <label className="block text-xs font-bold text-primary">Active Gemini Intelligence</label>
+                  <select
+                    value={settings.model || 'gemini-3.8-flash'}
+                    onChange={(e) => handleUpdate({ ...settings, model: e.target.value })}
+                    className="w-full h-11 px-3.5 rounded-2xl bg-surface border border-surface-highlight text-xs sm:text-sm font-semibold text-primary focus:outline-none focus:ring-2 focus:ring-accent/40 transition cursor-pointer"
+                  >
+                    {MODELS.map((m) => (
+                      <option key={m.id} value={m.id} className="bg-surface text-primary py-1">
+                        {m.label} — {m.badge} ({m.desc})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-secondary/70 leading-relaxed pt-1 px-1">
+                    {MODELS.find(m => m.id === (settings.model || 'gemini-3.8-flash'))?.desc || 'Powers auto titles, memory polish, insights and chat.'}
+                  </p>
                 </div>
               </section>
 

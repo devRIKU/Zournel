@@ -6,6 +6,9 @@ interface JournalState {
   entries: JournalEntry[];
   editingEntry: JournalEntry | null;
   isEditorOpen: boolean;
+  generatingTitleIds: Record<string, boolean>;
+  setGeneratingTitleId: (id: string, isGenerating: boolean) => void;
+  generateAiTitleForEntry: (id: string, model?: string) => Promise<string | null>;
   setEditingEntry: (entry: JournalEntry | null) => void;
   setIsEditorOpen: (open: boolean) => void;
   setEntries: (entries: JournalEntry[] | ((prev: JournalEntry[]) => JournalEntry[])) => void;
@@ -44,6 +47,34 @@ export const useJournalStore = create<JournalState>((set, get) => ({
   entries: getInitialEntries(),
   editingEntry: null,
   isEditorOpen: false,
+  generatingTitleIds: {},
+
+  setGeneratingTitleId: (id, isGenerating) => {
+    set((state) => ({
+      generatingTitleIds: {
+        ...state.generatingTitleIds,
+        [id]: isGenerating,
+      },
+    }));
+  },
+
+  generateAiTitleForEntry: async (id, model = 'gemini-3.8-flash') => {
+    const entry = get().entries.find((e) => e.id === id);
+    if (!entry || !entry.content?.trim()) return null;
+    get().setGeneratingTitleId(id, true);
+    try {
+      const aiTitle = await generateAutoTitle(entry.content, model);
+      if (aiTitle) {
+        get().renameEntry(id, aiTitle);
+        return aiTitle;
+      }
+    } catch (err) {
+      console.warn('Failed AI title generation for entry', id, err);
+    } finally {
+      get().setGeneratingTitleId(id, false);
+    }
+    return null;
+  },
 
   setEditingEntry: (entry) => set({ editingEntry: entry }),
   setIsEditorOpen: (open) => set({ isEditorOpen: open }),
@@ -60,7 +91,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     });
   },
 
-  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.5-flash-lite', scribble, song, lyrics, id) => {
+  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.8-flash', scribble, song, lyrics, id) => {
     const { editingEntry, entries, setEntries } = get();
     let entryId = id || editingEntry?.id;
     let isNew = false;
@@ -127,21 +158,31 @@ export const useJournalStore = create<JournalState>((set, get) => ({
 
     // Background Title & Insights generation
     const currentId = entryId!;
-    if (content.trim().length > 30) {
-      if (isNew || !title?.trim()) {
-        generateAutoTitle(content, model).then((aiTitle) => {
-          if (aiTitle) {
-            get().renameEntry(currentId, aiTitle);
-          }
-        });
+    if (content.trim().length >= 10) {
+      const existingEntry = entries.find((e) => e.id === currentId);
+      const isAutoTitleCandidate = isNew || !title?.trim() || title.trim() === extractAutoTitle(content) || (existingEntry && (!existingEntry.title || existingEntry.title === extractAutoTitle(existingEntry.content)));
+
+      if (isAutoTitleCandidate) {
+        get().setGeneratingTitleId(currentId, true);
+        generateAutoTitle(content, model)
+          .then((aiTitle) => {
+            if (aiTitle) {
+              get().renameEntry(currentId, aiTitle);
+            }
+          })
+          .catch((e) => console.warn('Auto title generation warning:', e))
+          .finally(() => {
+            get().setGeneratingTitleId(currentId, false);
+          });
       }
+
       generateJournalInsight(content, model).then((insight) => {
         if (insight) {
           get().setEntries((prev) =>
             prev.map((e) => (e.id === currentId ? { ...e, aiInsight: insight } : e))
           );
         }
-      });
+      }).catch((e) => console.warn('Insight generation warning:', e));
     }
 
     return currentId;
@@ -160,6 +201,10 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     get().setEntries((prev) =>
       prev.map((e) => (e.id === id ? { ...e, title: newTitle } : e))
     );
+    const currentEditing = get().editingEntry;
+    if (currentEditing && currentEditing.id === id) {
+      set({ editingEntry: { ...currentEditing, title: newTitle } });
+    }
   },
 
   updateEntry: (updatedEntry) => {

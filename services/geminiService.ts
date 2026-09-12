@@ -9,11 +9,12 @@ export type AiActionType = 'PROOFREAD' | 'REWRITE' | 'IMPROVE' | 'REPHRASE' | 'S
 
 const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
   if (!model) {
-    return 'gemini-3.6-flash';
+    return 'gemini-3.8-flash';
   }
   if (model === 'gemini-3.1-pro-preview') return 'gemini-3.1-pro-preview';
-  if (model === 'gemini-3.5-flash-lite') return 'gemini-3.5-flash-lite';
-  return 'gemini-3.6-flash';
+  if (model === 'gemini-3.5-flash-lite' || model === 'gemini-3.1-flash-lite') return 'gemini-3.1-flash-lite';
+  if (model === 'gemini-3.8-flash') return 'gemini-3.8-flash';
+  return 'gemini-3.8-flash';
 };
 
 const handleAiError = (error: any) => {
@@ -57,7 +58,7 @@ const getAiClient = (apiKeyOverride?: string) => {
 };
 
 const generateContentWithFallback = async (ai: GoogleGenAI, primaryModel: string, params: any) => {
-  const modelsToTry = [primaryModel, 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-pro-preview'];
+  const modelsToTry = [primaryModel, 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.1-pro-preview'];
   const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
   let lastError: any = null;
 
@@ -397,7 +398,7 @@ export const extractAutoTitle = (journalText: string): string => {
 
 export const generateAutoTitle = async (
   journalText: string, 
-  model: string = 'gemini-3.5-flash-lite', 
+  model: string = 'gemini-3.8-flash', 
   apiKeyOverride?: string
 ): Promise<string> => {
   try {
@@ -414,9 +415,8 @@ export const generateAutoTitle = async (
 
     const activeModel = routeModel(model, 'TODO');
 
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `You are an expert editor for a personal journal blog. Generate a short, catchy, poetic, or reflective title (between 3 and 6 words) that captures the core essence or main theme of this entry.
+    const response = await generateContentWithFallback(ai, activeModel, {
+      contents: `You are an expert editor for a personal journal. Craft a short, meaningful, poetic, or reflective title (between 2 and 6 words) that captures the core essence or main theme of this entry.
 Rules:
 - DO NOT use generic titles like "Journal Entry", "Daily Thoughts", or "My Reflection".
 - Return ONLY the title text. No quotes, no markdown, no leading labels.
@@ -425,7 +425,13 @@ Journal Entry:
 "${cleanText.slice(0, 1500)}"`,
     });
 
-    const titleText = response.text?.trim().replace(/^["']|["']$/g, '').replace(/[*_~`#]/g, '') || '';
+    const rawText = response.text?.trim() || '';
+    const titleText = rawText
+      .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
+      .replace(/^title:\s*/i, '')
+      .replace(/[*_~`#]/g, '')
+      .trim();
+
     if (titleText && titleText.length >= 2 && titleText.length <= 70) {
       return titleText;
     }

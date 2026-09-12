@@ -296,7 +296,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
           onKeyDown={handleKeyDown} 
           placeholder="What's on your list?" 
           title="Type a task and press Enter"
-          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl py-4 transition duration-200 placeholder:opacity-30 pr-14"
+          className="w-full bg-transparent border-b-2 border-surface-highlight focus:border-accent outline-none text-xl sm:text-2xl text-primary py-4 transition duration-200 placeholder:text-secondary/40 pr-14"
         />
         {inputText.trim().length > 0 && (
           <button

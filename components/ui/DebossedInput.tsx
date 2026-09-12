@@ -5,7 +5,7 @@ export const DebossedInput = React.forwardRef<HTMLInputElement, React.InputHTMLA
     return (
       <input
         ref={ref}
-        className={`w-full rounded-2xl bg-surface-lowest border border-neutral-300/40 dark:border-neutral-800 px-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-amber-500/40 shadow-debossed dark:shadow-debossed-dark ${className}`}
+        className={`w-full rounded-2xl bg-surface-lowest border border-surface-highlight px-4 py-3 text-sm text-primary placeholder:text-secondary/60 transition-all focus:outline-none focus:ring-2 focus:ring-accent/40 shadow-debossed dark:shadow-debossed-dark ${className}`}
         {...props}
       />
     );
