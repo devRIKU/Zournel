@@ -33,7 +33,8 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, detectMoodFromJournal, AiActionType, generateAutoTitle, extractAutoTitle } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle } from '../services/geminiService';
+import { useJournalStore } from '../store/useJournalStore';
 import { AiGlitterTypewriter, AiGlitterPill } from './AiGlitterTypewriter';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -53,7 +54,18 @@ const PRESET_MOODS = [
   { emoji: '😰', label: 'Anxious' },
   { emoji: '🤯', label: 'Stressed' },
   { emoji: '😢', label: 'Sad' },
-  { emoji: '😠', label: 'Tense' }
+  { emoji: '😠', label: 'Tense' },
+  { emoji: '🌟', label: 'Radiant' },
+  { emoji: '🌱', label: 'Growth' },
+  { emoji: '🍵', label: 'Serene' },
+  { emoji: '💖', label: 'Loved' },
+  { emoji: '🥰', label: 'Warm' },
+  { emoji: '🧘', label: 'Mindful' },
+  { emoji: '🚀', label: 'Driven' },
+  { emoji: '🎨', label: 'Creative' },
+  { emoji: '🌿', label: 'Grounded' },
+  { emoji: '🌙', label: 'Dreamy' },
+  { emoji: '🛋️', label: 'Relaxed' }
 ];
 
 interface JournalEditorProps {
@@ -165,7 +177,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 }) => {
   const [content, setContent] = useState(() => initialContent);
   const [title, setTitle] = useState<string>(() => initialTitle || '');
-  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
+  const initialContentRef = useRef<string>(initialContent || '');
+  const initialTitleRef = useRef<string>(initialTitle || '');
   const userHasEditedTitleRef = useRef<boolean>(Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || '')));
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
@@ -183,6 +196,39 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [showSongModal, setShowSongModal] = useState(false);
   const [showMoodMenu, setShowMoodMenu] = useState(false);
   const [customMoodInput, setCustomMoodInput] = useState('');
+  const [storedCustomMoods, setStoredCustomMoods] = useState<{ emoji: string; label: string }[]>(() => {
+    try {
+      const saved = localStorage.getItem('mf_custom_moods');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return [];
+  });
+  const [showManageMoods, setShowManageMoods] = useState(false);
+  const [newMoodEmoji, setNewMoodEmoji] = useState('✨');
+  const [newMoodLabel, setNewMoodLabel] = useState('');
+
+  const handleAddCustomMoodStore = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMoodLabel.trim()) return;
+    const emoji = newMoodEmoji.trim() || '✨';
+    const label = newMoodLabel.trim();
+    if (storedCustomMoods.some(m => m.label.toLowerCase() === label.toLowerCase())) return;
+    const updated = [...storedCustomMoods, { emoji, label }];
+    setStoredCustomMoods(updated);
+    try {
+      localStorage.setItem('mf_custom_moods', JSON.stringify(updated));
+    } catch (err) {}
+    setNewMoodLabel('');
+    setShowManageMoods(false);
+  };
+
+  const handleRemoveCustomMoodStore = (label: string) => {
+    const updated = storedCustomMoods.filter(m => m.label !== label);
+    setStoredCustomMoods(updated);
+    try {
+      localStorage.setItem('mf_custom_moods', JSON.stringify(updated));
+    } catch (err) {}
+  };
   const [isAutoDetectingMood, setIsAutoDetectingMood] = useState(false);
   const [autoMoodActive, setAutoMoodActive] = useState<boolean>(() => initialMood === '✨ Auto');
   const [imgLoading, setImgLoading] = useState(true);
@@ -352,6 +398,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setSaveStatus(null);
       setContent(initialContent || '');
       setTitle(initialTitle || '');
+      initialContentRef.current = initialContent || '';
+      initialTitleRef.current = initialTitle || '';
       userHasEditedTitleRef.current = Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || ''));
       setImage(initialImage || getRandomCover());
       setMood(initialMood);
@@ -381,43 +429,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setShowBlockMenu(false);
     }
   }, [isOpen, initialId, initialContent, initialTitle, initialImage, initialMood, initialScribble, initialSong]);
-
-  const handleAutoGenerateTitle = async () => {
-    if (!content || content.trim().length < 5) return;
-    setIsGeneratingTitle(true);
-    try {
-      const aiTitle = await generateAutoTitle(content, selectedModel);
-      if (aiTitle) {
-        setTitle(aiTitle);
-      }
-    } catch (e) {
-      console.error("Failed auto title generation", e);
-    } finally {
-      setIsGeneratingTitle(false);
-    }
-  };
-
-  // Automatically trigger AI title generation while writing if user hasn't typed custom title
-  const autoTitleTimerRef = useRef<any>(null);
-  useEffect(() => {
-    if (!isOpen) return;
-    if (userHasEditedTitleRef.current) return;
-    if (isGeneratingTitle) return;
-    if (!content || content.trim().length < 20) return;
-
-    // If title already has an AI-crafted title or different custom title, skip
-    const isDefaultOrEmpty = !title || !title.trim() || title === extractAutoTitle(content);
-    if (!isDefaultOrEmpty) return;
-
-    if (autoTitleTimerRef.current) clearTimeout(autoTitleTimerRef.current);
-    autoTitleTimerRef.current = setTimeout(() => {
-      handleAutoGenerateTitle();
-    }, 2200);
-
-    return () => {
-      if (autoTitleTimerRef.current) clearTimeout(autoTitleTimerRef.current);
-    };
-  }, [content, isOpen, title, isGeneratingTitle, selectedModel]);
 
   // Debounced Auto-Save Effect
   useEffect(() => {
@@ -770,25 +781,63 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     setShowMoodMenu(false);
   };
 
-  const handleSave = async () => {
+  const isMeaningfulContentChange = (prevText: string, currentText: string): boolean => {
+    const prev = prevText.trim();
+    const curr = currentText.trim();
+    if (prev === curr) return false;
+
+    const prevWords = prev ? prev.split(/\s+/).filter(Boolean).length : 0;
+    const currWords = curr ? curr.split(/\s+/).filter(Boolean).length : 0;
+
+    // Brand new entry: meaningful if at least 3 words and 12 characters
+    if (prevWords === 0) {
+      return currWords >= 3 && curr.length >= 12;
+    }
+
+    const wordDiff = Math.abs(currWords - prevWords);
+    const charDiff = Math.abs(curr.length - prev.length);
+
+    // Meaningful addition or removal: at least 4 words or 20 characters changed
+    return wordDiff >= 4 || charDiff >= 20;
+  };
+
+  const handleExitAndSave = async () => {
     if ('vibrate' in navigator && typeof navigator.vibrate === 'function') {
-      try { navigator.vibrate([20, 30, 20]); } catch (e) {}
+      try { navigator.vibrate(20); } catch (e) {}
     }
     let finalMood = mood;
     if (autoMoodActive || mood === '✨ Auto') {
       if (content && content.trim().length >= 5) {
         setIsAutoDetectingMood(true);
-        const autoRes = await detectMoodFromJournal(content, selectedModel);
-        if (autoRes?.fullMood) {
-          finalMood = autoRes.fullMood;
-          setMood(finalMood);
+        try {
+          const autoRes = await detectMoodFromJournal(content, selectedModel);
+          if (autoRes?.fullMood) {
+            finalMood = autoRes.fullMood;
+            setMood(finalMood);
+          }
+        } catch (e) {
+          console.warn('Auto mood detection skipped', e);
+        } finally {
+          setIsAutoDetectingMood(false);
         }
-        setIsAutoDetectingMood(false);
       }
     }
     const finalTitle = title.trim() || extractAutoTitle(content);
-    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics, currentIdRef.current);
+    const currentId = currentIdRef.current;
+    const meaningfulChange = isMeaningfulContentChange(initialContentRef.current, content);
+    const userEditedTitle = userHasEditedTitleRef.current;
+
+    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics, currentId);
     onClose();
+
+    // Only generate the title once a Journal is exited to the memories view,
+    // and only change the Title if meaningful content is added or removed,
+    // and the user didn't write a custom title.
+    if (meaningfulChange && !userEditedTitle && content.trim().length >= 10) {
+      setTimeout(() => {
+        useJournalStore.getState().generateAiTitleForEntry(currentId, selectedModel);
+      }, 50);
+    }
   };
 
   return (
@@ -838,7 +887,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         
         <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-center text-white z-10">
           <div className="flex items-center gap-3">
-            <button onClick={onClose} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition active:scale-[0.97]" title="Back">
+            <button onClick={handleExitAndSave} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition active:scale-[0.97]" title="Back">
               <ArrowLeft className="w-5 h-5 md:w-6 h-6" />
             </button>
             {/* Auto-Save Status Indicator */}
@@ -969,7 +1018,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       type="button"
                       onClick={() => {
                         setShowKebabDropdown(false);
-                        handleSave();
+                        handleExitAndSave();
                       }}
                       className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-accent/15 text-accent text-xs font-bold transition text-left"
                     >
@@ -1041,7 +1090,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             </div>
 
             {/* Direct Save Button */}
-            <Button onClick={handleSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-5 rounded-full font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg">
+            <Button onClick={handleExitAndSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-5 rounded-full font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg">
               <Save className="w-3.5 h-3.5 md:w-4 h-4" />
               <span>Save</span>
             </Button>
@@ -1405,16 +1454,75 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                     {(autoMoodActive || mood === '✨ Auto') && <Check className="w-4 h-4 text-accent" />}
                   </button>
 
-                  {/* Preset Moods Grid */}
+                  {/* Preset & Custom Moods Grid */}
                   <div>
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-secondary/60 mb-1.5 block">Preset Moods</span>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {PRESET_MOODS.map((item) => {
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-secondary/60">Preset & Stored Moods</span>
+                      <button 
+                        type="button"
+                        onClick={() => setShowManageMoods(!showManageMoods)}
+                        className="text-[9px] font-bold uppercase tracking-wider text-accent hover:underline flex items-center gap-1"
+                      >
+                        {showManageMoods ? 'Close Manager' : '+ Add Custom'}
+                      </button>
+                    </div>
+
+                    {/* Manage Custom Moods Minimal Sub-Menu */}
+                    {showManageMoods && (
+                      <form onSubmit={handleAddCustomMoodStore} className="p-2.5 mb-2 bg-surface-highlight/30 rounded-xl border border-surface-highlight/50 space-y-2">
+                        <span className="text-[9px] font-bold text-secondary uppercase tracking-wider block">Store New Mood</span>
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={newMoodEmoji}
+                            onChange={(e) => setNewMoodEmoji(e.target.value)}
+                            placeholder="🌟"
+                            className="w-12 bg-surface border border-surface-highlight/80 px-2 py-1 rounded-lg text-center text-xs text-primary"
+                            maxLength={4}
+                          />
+                          <input
+                            type="text"
+                            value={newMoodLabel}
+                            onChange={(e) => setNewMoodLabel(e.target.value)}
+                            placeholder="Mood name..."
+                            className="flex-1 bg-surface border border-surface-highlight/80 px-2.5 py-1 rounded-lg text-xs text-primary"
+                          />
+                          <button
+                            type="submit"
+                            disabled={!newMoodLabel.trim()}
+                            className="px-3 py-1 bg-accent text-accent-fg font-semibold rounded-lg text-xs hover:opacity-90 disabled:opacity-40"
+                          >
+                            Save
+                          </button>
+                        </div>
+                        {storedCustomMoods.length > 0 && (
+                          <div className="pt-2 border-t border-surface-highlight/40 flex flex-wrap gap-1">
+                            {storedCustomMoods.map(cm => (
+                              <span key={cm.label} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-surface border border-surface-highlight text-[10px] text-primary">
+                                <span>{cm.emoji} {cm.label}</span>
+                                <button 
+                                  type="button" 
+                                  onClick={() => handleRemoveCustomMoodStore(cm.label)}
+                                  className="text-red-500 font-bold hover:opacity-80 ml-0.5"
+                                  title="Delete custom mood"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </form>
+                    )}
+
+                    <div className="grid grid-cols-3 gap-1.5 max-h-48 overflow-y-auto no-scrollbar">
+                      {[...PRESET_MOODS, ...storedCustomMoods].map((item) => {
                         const itemString = `${item.emoji} ${item.label}`;
                         const isSelected = mood === itemString && !autoMoodActive;
                         return (
                           <button 
                             key={item.label}
+                            type="button"
                             onClick={() => {
                               setMood(itemString);
                               setAutoMoodActive(false);
@@ -1432,28 +1540,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                         );
                       })}
                     </div>
-                  </div>
-
-                  {/* Custom Mood Input Form */}
-                  <div className="pt-2 border-t border-surface-highlight/50">
-                    <span className="text-[9px] font-bold uppercase tracking-wider text-secondary/60 mb-1.5 block">Custom Mood</span>
-                    <form onSubmit={handleAddCustomMood} className="flex gap-1.5">
-                      <input
-                        type="text"
-                        placeholder="e.g. 🎨 Creative"
-                        value={customMoodInput}
-                        onChange={(e) => setCustomMoodInput(e.target.value)}
-                        className="flex-1 bg-surface-highlight/40 border border-surface-highlight px-2.5 py-1.5 rounded-xl text-xs text-primary focus:outline-none focus:border-accent"
-                      />
-                      <button 
-                        type="submit"
-                        disabled={!customMoodInput.trim()}
-                        className="p-2 bg-accent text-accent-fg rounded-xl hover:bg-accent/90 disabled:opacity-40 transition-colors"
-                        title="Add Custom Mood"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </form>
                   </div>
                 </motion.div>
               )}
@@ -1870,53 +1956,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             )}
           </AnimatePresence>
 
-          {/* Document Title Header with AI Generation and Smooth Online Animation */}
-          <div className="mb-4 pb-3 border-b border-surface-highlight/50 flex flex-col gap-1.5">
-            <div className="flex items-center justify-between gap-3">
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  userHasEditedTitleRef.current = true;
-                }}
-                placeholder="Title (AI auto-generates if left blank)..."
-                className="w-full text-xl sm:text-2xl md:text-3xl font-display font-bold text-primary placeholder:text-secondary/40 bg-transparent border-none outline-none tracking-tight focus:ring-0 p-0"
-              />
-              <div className="shrink-0 flex items-center gap-2">
-                <AnimatePresence mode="wait">
-                  {isGeneratingTitle ? (
-                    <motion.div
-                      key="generating-title-anim"
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-accent/15 border border-accent/30 text-accent text-xs font-semibold shadow-xs"
-                    >
-                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-accent"></span>
-                      </span>
-                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
-                      <span className="hidden sm:inline animate-pulse">AI crafting title...</span>
-                    </motion.div>
-                  ) : (
-                    <motion.button
-                      key="gen-btn"
-                      type="button"
-                      onClick={handleAutoGenerateTitle}
-                      disabled={isGeneratingTitle || !content.trim()}
-                      title="Generate / refresh title using AI"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-highlight/70 hover:bg-accent hover:text-accent-fg border border-surface-highlight text-secondary text-xs font-semibold transition active:scale-95 disabled:opacity-40 disabled:pointer-events-none shadow-xs"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-accent group-hover:text-accent-fg" />
-                      <span>{title ? 'AI Regenerate' : 'AI Title'}</span>
-                    </motion.button>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
+
 
           <MilkdownProvider>
             <EditorInstance 

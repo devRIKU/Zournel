@@ -289,6 +289,35 @@ export const generateCoverImage = async (context: string): Promise<string | null
   }
 };
 
+export const PRESET_MOODS_LIST = [
+  { emoji: '😊', label: 'Happy' },
+  { emoji: '😌', label: 'Calm' },
+  { emoji: '⚡', label: 'Energetic' },
+  { emoji: '🙏', label: 'Grateful' },
+  { emoji: '💡', label: 'Inspired' },
+  { emoji: '🎯', label: 'Focused' },
+  { emoji: '🏆', label: 'Proud' },
+  { emoji: '☕', label: 'Cozy' },
+  { emoji: '💭', label: 'Reflective' },
+  { emoji: '🌊', label: 'Nostalgic' },
+  { emoji: '😴', label: 'Tired' },
+  { emoji: '😰', label: 'Anxious' },
+  { emoji: '🤯', label: 'Stressed' },
+  { emoji: '😢', label: 'Sad' },
+  { emoji: '😠', label: 'Tense' },
+  { emoji: '🌟', label: 'Radiant' },
+  { emoji: '🌱', label: 'Growth' },
+  { emoji: '🍵', label: 'Serene' },
+  { emoji: '💖', label: 'Loved' },
+  { emoji: '🥰', label: 'Warm' },
+  { emoji: '🧘', label: 'Mindful' },
+  { emoji: '🚀', label: 'Driven' },
+  { emoji: '🎨', label: 'Creative' },
+  { emoji: '🌿', label: 'Grounded' },
+  { emoji: '🌙', label: 'Dreamy' },
+  { emoji: '🛋️', label: 'Relaxed' }
+];
+
 export const detectMoodFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite', apiKeyOverride?: string): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
   try {
     const ai = getAiClient(apiKeyOverride);
@@ -301,55 +330,57 @@ export const detectMoodFromJournal = async (journalText: string, model: string =
     const cleanText = journalText.replace(/[#*`_~[\]()]/g, '').trim();
     if (!cleanText || cleanText.length < 5) return null;
 
+    const allowedLabels = PRESET_MOODS_LIST.map(m => m.label);
+
     const responseSchema = {
       type: Type.OBJECT,
       properties: {
-        emoji: { type: Type.STRING, description: 'A single expressive emoji representing the emotional tone' },
-        label: { type: Type.STRING, description: 'A 1-2 word mood descriptor e.g. Happy, Peaceful, Inspired, Grateful, Anxious, Nostalgic' }
+        label: { 
+          type: Type.STRING, 
+          description: `You MUST select EXACTLY one mood label from this allowed list: ${allowedLabels.join(', ')}` 
+        }
       },
-      required: ['emoji', 'label']
+      required: ['label']
     };
 
     let response: any = null;
     try {
       response = await generateContentWithFallback(ai, activeModel, {
-        contents: `Analyze the emotional tone of this journal entry and choose the single best expressive emoji and a 1-2 word mood label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+        contents: `Analyze the emotional tone of this journal entry and choose the single best matching mood label from this exact allowed list: ${allowedLabels.join(', ')}. Return ONLY the label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
         config: {
           responseMimeType: "application/json",
           responseSchema: responseSchema,
         },
       });
     } catch (err) {
-      console.warn("Structured mood detection failed, trying plain text fallback...", err);
+      console.warn("Structured mood detection failed, trying fallback...", err);
       response = await generateContentWithFallback(ai, activeModel, {
-        contents: `Analyze the emotional tone of this journal entry and return ONLY a single emoji followed by a 1-2 word mood label, e.g. "😊 Happy" or "😌 Peaceful".\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+        contents: `Analyze the emotional tone of this journal entry and return EXACTLY one mood label from this list: ${allowedLabels.join(', ')}.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
       });
     }
 
     const text = response?.text;
     if (!text) return null;
 
+    let matchedLabel = 'Reflective';
+    let matchedEmoji = '💭';
+
     try {
       const parsed = JSON.parse(cleanJsonString(text));
-      if (parsed.emoji && parsed.label) {
-        return {
-          emoji: parsed.emoji,
-          label: parsed.label,
-          fullMood: `${parsed.emoji} ${parsed.label}`
-        };
+      if (parsed.label) {
+        matchedLabel = parsed.label.trim();
       }
     } catch (e) {
-      // Direct text parsing fallback if response wasn't JSON
-      const emojiMatch = text.match(/(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u);
-      const emoji = emojiMatch ? emojiMatch[0] : '✨';
-      const label = text.replace(/(\p{Extended_Pictographic}|\p{Emoji_Presentation})/u, '').replace(/[^a-zA-Z0-9\s-]/g, '').trim() || 'Reflective';
-      return {
-        emoji,
-        label,
-        fullMood: `${emoji} ${label}`
-      };
+      matchedLabel = text.replace(/[^a-zA-Z]/g, '').trim() || 'Reflective';
     }
-    return null;
+
+    // Find matching preset
+    const found = PRESET_MOODS_LIST.find(m => m.label.toLowerCase() === matchedLabel.toLowerCase()) || PRESET_MOODS_LIST[8]; // default Reflective
+    return {
+      emoji: found.emoji,
+      label: found.label,
+      fullMood: `${found.emoji} ${found.label}`
+    };
   } catch (error) {
     handleAiError(error);
     return null;

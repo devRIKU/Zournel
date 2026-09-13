@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink, Check, CheckSquare } from './Icons';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, ArrowUpRight, Table, Clock, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink, Check, CheckSquare } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { useJournalStore } from '../store/useJournalStore';
@@ -125,7 +125,21 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFullBreakdownModal, setShowFullBreakdownModal] = useState(false);
+  const [graphTimeRange, setGraphTimeRange] = useState<'30d' | '90d' | '180d' | 'all'>('90d');
+  const [graphViewMode, setGraphViewMode] = useState<'chart' | 'table'>('chart');
+  const [selectedGraphPoint, setSelectedGraphPoint] = useState<any | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!showFullBreakdownModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowFullBreakdownModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showFullBreakdownModal]);
 
   // Bulk selection state
   const [isBulkSelecting, setIsBulkSelecting] = useState(false);
@@ -161,8 +175,16 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   };
 
   const longPressTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const touchStartPosRef = React.useRef<{ x: number; y: number } | null>(null);
 
-  const handleCardPressStart = (entryId: string) => {
+  const handleCardPressStart = (entryId: string, e?: React.TouchEvent | React.MouseEvent) => {
+    if (e && 'touches' in e && e.touches[0]) {
+      touchStartPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+    }
+    // Extended to 900ms to require deliberate touch-and-hold and prevent accidental misclicks
     longPressTimerRef.current = setTimeout(() => {
       try {
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -171,13 +193,25 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
       } catch (e) {}
       setIsBulkSelecting(true);
       toggleSelectEntry(entryId);
-    }, 500);
+      longPressTimerRef.current = null;
+    }, 900);
   };
 
   const handleCardPressEnd = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
+    }
+    touchStartPosRef.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPosRef.current || !e.touches[0]) return;
+    const dx = Math.abs(e.touches[0].clientX - touchStartPosRef.current.x);
+    const dy = Math.abs(e.touches[0].clientY - touchStartPosRef.current.y);
+    // If the user drags/scrolls > 8px, cancel the hold timer immediately
+    if (dx > 8 || dy > 8) {
+      handleCardPressEnd();
     }
   };
 
@@ -319,6 +353,47 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
       trendData: threeMonthEntries.map(mapEntryToPoint),
       fullTrendData: moodEntries.map(mapEntryToPoint),
     };
+  }, [moodEntries]);
+
+  const modalTrendData = useMemo(() => {
+    if (graphTimeRange === 'all') return fullTrendData;
+    const now = Date.now();
+    const days = graphTimeRange === '30d' ? 30 : graphTimeRange === '90d' ? 90 : 180;
+    const cutoff = now - days * 24 * 60 * 60 * 1000;
+    return fullTrendData.filter(pt => (pt.rawEntry.createdAt || 0) >= cutoff);
+  }, [fullTrendData, graphTimeRange]);
+
+  useEffect(() => {
+    if (showFullBreakdownModal && modalTrendData.length > 0) {
+      setSelectedGraphPoint(prev => {
+        if (!prev) return modalTrendData[modalTrendData.length - 1];
+        const stillPresent = modalTrendData.find(p => p.rawEntry.id === prev.rawEntry.id);
+        return stillPresent || modalTrendData[modalTrendData.length - 1];
+      });
+    }
+  }, [showFullBreakdownModal, graphTimeRange, modalTrendData]);
+
+  const latestMoodEntry = useMemo(() => {
+    if (moodEntries.length === 0) return null;
+    return moodEntries[moodEntries.length - 1];
+  }, [moodEntries]);
+
+  const recentMoodEntries = useMemo(() => {
+    return [...moodEntries].slice(-6).reverse();
+  }, [moodEntries]);
+
+  const recentTrendInfo = useMemo(() => {
+    if (moodEntries.length < 2) return null;
+    const lastEntries = moodEntries.slice(-4);
+    const scores = lastEntries.map(e => getMoodData(e.mood)?.score || 3);
+    const diff = scores[scores.length - 1] - scores[0];
+    if (diff > 0.4) {
+      return { label: 'Trending Upward', direction: 'up', color: '#10B981', text: 'Recent reflections show an uplifting trend' };
+    }
+    if (diff < -0.4) {
+      return { label: 'Reflective Processing', direction: 'down', color: '#8B5CF6', text: 'Navigating deeper emotional moments' };
+    }
+    return { label: 'Steady & Grounded', direction: 'steady', color: '#06B6D4', text: 'Consistent emotional balance' };
   }, [moodEntries]);
 
   const distributionData = useMemo(() => {
@@ -667,10 +742,11 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     return (
                       <motion.div 
                         key={entry.id} 
-                        onMouseDown={() => handleCardPressStart(entry.id)}
+                        onMouseDown={(e) => handleCardPressStart(entry.id, e)}
                         onMouseUp={handleCardPressEnd}
                         onMouseLeave={handleCardPressEnd}
-                        onTouchStart={() => handleCardPressStart(entry.id)}
+                        onTouchStart={(e) => handleCardPressStart(entry.id, e)}
+                        onTouchMove={handleTouchMove}
                         onTouchEnd={handleCardPressEnd}
                         onClick={(e) => {
                           if (longPressTimerRef.current) {
@@ -986,6 +1062,116 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           </div>
         ) : (
           <div className="space-y-8 animate-fade-in">
+            {/* Recent Relevant Info (Mobile First & Highly Accessible) */}
+            {latestMoodEntry && (
+              <div className="p-5 sm:p-7 bg-surface border border-surface-highlight rounded-3xl sm:rounded-[2.5rem] shadow-sm relative overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-surface-highlight/50">
+                  <div className="flex items-center gap-2.5">
+                    <span className="p-2 rounded-xl bg-accent/10 text-accent">
+                      <Clock className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-display font-bold text-primary">Recent Emotional Pulse</h3>
+                      <p className="text-xs text-secondary">Your latest logged feelings and recent flow</p>
+                    </div>
+                  </div>
+                  {recentTrendInfo && (
+                    <div className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-accent/5 border border-accent/10 text-accent">
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      <span>{recentTrendInfo.label}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch">
+                  {/* Latest Check-in Highlight */}
+                  <div 
+                    onClick={() => onEdit(latestMoodEntry)}
+                    className="md:col-span-2 p-4 sm:p-5 rounded-2xl bg-surface-highlight/25 border border-surface-highlight/50 hover:border-accent/30 transition-all cursor-pointer group flex flex-col justify-between"
+                    title="Click to view or edit this memory"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-4xl select-none group-hover:scale-110 transition-transform">{getMoodData(latestMoodEntry.mood)?.emoji || '😌'}</span>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-base font-display font-bold text-primary">
+                                {getMoodData(latestMoodEntry.mood)?.label || 'Reflective'}
+                              </span>
+                              <span className="text-[10px] font-grotesk font-semibold text-secondary px-2 py-0.5 rounded-md bg-surface-highlight/50">
+                                Score: {getMoodData(latestMoodEntry.mood)?.score || 3}/5
+                              </span>
+                            </div>
+                            <span className="text-xs text-secondary">
+                              Latest Log • {latestMoodEntry.createdAt ? new Date(latestMoodEntry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent'}
+                            </span>
+                          </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); onEdit(latestMoodEntry); }}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg transition self-start shrink-0"
+                        >
+                          View Memory
+                        </button>
+                      </div>
+
+                      {latestMoodEntry.title && (
+                        <p className="text-xs font-semibold text-primary line-clamp-1 mt-1">
+                          {latestMoodEntry.title}
+                        </p>
+                      )}
+
+                      <p className="text-xs text-secondary line-clamp-2 mt-1 leading-relaxed italic">
+                        "{stripMarkdownAndTruncate(latestMoodEntry.content)}"
+                      </p>
+                    </div>
+
+                    {latestMoodEntry.aiInsight && (
+                      <div className="mt-3 pt-2 border-t border-surface-highlight/40 flex items-start gap-1.5 text-xs text-accent">
+                        <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        <span className="line-clamp-1 italic">{latestMoodEntry.aiInsight}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Check-ins Strip (Mobile-Optimized Touch Horizontal Scroll) */}
+                  <div className="flex flex-col justify-between p-4 sm:p-5 rounded-2xl bg-surface-highlight/15 border border-surface-highlight/30">
+                    <span className="text-[11px] font-grotesk font-bold uppercase tracking-wider text-secondary mb-2.5 flex items-center justify-between">
+                      <span>Recent History ({recentMoodEntries.length})</span>
+                      <span className="text-[10px] lowercase text-secondary/70">tap to open</span>
+                    </span>
+                    <div className="flex md:grid md:grid-cols-3 gap-2 overflow-x-auto no-scrollbar pb-1">
+                      {recentMoodEntries.map(entry => {
+                        const info = getMoodData(entry.mood);
+                        const dateStr = entry.createdAt 
+                          ? new Date(entry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+                          : 'Entry';
+                        return (
+                          <button
+                            key={entry.id}
+                            type="button"
+                            onClick={() => onEdit(entry)}
+                            className="flex-shrink-0 md:flex-shrink p-2.5 rounded-xl bg-surface-highlight/40 hover:bg-surface-highlight/80 border border-surface-highlight/50 hover:border-accent/40 transition text-left flex flex-col items-center justify-center min-w-[66px] min-h-[60px] active:scale-95"
+                            title={`Open entry from ${dateStr}: ${info?.label || 'Mood'}`}
+                          >
+                            <span className="text-2xl select-none leading-none mb-1">{info?.emoji || '😊'}</span>
+                            <span className="text-[10px] font-grotesk font-bold text-secondary truncate max-w-full">{dateStr}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {recentTrendInfo && (
+                      <p className="text-[11px] text-secondary/80 mt-2.5 pt-2 border-t border-surface-highlight/30 italic">
+                        {recentTrendInfo.text}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Bento Grid Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Average Mood Card */}
@@ -1053,40 +1239,43 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               </div>
             </div>
 
-            {/* Main Trend Line Chart (Last 3 Months View) */}
+            {/* Main Trend Line Chart (Last 3 Months View) - Note: Only clicking the Arrow button opens the full graph */}
             <div 
-              onClick={() => setShowFullBreakdownModal(true)}
-              className="p-8 bg-surface border border-surface-highlight rounded-[2.5rem] shadow-sm cursor-pointer transition-all hover:border-accent/40 hover:shadow-md group relative overflow-hidden"
-              title="Click to open full emotional breakdown through time"
+              className="p-5 sm:p-8 bg-surface border border-surface-highlight rounded-3xl sm:rounded-[2.5rem] shadow-sm relative overflow-hidden"
             >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-display font-bold text-primary">Emotional Journey Over Time</h3>
+                    <h3 className="text-lg sm:text-xl font-display font-bold text-primary">Emotional Journey Over Time</h3>
                     <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full">
                       Last 3 Months
                     </span>
                   </div>
-                  <p className="text-xs text-secondary mt-1">A visual flow mapping your emotional changes. Click to view full breakdown.</p>
+                  <p className="text-xs text-secondary mt-1">A visual flow mapping your emotional changes. Touch or hover to inspect data points.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-3 py-1.5 bg-accent/5 text-accent rounded-full border border-accent/10 select-none">
                     {trendData.length} data point{trendData.length !== 1 ? 's' : ''}
                   </span>
                   <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    type="button"
+                    onClick={() => {
+                      if (modalTrendData.length > 0) {
+                        setSelectedGraphPoint(modalTrendData[modalTrendData.length - 1]);
+                      }
                       setShowFullBreakdownModal(true);
                     }}
-                    className="p-2 rounded-xl bg-accent/10 text-accent hover:bg-accent/20 transition flex items-center gap-1.5 text-xs font-bold"
+                    aria-label="Open full emotional graph view"
+                    title="Open full interactive timeline graph"
+                    className="p-2.5 sm:px-3.5 sm:py-2 rounded-xl bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg border border-accent/20 transition flex items-center gap-1.5 text-xs font-bold active:scale-95 shadow-xs min-h-[44px] min-w-[44px] justify-center touch-manipulation"
                   >
-                    <span>Full Breakdown</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Full Graph</span>
+                    <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
                   </button>
                 </div>
               </div>
 
-              <div className="w-full h-80">
+              <div className="w-full h-72 sm:h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
                     data={trendData}
@@ -1106,6 +1295,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                       tickLine={false}
                       axisLine={false}
                       dy={10}
+                      interval="preserveStartEnd"
                     />
                     <YAxis 
                       stroke="var(--color-secondary)" 
@@ -1129,6 +1319,21 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     />
                   </AreaChart>
                 </ResponsiveContainer>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 mt-2 border-t border-surface-highlight/30 text-[11px] text-secondary">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-accent inline-block"></span>
+                  Touch or hover chart to inspect
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowFullBreakdownModal(true)}
+                  className="text-accent hover:underline flex items-center gap-1 font-semibold"
+                >
+                  <span>Expand to full graph</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
 
@@ -1236,111 +1441,309 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
         )}
       </AnimatePresence>
 
-      {/* Full Emotional Breakdown Modal / Full View */}
+      {/* Full Emotional Breakdown Modal / Full View - Mobile Optimized & Accessible */}
       <AnimatePresence>
         {showFullBreakdownModal && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-bg/90 backdrop-blur-md p-4 sm:p-6 md:p-8 flex items-center justify-center overflow-y-auto"
+            className="fixed inset-0 z-50 bg-surface sm:bg-bg/90 sm:backdrop-blur-md p-0 sm:p-4 md:p-6 flex items-center justify-center overflow-hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="full-graph-modal-title"
           >
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              initial={{ scale: 0.96, opacity: 0, y: 15 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="bg-surface border border-surface-highlight rounded-[2.5rem] shadow-2xl p-6 sm:p-10 w-full max-w-5xl my-auto flex flex-col max-h-[90vh] overflow-y-auto no-scrollbar relative"
+              exit={{ scale: 0.96, opacity: 0, y: 15 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              className="bg-surface border-0 sm:border sm:border-surface-highlight rounded-none sm:rounded-3xl shadow-2xl w-full max-w-5xl h-full sm:h-auto sm:max-h-[92vh] flex flex-col overflow-hidden relative"
             >
-              {/* Header */}
-              <div className="flex items-start justify-between gap-4 pb-6 border-b border-surface-highlight/50 mb-6">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <LineChart className="w-6 h-6 text-accent" />
-                    <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary">Full Emotional Breakdown Through Time</h2>
+              {/* Top Bar Header */}
+              <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-surface-highlight/60 bg-surface shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="p-2 rounded-xl bg-accent/10 text-accent shrink-0">
+                    <LineChart className="w-5 h-5" />
                   </div>
-                  <p className="text-xs sm:text-sm text-secondary">A complete historical timeline of every emotional state logged in your memories.</p>
+                  <div className="min-w-0">
+                    <h2 id="full-graph-modal-title" className="text-lg sm:text-xl font-display font-bold text-primary truncate">
+                      Full Emotional Journey
+                    </h2>
+                    <p className="text-xs text-secondary truncate">
+                      {modalTrendData.length} records • {graphTimeRange === 'all' ? 'All Time' : graphTimeRange === '30d' ? 'Last 30 Days' : graphTimeRange === '90d' ? 'Last 3 Months' : 'Last 6 Months'}
+                    </p>
+                  </div>
                 </div>
-                <button 
-                  onClick={() => setShowFullBreakdownModal(false)}
-                  className="p-2.5 rounded-full bg-surface-highlight/50 text-secondary hover:text-primary hover:bg-surface-highlight transition"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
 
-              {/* Stats Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
-                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">Total Points</span>
-                  <span className="text-2xl font-display font-bold text-primary">{fullTrendData.length}</span>
-                </div>
-                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
-                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">3-Month Points</span>
-                  <span className="text-2xl font-display font-bold text-primary">{trendData.length}</span>
-                </div>
-                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
-                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">First Log</span>
-                  <span className="text-sm font-semibold text-primary">{fullTrendData[0]?.fullDate || 'N/A'}</span>
-                </div>
-                <div className="p-4 bg-surface-highlight/20 border border-surface-highlight/30 rounded-2xl">
-                  <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider block mb-1">Latest Log</span>
-                  <span className="text-sm font-semibold text-primary">{fullTrendData[fullTrendData.length - 1]?.fullDate || 'N/A'}</span>
-                </div>
-              </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* View Mode Switcher (Chart vs Accessible Table) */}
+                  <div className="flex items-center p-1 bg-surface-highlight/30 rounded-xl border border-surface-highlight/40">
+                    <button
+                      type="button"
+                      onClick={() => setGraphViewMode('chart')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                        graphViewMode === 'chart' 
+                          ? 'bg-surface text-primary shadow-xs border border-surface-highlight/40' 
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                      aria-label="Switch to Graph View"
+                      title="Visual Chart View"
+                    >
+                      <LineChart className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Graph</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGraphViewMode('table')}
+                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
+                        graphViewMode === 'table' 
+                          ? 'bg-surface text-primary shadow-xs border border-surface-highlight/40' 
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                      aria-label="Switch to Accessible Table View"
+                      title="Accessible Table View"
+                    >
+                      <Table className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Table</span>
+                    </button>
+                  </div>
 
-              {/* Full Timeline Area Chart */}
-              <div className="w-full h-96 mb-8 p-4 bg-surface-highlight/10 rounded-2xl border border-surface-highlight/20">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={fullTrendData}
-                    margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
+                  {/* Close Modal Button */}
+                  <button 
+                    type="button"
+                    onClick={() => setShowFullBreakdownModal(false)}
+                    aria-label="Close full graph view"
+                    className="p-2 sm:p-2.5 rounded-full bg-surface-highlight/40 text-secondary hover:text-primary hover:bg-surface-highlight transition active:scale-95 min-w-[40px] min-h-[40px] flex items-center justify-center"
                   >
-                    <defs>
-                      <linearGradient id="colorMoodFull" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.35}/>
-                        <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.02}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-highlight)" opacity={0.6} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="var(--color-secondary)" 
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      dy={10}
-                    />
-                    <YAxis 
-                      stroke="var(--color-secondary)" 
-                      fontSize={14}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[0.5, 5.5]}
-                      ticks={[1, 2, 3, 4, 5]}
-                      tickFormatter={yAxisFormatter}
-                      dx={-5}
-                    />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="var(--color-accent)" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#colorMoodFull)" 
-                      activeDot={{ r: 8, strokeWidth: 0, fill: 'var(--color-accent)' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
-              {/* Footer action */}
-              <div className="flex justify-end pt-4 border-t border-surface-highlight/40">
+              {/* Range Filters & Quick Key Metrics Strip */}
+              <div className="p-3 sm:p-4 bg-surface-highlight/15 border-b border-surface-highlight/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+                {/* Time Range Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                  {(['30d', '90d', '180d', 'all'] as const).map(rangeKey => {
+                    const label = rangeKey === '30d' ? '30 Days' : rangeKey === '90d' ? '3 Months' : rangeKey === '180d' ? '6 Months' : 'All Time';
+                    const active = graphTimeRange === rangeKey;
+                    return (
+                      <button
+                        key={rangeKey}
+                        type="button"
+                        onClick={() => setGraphTimeRange(rangeKey)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition active:scale-95 ${
+                          active 
+                            ? 'bg-accent text-accent-fg shadow-xs font-bold' 
+                            : 'bg-surface border border-surface-highlight/60 text-secondary hover:text-primary hover:border-accent/30'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Range Metrics Summary */}
+                <div className="flex items-center gap-2 text-xs text-secondary shrink-0 overflow-x-auto no-scrollbar">
+                  <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40 font-grotesk font-semibold text-primary">
+                    {modalTrendData.length} point{modalTrendData.length !== 1 ? 's' : ''}
+                  </span>
+                  {modalTrendData.length > 0 && (
+                    <>
+                      <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40">
+                        First: <strong className="text-primary font-grotesk">{modalTrendData[0]?.date}</strong>
+                      </span>
+                      <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40">
+                        Latest: <strong className="text-primary font-grotesk">{modalTrendData[modalTrendData.length - 1]?.date}</strong>
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Body: Scrollable Canvas & Inspected Data */}
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+                {modalTrendData.length === 0 ? (
+                  <div className="py-16 text-center text-secondary">
+                    <p className="text-sm font-semibold text-primary">No data points in this timeframe</p>
+                    <p className="text-xs mt-1">Try selecting a broader timeframe like "All Time".</p>
+                  </div>
+                ) : graphViewMode === 'chart' ? (
+                  <>
+                    {/* Full Timeline Area Chart */}
+                    <div className="w-full h-64 sm:h-80 md:h-96 p-3 sm:p-4 bg-surface-highlight/10 rounded-2xl border border-surface-highlight/30 flex flex-col justify-between">
+                      <div className="flex items-center justify-between text-[11px] text-secondary px-1 pb-1">
+                        <span>Touch or click a point to inspect memory details below</span>
+                        <span className="font-grotesk font-semibold">Scale 1 (Low) - 5 (Joyful)</span>
+                      </div>
+                      <div className="w-full h-56 sm:h-72 md:h-84">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart
+                            data={modalTrendData}
+                            margin={{ top: 10, right: 12, left: -22, bottom: 0 }}
+                            onClick={(e) => {
+                              if (e && e.activePayload && e.activePayload[0]) {
+                                setSelectedGraphPoint(e.activePayload[0].payload);
+                              }
+                            }}
+                          >
+                            <defs>
+                              <linearGradient id="colorMoodFull" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.35}/>
+                                <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.02}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-highlight)" opacity={0.6} />
+                            <XAxis 
+                              dataKey="date" 
+                              stroke="var(--color-secondary)" 
+                              fontSize={11}
+                              tickLine={false}
+                              axisLine={false}
+                              dy={8}
+                              interval="preserveStartEnd"
+                            />
+                            <YAxis 
+                              stroke="var(--color-secondary)" 
+                              fontSize={13}
+                              tickLine={false}
+                              axisLine={false}
+                              domain={[0.5, 5.5]}
+                              ticks={[1, 2, 3, 4, 5]}
+                              tickFormatter={yAxisFormatter}
+                              dx={-4}
+                            />
+                            <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent)', strokeWidth: 1.5, strokeDasharray: '4 4' }} />
+                            <Area 
+                              type="monotone" 
+                              dataKey="score" 
+                              stroke="var(--color-accent)" 
+                              strokeWidth={3}
+                              fillOpacity={1} 
+                              fill="url(#colorMoodFull)" 
+                              activeDot={{ r: 7, strokeWidth: 0, fill: 'var(--color-accent)' }}
+                            />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Inspected Point Detail Card (Mobile First & Accessible) */}
+                    {selectedGraphPoint && (
+                      <div className="p-4 sm:p-5 rounded-2xl bg-surface border border-accent/30 shadow-sm transition-all animate-fade-in">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-surface-highlight/50">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl select-none">{selectedGraphPoint.emoji}</span>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <h4 className="text-base font-display font-bold text-primary">
+                                  {selectedGraphPoint.label} Mood
+                                </h4>
+                                <span className="text-[10px] font-grotesk font-semibold text-secondary px-2 py-0.5 rounded-md bg-surface-highlight/50">
+                                  Score: {selectedGraphPoint.score}/5
+                                </span>
+                              </div>
+                              <p className="text-xs text-secondary font-grotesk">
+                                {selectedGraphPoint.fullDate}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onEdit(selectedGraphPoint.rawEntry);
+                              setShowFullBreakdownModal(false);
+                            }}
+                            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-accent text-accent-fg font-semibold text-xs hover:opacity-90 transition active:scale-95 self-start sm:self-auto min-h-[40px]"
+                          >
+                            <span>Open this Memory</span>
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {selectedGraphPoint.rawEntry.title && (
+                          <p className="text-xs font-semibold text-primary mb-1">
+                            {selectedGraphPoint.rawEntry.title}
+                          </p>
+                        )}
+
+                        <p className="text-xs text-secondary leading-relaxed italic">
+                          "{stripMarkdownAndTruncate(selectedGraphPoint.rawEntry.content)}"
+                        </p>
+
+                        {selectedGraphPoint.rawEntry.aiInsight && (
+                          <div className="mt-2.5 pt-2 border-t border-surface-highlight/40 flex items-start gap-1.5 text-xs text-accent">
+                            <Sparkles className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                            <span className="italic">{selectedGraphPoint.rawEntry.aiInsight}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  /* Accessible Table View for Screen Readers and Tabular Inspection */
+                  <div className="overflow-x-auto rounded-2xl border border-surface-highlight/40 bg-surface">
+                    <table className="w-full text-left text-xs border-collapse" role="table" aria-label="Emotional logs table">
+                      <thead>
+                        <tr className="bg-surface-highlight/25 border-b border-surface-highlight/40 text-secondary font-grotesk uppercase tracking-wider text-[10px]">
+                          <th className="py-3 px-4">Date</th>
+                          <th className="py-3 px-3">Mood</th>
+                          <th className="py-3 px-3 text-center">Score</th>
+                          <th className="py-3 px-4">Preview</th>
+                          <th className="py-3 px-4 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-surface-highlight/30">
+                        {modalTrendData.slice().reverse().map(pt => (
+                          <tr key={pt.rawEntry.id} className="hover:bg-surface-highlight/15 transition">
+                            <td className="py-3 px-4 font-grotesk whitespace-nowrap text-secondary">
+                              {pt.date}
+                            </td>
+                            <td className="py-3 px-3 whitespace-nowrap font-medium text-primary">
+                              <span className="mr-1.5 text-base inline-block align-middle">{pt.emoji}</span>
+                              {pt.label}
+                            </td>
+                            <td className="py-3 px-3 text-center font-grotesk font-semibold text-secondary">
+                              {pt.score}/5
+                            </td>
+                            <td className="py-3 px-4 text-secondary max-w-xs truncate italic">
+                              {pt.rawEntry.title ? `${pt.rawEntry.title} — ` : ''}
+                              {pt.contentSnippet || 'No content preview'}
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onEdit(pt.rawEntry);
+                                  setShowFullBreakdownModal(false);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg text-xs font-semibold transition"
+                              >
+                                Open
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Sticky Footer */}
+              <div className="p-4 sm:p-5 border-t border-surface-highlight/60 bg-surface flex items-center justify-between gap-3 shrink-0">
+                <span className="text-xs text-secondary">
+                  Showing {modalTrendData.length} logged entries
+                </span>
                 <button 
+                  type="button"
                   onClick={() => setShowFullBreakdownModal(false)}
-                  className="px-6 py-2.5 rounded-full bg-accent text-accent-fg font-bold text-xs uppercase tracking-wider hover:opacity-90 transition"
+                  className="px-5 py-2 rounded-xl bg-surface-highlight/60 hover:bg-surface-highlight text-primary font-semibold text-xs transition active:scale-95 min-h-[40px]"
                 >
-                  Close View
+                  Close Graph
                 </button>
               </div>
             </motion.div>

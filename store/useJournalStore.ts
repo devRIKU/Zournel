@@ -31,11 +31,60 @@ interface JournalState {
   importEntries: (newEntries: JournalEntry[], replace?: boolean) => void;
 }
 
+const PRESET_LABELS = ['Happy', 'Calm', 'Energetic', 'Grateful', 'Inspired', 'Focused', 'Proud', 'Cozy', 'Reflective', 'Nostalgic', 'Tired', 'Anxious', 'Stressed', 'Sad', 'Tense'];
+
+const migrateCustomMoods = (entries: JournalEntry[]): JournalEntry[] => {
+  let hasChanges = false;
+  const migrated = entries.map(entry => {
+    if (!entry.mood) return entry;
+    const moodStr = entry.mood.trim();
+    if (moodStr === '✨ Auto') return entry;
+
+    // Check if it matches any preset label or preset string
+    const isPreset = PRESET_LABELS.some(label => moodStr.toLowerCase().includes(label.toLowerCase()));
+    if (isPreset) {
+      // Normalize if needed, or keep
+      return entry;
+    }
+
+    // Otherwise map cluttered custom mood to closest preset or '💭 Reflective'
+    hasChanges = true;
+    const lower = moodStr.toLowerCase();
+    let target = '💭 Reflective';
+    if (lower.includes('joy') || lower.includes('love') || lower.includes('great') || lower.includes('happy')) target = '😊 Happy';
+    else if (lower.includes('peace') || lower.includes('chill') || lower.includes('relax') || lower.includes('calm')) target = '😌 Calm';
+    else if (lower.includes('energy') || lower.includes('power') || lower.includes('fast') || lower.includes('energetic')) target = '⚡ Energetic';
+    else if (lower.includes('thank') || lower.includes('bless') || lower.includes('grateful')) target = '🙏 Grateful';
+    else if (lower.includes('idea') || lower.includes('creative') || lower.includes('art') || lower.includes('inspired')) target = '💡 Inspired';
+    else if (lower.includes('work') || lower.includes('code') || lower.includes('goal') || lower.includes('focused')) target = '🎯 Focused';
+    else if (lower.includes('win') || lower.includes('success') || lower.includes('proud')) target = '🏆 Proud';
+    else if (lower.includes('coffee') || lower.includes('warm') || lower.includes('cozy')) target = '☕ Cozy';
+    else if (lower.includes('old') || lower.includes('memory') || lower.includes('nostalgic')) target = '🌊 Nostalgic';
+    else if (lower.includes('sleep') || lower.includes('exhaust') || lower.includes('tired')) target = '😴 Tired';
+    else if (lower.includes('worry') || lower.includes('panic') || lower.includes('anxious')) target = '😰 Anxious';
+    else if (lower.includes('overwhelm') || lower.includes('stress')) target = '🤯 Stressed';
+    else if (lower.includes('cry') || lower.includes('grief') || lower.includes('sad')) target = '😢 Sad';
+    else if (lower.includes('angry') || lower.includes('mad') || lower.includes('tense')) target = '😠 Tense';
+
+    return { ...entry, mood: target };
+  });
+
+  if (hasChanges) {
+    try {
+      localStorage.setItem('mf_journal', JSON.stringify(migrated));
+    } catch (e) {}
+  }
+  return migrated;
+};
+
 const getInitialEntries = (): JournalEntry[] => {
   try {
     const saved = localStorage.getItem('mf_journal');
     if (saved) {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return migrateCustomMoods(parsed);
+      }
     }
   } catch (e) {
     console.error('Failed to parse saved journal entries', e);
@@ -156,26 +205,9 @@ export const useJournalStore = create<JournalState>((set, get) => ({
       }));
     }
 
-    // Background Title & Insights generation
+    // Background Insights generation on deliberate save
     const currentId = entryId!;
-    if (content.trim().length >= 10) {
-      const existingEntry = entries.find((e) => e.id === currentId);
-      const isAutoTitleCandidate = isNew || !title?.trim() || title.trim() === extractAutoTitle(content) || (existingEntry && (!existingEntry.title || existingEntry.title === extractAutoTitle(existingEntry.content)));
-
-      if (isAutoTitleCandidate) {
-        get().setGeneratingTitleId(currentId, true);
-        generateAutoTitle(content, model)
-          .then((aiTitle) => {
-            if (aiTitle) {
-              get().renameEntry(currentId, aiTitle);
-            }
-          })
-          .catch((e) => console.warn('Auto title generation warning:', e))
-          .finally(() => {
-            get().setGeneratingTitleId(currentId, false);
-          });
-      }
-
+    if (!isAutoSave && content.trim().length >= 25) {
       generateJournalInsight(content, model).then((insight) => {
         if (insight) {
           get().setEntries((prev) =>
