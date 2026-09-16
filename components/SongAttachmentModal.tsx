@@ -426,7 +426,6 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-secondary" />
               <Input
                 type="text"
-                dir="ltr"
                 value={searchQuery}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onKeyDown={(e) => {
@@ -436,7 +435,7 @@ export const SongAttachmentModal: React.FC<SongAttachmentModalProps> = ({
                   }
                 }}
                 placeholder="Search song, artist, album..."
-                className="pl-9 pr-20 h-10 text-xs sm:text-sm bg-surface/80 rounded-xl text-left"
+                className="pl-9 pr-20 h-10 text-xs sm:text-sm bg-surface text-primary border-surface-highlight rounded-xl text-left dark:bg-neutral-900 dark:text-white dark:border-neutral-800"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}

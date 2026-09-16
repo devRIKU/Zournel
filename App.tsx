@@ -382,9 +382,11 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative overflow-x-hidden">
-      <SpotlightGlow className="opacity-40" />
-      <header className="relative z-10 pt-4 sm:pt-8 px-4 sm:px-6 md:px-8 pb-3 sm:pb-4 flex justify-between items-center">
+    <div className="h-[100dvh] overflow-hidden flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
+      <SpotlightGlow className="opacity-40 pointer-events-none" />
+      
+      {/* Zone 1: Pinned Slim Top Bar */}
+      <header className="shrink-0 z-20 pt-3 sm:pt-4 px-4 sm:px-6 md:px-8 pb-3 flex justify-between items-center bg-surface-lowest/80 backdrop-blur-md border-b border-surface-high/30">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-xl sm:rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
             <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
@@ -423,8 +425,8 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Smooth Page Transitions */}
-      <main className="min-h-[80vh] bg-surface-lowest paper-texture pb-28 flex-grow w-full max-w-7xl mx-auto px-0">
+      {/* Zone 2: Flexible Scroll Container with kinetic momentum */}
+      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 pb-32">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -474,27 +476,30 @@ export const App: React.FC = () => {
       </main>
 
       {/* Floating Action Button */}
-      <div className={`fixed bottom-24 sm:bottom-28 right-5 sm:right-7 z-40 transition-all duration-300 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
+      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)] sm:bottom-24 right-4 sm:right-6 z-40 transition-transform duration-300 will-change-transform ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
         <button 
           onClick={handlePlusClick} 
           title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} 
-          className="w-14 h-14 sm:w-16 sm:h-16 bg-accent text-accent-fg rounded-full shadow-2xl shadow-accent/35 ring-4 ring-accent/25 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
+          className="w-12 h-12 sm:w-14 sm:h-14 bg-accent text-accent-fg rounded-full shadow-lg shadow-accent/25 ring-2 ring-accent/20 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
         >
-          <Plus className="w-7 h-7 sm:w-8 sm:h-8 stroke-[3]" />
+          <Plus className="w-6 h-6 stroke-[2.5]" />
         </button>
       </div>
 
+      {/* Zone 3: Anchored Bottom Dock / Navigation */}
       {!isEditorOpen && (
-        <ExpressiveDock 
-          currentTab={activeTab === Tab.TODO ? 'todos' : activeTab === Tab.JOURNAL ? 'journal' : 'profile'} 
-          onSelectTab={(tabId) => {
-            if (tabId === 'todos') setActiveTab(Tab.TODO);
-            else if (tabId === 'journal') setActiveTab(Tab.JOURNAL);
-            else if (tabId === 'profile') setActiveTab(Tab.PROFILE);
-          }}
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
-        />
+        <div className="shrink-0 z-30">
+          <ExpressiveDock 
+            currentTab={activeTab === Tab.TODO ? 'todos' : activeTab === Tab.JOURNAL ? 'journal' : 'profile'} 
+            onSelectTab={(tabId) => {
+              if (tabId === 'todos') setActiveTab(Tab.TODO);
+              else if (tabId === 'journal') setActiveTab(Tab.JOURNAL);
+              else if (tabId === 'profile') setActiveTab(Tab.PROFILE);
+            }}
+            activeTab={activeTab} 
+            onTabChange={setActiveTab} 
+          />
+        </div>
       )}
       
       <JournalEditor 

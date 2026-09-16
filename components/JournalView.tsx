@@ -776,14 +776,17 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                         whileHover={{ y: -8, scale: 1.015 }}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-                        className={`group relative flex flex-col text-left bg-surface rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_4px_24px_-4px_rgba(0,0,0,0.03)] hover:shadow-[0_30px_70px_-10px_rgba(0,0,0,0.15)] hover:border-accent/50 transition-all duration-500 overflow-hidden outline-none cursor-pointer ${
+                        className={`group relative flex flex-col text-left rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] hover:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.3)] hover:border-accent/60 transition-all duration-500 overflow-hidden outline-none cursor-pointer backdrop-blur-2xl bg-white/15 dark:bg-[#121212]/50 border-white/20 dark:border-white/10 ${
                           isHero ? 'md:col-span-2' : ''
                         } ${
                           isBulkSelecting && isSelected
-                            ? 'ring-2 ring-accent border-accent shadow-xl bg-accent/5'
-                            : 'border-surface-highlight/60'
+                            ? 'ring-2 ring-accent border-accent shadow-xl bg-accent/10'
+                            : 'border-white/20 dark:border-neutral-800'
                         }`}
                       >
+                        {/* Ambient Light Leak Effect */}
+                        <div className="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-accent/30 via-purple-500/20 to-transparent rounded-full blur-3xl pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity duration-700"></div>
+                        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-pink-500/25 via-indigo-500/15 to-transparent rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-80 transition-opacity duration-700"></div>
                         {isBulkSelecting && (
                           <div 
                             onClick={(e) => {
@@ -829,6 +832,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                               referrerPolicy="no-referrer"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
+                            {/* Subtle image vignette */}
+                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-transparent via-transparent to-black/60 pointer-events-none"></div>
                             
                             <div className="absolute top-5 left-5 right-14 flex items-center justify-between gap-2 z-10 flex-wrap">
                                <div className="flex items-center gap-2">
@@ -1013,9 +1018,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
                           <div>
                             {entry.aiInsight && (
-                              <div className="mb-4 p-3.5 sm:p-4 bg-accent/5 group-hover:bg-accent/10 rounded-2xl border border-accent/15 flex items-start gap-3 transition-colors duration-300">
-                                <Sparkles className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                                <p className="font-display text-xs sm:text-sm text-primary/85 leading-relaxed italic text-left">
+                              <div className="mb-3 p-2.5 sm:p-3 bg-accent/5 rounded-xl border border-accent/10">
+                                <p className="font-display text-[11px] sm:text-xs text-primary/80 italic text-left line-clamp-2 leading-relaxed">
                                   "{entry.aiInsight}"
                                 </p>
                               </div>

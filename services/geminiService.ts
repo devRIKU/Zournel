@@ -11,7 +11,7 @@ const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
   if (!model) {
     return 'gemini-3.8-flash';
   }
-  if (model === 'gemini-3.1-pro-preview') return 'gemini-3.1-pro-preview';
+  if (model === 'gemma-4-31b-it') return 'gemma-4-31b-it';
   if (model === 'gemini-3.5-flash-lite' || model === 'gemini-3.1-flash-lite') return 'gemini-3.1-flash-lite';
   if (model === 'gemini-3.8-flash') return 'gemini-3.8-flash';
   return 'gemini-3.8-flash';
@@ -58,7 +58,7 @@ const getAiClient = (apiKeyOverride?: string) => {
 };
 
 const generateContentWithFallback = async (ai: GoogleGenAI, primaryModel: string, params: any) => {
-  const modelsToTry = [primaryModel, 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-3.1-pro-preview'];
+  const modelsToTry = [primaryModel, 'gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemma-4-31b-it', 'gemini-3.5-flash-lite'];
   const uniqueModels = Array.from(new Set(modelsToTry.filter(Boolean)));
   let lastError: any = null;
 

@@ -111,6 +111,8 @@
 
       /* Base Theme Tokens */
       :root { 
+        --p-density: 1;
+        --space-unit: calc(0.25rem * var(--p-density, 1));
         --surface-lowest: var(--color-bg);
         --surface-low: var(--color-surface);
         --surface-default: var(--color-surface);
@@ -253,7 +255,28 @@
         background-attachment: fixed;
       }
 
-      html, body { height: 100%; min-height: 100vh; background-color: var(--color-bg); color: var(--color-primary); transition: background-color 0.8s cubic-bezier(0.2, 0, 0, 1), color 0.8s ease; scroll-behavior: smooth; }
+      html, body { 
+        height: 100%; 
+        min-height: 100dvh; 
+        background-color: var(--color-bg); 
+        color: var(--color-primary); 
+        transition: background-color 0.8s cubic-bezier(0.2, 0, 0, 1), color 0.8s ease; 
+        scroll-behavior: smooth;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        touch-action: manipulation;
+        overflow: hidden;
+      }
+
+      button, a, input, select, textarea, [role="button"] {
+        touch-action: manipulation;
+        transform: translateZ(0);
+      }
+
+      .overflow-y-auto, .overflow-auto, scroll-container {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-y: contain;
+      }
       
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

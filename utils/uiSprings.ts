@@ -19,6 +19,16 @@ export const iosSpringGentle = {
   mass: 1.0
 };
 
+export const mechanicalSpring = {
+  type: 'spring' as const,
+  stiffness: 550,
+  damping: 28,
+  mass: 0.5
+};
+
+export const tactileEase = [0.32, 0.72, 0, 1] as const;
+export const mechanicalSnap = [0.16, 1, 0.3, 1] as const;
+
 export const triggerHaptic = (ms: number = 8) => {
   if (typeof window !== 'undefined' && 'navigator' in window && navigator.vibrate) {
     try {

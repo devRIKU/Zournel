@@ -43,8 +43,9 @@ const FloatingDockMobile: React.FC<{
               triggerHaptic(10);
               item.onClick?.();
             }}
+            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
             className={cn(
-              'relative flex-1 flex flex-col items-center justify-center min-w-[70px] min-h-[46px] py-1 px-2 rounded-full transition-all duration-200 select-none active:scale-95',
+              'relative flex-1 flex flex-col items-center justify-center min-w-[70px] min-h-[46px] py-1 px-2 rounded-full transition-all duration-150 select-none active:scale-90 cursor-pointer',
               item.active
                 ? 'text-primary font-semibold'
                 : 'text-secondary hover:text-primary opacity-80 hover:opacity-100'
@@ -110,11 +111,8 @@ function IconContainer({
     return val - bounds.x - bounds.width / 2;
   });
 
-  const widthTransform = useTransform(distance, [-150, 0, 150], [48, 62, 48]);
-  const heightTransform = useTransform(distance, [-150, 0, 150], [48, 62, 48]);
-
-  const width = useSpring(widthTransform, { mass: 0.1, stiffness: 150, damping: 12 });
-  const height = useSpring(heightTransform, { mass: 0.1, stiffness: 150, damping: 12 });
+  const scaleTransform = useTransform(distance, [-140, 0, 140], [1, 1.22, 1]);
+  const scale = useSpring(scaleTransform, { mass: 0.1, stiffness: 240, damping: 16 });
 
   const [hovered, setHovered] = useState(false);
 
@@ -127,12 +125,13 @@ function IconContainer({
       }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
+      style={{ touchAction: 'manipulation' }}
       className="relative cursor-pointer select-none"
     >
       <AnimatePresence>
         {hovered && (
           <motion.div
-            initial={{ opacity: 0, y: 10, x: '-50%' }}
+            initial={{ opacity: 0, y: 8, x: '-50%' }}
             animate={{ opacity: 1, y: 0, x: '-50%' }}
             exit={{ opacity: 0, y: 2, x: '-50%' }}
             className="px-2.5 py-1 whitespace-nowrap rounded-md bg-primary text-surface text-xs font-medium absolute left-1/2 -top-9 w-fit shadow-md border border-surface-highlight pointer-events-none z-50"
@@ -142,9 +141,9 @@ function IconContainer({
         )}
       </AnimatePresence>
       <motion.div
-        style={{ width, height }}
+        style={{ scale, transform: 'translateZ(0)', willChange: 'transform' }}
         className={cn(
-          'flex items-center justify-center rounded-2xl transition-colors active:scale-95',
+          'w-12 h-12 flex items-center justify-center rounded-2xl transition-colors active:scale-95',
           active
             ? 'bg-accent text-accent-fg shadow-lg shadow-accent/25 ring-2 ring-accent/30'
             : 'bg-surface-highlight/60 text-secondary hover:text-primary hover:bg-surface-highlight'

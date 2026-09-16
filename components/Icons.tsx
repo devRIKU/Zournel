@@ -125,3 +125,9 @@ export const LogOut = createIcon(Phosphor.SignOut);
 export const Music = createIcon(Phosphor.MusicNotes || Phosphor.MusicNote || Phosphor.Note);
 export const Eraser = createIcon(Phosphor.Eraser);
 export const Play = createIcon(Phosphor.Play);
+export const ThumbsUp = createIcon(Phosphor.ThumbsUp || Phosphor.Heart);
+export const ThumbsDown = createIcon(Phosphor.ThumbsDown || Phosphor.Heart);
+export const Mic = createIcon(Phosphor.Microphone || Phosphor.SpeakerHigh);
+export const AudioLines = createIcon(Phosphor.Waveform || Phosphor.Pulse);
+export const RotateCw = createIcon(Phosphor.ArrowsClockwise);
+
