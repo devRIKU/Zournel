@@ -777,21 +777,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* Blog Post Modal Preview */}
       <AnimatePresence>
         {previewBlogEntry && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-50 flex flex-col items-center justify-start py-4 sm:py-10 px-2 sm:px-4 bg-black/75 backdrop-blur-md overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-[#FAF9F6] w-full max-w-4xl max-h-[92vh] rounded-3xl overflow-y-auto relative shadow-2xl border border-surface-highlight"
+              className="bg-[#FAF9F6] dark:bg-[#0E0E10] w-full max-w-3xl rounded-3xl overflow-hidden relative shadow-2xl border border-surface-highlight my-auto"
             >
-              <div className="sticky top-0 z-50 bg-[#FAF9F6]/95 border-b border-[#E7E5E4] px-6 py-4 flex items-center justify-between">
+              <div className="sticky top-0 z-50 bg-[#FAF9F6]/95 dark:bg-[#0E0E10]/95 backdrop-blur-md border-b border-[#E7E5E4] dark:border-neutral-800 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2 text-xs font-mono text-accent">
                   <Globe className="w-4 h-4" />
                   <span>blog-sanniva.vercel.app/friends</span>
                 </div>
                 <button
                   onClick={() => setPreviewBlogEntry(null)}
-                  className="p-2 rounded-full bg-[#E7E5E4] hover:bg-[#D6D3D1] text-[#44403C] transition"
+                  className="p-2 rounded-full bg-[#E7E5E4] dark:bg-neutral-800 hover:bg-[#D6D3D1] dark:hover:bg-neutral-700 text-[#44403C] dark:text-slate-200 transition"
                   title="Close Preview"
                 >
                   <X className="w-5 h-5" />
