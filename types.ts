@@ -85,6 +85,38 @@ export interface AIProcessedInput {
   mood: string | null;
 }
 
+export interface AiMemory {
+  id: string;
+  category: 'core_fact' | 'preference' | 'goal' | 'relationship' | 'theme';
+  text: string;
+  createdAt: number;
+  source?: 'manual' | 'learned';
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: 'user' | 'bot';
+  text: string;
+  timestamp: string | Date;
+  extractedTasks?: string[];
+  extractedJournal?: string | null;
+  extractedMood?: string | null;
+  retrievedMemoriesCount?: number;
+  referencedMemories?: Array<{
+    title: string;
+    date: string;
+    snippet: string;
+  }>;
+}
+
+export interface ChatSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  messages: ChatMessage[];
+}
+
 declare global {
   interface AIStudio {
     hasSelectedApiKey: () => Promise<boolean>;
