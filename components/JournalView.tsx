@@ -8,6 +8,7 @@ import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { AudioSongPlayer } from './AudioSongPlayer';
+import { DraggableSegmentedToggle } from './ui/DraggableToggle';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -125,7 +126,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFullBreakdownModal, setShowFullBreakdownModal] = useState(false);
-  const [graphTimeRange, setGraphTimeRange] = useState<'30d' | '90d' | '180d' | 'all'>('90d');
+  const [graphTimeRange, setGraphTimeRange] = useState<'7d' | '30d' | '90d' | '180d' | 'all'>('90d');
   const [graphViewMode, setGraphViewMode] = useState<'chart' | 'table'>('chart');
   const [selectedGraphPoint, setSelectedGraphPoint] = useState<any | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -324,9 +325,10 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   }, [entries]);
 
   const { trendData, fullTrendData } = useMemo(() => {
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-    const cutoffTime = threeMonthsAgo.getTime();
+    // Reflections Cover Graph strictly reflects a 7-day history
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const cutoffTime = sevenDaysAgo.getTime();
 
     const mapEntryToPoint = (entry: JournalEntry) => {
       const moodInfo = getMoodData(entry.mood);
@@ -347,10 +349,10 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
       };
     };
 
-    const threeMonthEntries = moodEntries.filter(entry => (entry.createdAt || 0) >= cutoffTime);
+    const sevenDayEntries = moodEntries.filter(entry => (entry.createdAt || 0) >= cutoffTime);
 
     return {
-      trendData: threeMonthEntries.map(mapEntryToPoint),
+      trendData: sevenDayEntries.map(mapEntryToPoint),
       fullTrendData: moodEntries.map(mapEntryToPoint),
     };
   }, [moodEntries]);
@@ -358,7 +360,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   const modalTrendData = useMemo(() => {
     if (graphTimeRange === 'all') return fullTrendData;
     const now = Date.now();
-    const days = graphTimeRange === '30d' ? 30 : graphTimeRange === '90d' ? 90 : 180;
+    const days = graphTimeRange === '7d' ? 7 : graphTimeRange === '30d' ? 30 : graphTimeRange === '90d' ? 90 : 180;
     const cutoff = now - days * 24 * 60 * 60 * 1000;
     return fullTrendData.filter(pt => (pt.rawEntry.createdAt || 0) >= cutoff);
   }, [fullTrendData, graphTimeRange]);
@@ -540,7 +542,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           </div>
         </div>
 
-        {/* Control Cluster: Search (Left) -> Toggle (Center) -> Import (Right) */}
+        {/* Control Cluster: Search (Left) -> Draggable Toggle (Center) -> Import (Right) */}
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap self-start lg:self-auto">
           {/* 1. Search button / expanding search input on LEFT of toggle */}
           {subTab === 'timeline' && (
@@ -605,43 +607,18 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             </AnimatePresence>
           )}
 
-          {/* 2. Switcher Tab Buttons (Memories / Reflections Toggle in CENTER) */}
-          <div className="flex bg-surface-highlight/40 p-1.5 rounded-2xl border border-surface-highlight/30 shrink-0 shadow-inner relative z-0">
-            <button
-              type="button"
-              onClick={() => { setSubTab('timeline'); setIsSearchOpen(false); }}
-              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
-                subTab === 'timeline' ? 'text-accent' : 'text-secondary hover:text-primary'
-              }`}
-            >
-              {subTab === 'timeline' && (
-                <motion.div
-                  layoutId="activeSubTab"
-                  className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/5 -z-10"
-                  transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                />
-              )}
-              <Library className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-[11px] sm:text-xs">Timeline</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => { setSubTab('reflections'); setIsSearchOpen(false); }}
-              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-300 z-10 ${
-                subTab === 'reflections' ? 'text-accent' : 'text-secondary hover:text-primary'
-              }`}
-            >
-              {subTab === 'reflections' && (
-                <motion.div
-                  layoutId="activeSubTab"
-                  className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/5 -z-10"
-                  transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-                />
-              )}
-              <LineChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="text-[11px] sm:text-xs">Reflections</span>
-            </button>
-          </div>
+          {/* 2. Draggable Segmented Switcher (Timeline / Reflections) */}
+          <DraggableSegmentedToggle
+            options={[
+              { value: 'timeline', label: 'Timeline', icon: <Library className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
+              { value: 'reflections', label: 'Reflections', icon: <LineChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> }
+            ]}
+            value={subTab}
+            onChange={(val) => {
+              setSubTab(val as 'timeline' | 'reflections');
+              setIsSearchOpen(false);
+            }}
+          />
 
           {/* 3. Action Buttons (Import) */}
           {subTab === 'timeline' && (
@@ -1243,19 +1220,19 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               </div>
             </div>
 
-            {/* Main Trend Line Chart (Last 3 Months View) - Note: Only clicking the Arrow button opens the full graph */}
+            {/* Main Trend Line Chart (7-Day Cover View) - Only upon expanding to the full view does it reveal the full content */}
             <div 
               className="p-5 sm:p-8 bg-surface border border-surface-highlight rounded-3xl sm:rounded-[2.5rem] shadow-sm relative overflow-hidden"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg sm:text-xl font-display font-bold text-primary">Emotional Journey Over Time</h3>
-                    <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full">
-                      Last 3 Months
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-lg sm:text-xl font-display font-bold text-primary">Emotional Journey</h3>
+                    <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full border border-accent/20">
+                      Last 7 Days
                     </span>
                   </div>
-                  <p className="text-xs text-secondary mt-1">A visual flow mapping your emotional changes. Touch or hover to inspect data points.</p>
+                  <p className="text-xs text-secondary mt-1">Past 7 days emotional flow. Expand to full graph to reveal full multi-month history and deep analytics.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold px-3 py-1.5 bg-accent/5 text-accent rounded-full border border-accent/10 select-none">
@@ -1271,7 +1248,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     }}
                     aria-label="Open full emotional graph view"
                     title="Open full interactive timeline graph"
-                    className="p-2.5 sm:px-3.5 sm:py-2 rounded-xl bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg border border-accent/20 transition flex items-center gap-1.5 text-xs font-bold active:scale-95 shadow-xs min-h-[44px] min-w-[44px] justify-center touch-manipulation"
+                    className="p-2.5 sm:px-3.5 sm:py-2 rounded-xl bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg border border-accent/20 transition flex items-center gap-1.5 text-xs font-bold active:scale-95 shadow-xs min-h-[44px] min-w-[44px] justify-center touch-manipulation cursor-pointer"
                   >
                     <span className="hidden sm:inline">Full Graph</span>
                     <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
@@ -1279,63 +1256,79 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                 </div>
               </div>
 
-              <div className="w-full h-72 sm:h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={trendData}
-                    margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+              {trendData.length === 0 ? (
+                <div className="w-full h-56 flex flex-col items-center justify-center border border-dashed border-surface-highlight/70 rounded-2xl p-6 text-center">
+                  <Smile className="w-8 h-8 text-accent/50 mb-2" />
+                  <p className="text-sm font-bold text-primary">No moods recorded in the past 7 days</p>
+                  <p className="text-xs text-secondary mt-1 max-w-sm">Write a new journal entry with a mood tag to populate your 7-day flow, or expand below to view your older history.</p>
+                  <button
+                    type="button"
+                    onClick={() => setShowFullBreakdownModal(true)}
+                    className="mt-3 text-xs font-bold text-accent hover:underline flex items-center gap-1"
                   >
-                    <defs>
-                      <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.25}/>
-                        <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.01}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-highlight)" opacity={0.6} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke="var(--color-secondary)" 
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      dy={10}
-                      interval="preserveStartEnd"
-                    />
-                    <YAxis 
-                      stroke="var(--color-secondary)" 
-                      fontSize={14}
-                      tickLine={false}
-                      axisLine={false}
-                      domain={[0.5, 5.5]}
-                      ticks={[1, 2, 3, 4, 5]}
-                      tickFormatter={yAxisFormatter}
-                      dx={-5}
-                    />
-                    <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent)', strokeWidth: 1, strokeDasharray: '4 4' }} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="score" 
-                      stroke="var(--color-accent)" 
-                      strokeWidth={3}
-                      fillOpacity={1} 
-                      fill="url(#colorMood)" 
-                      activeDot={{ r: 7, strokeWidth: 0, fill: 'var(--color-accent)' }}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+                    <span>View all-time full graph</span>
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="w-full h-72 sm:h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={trendData}
+                      margin={{ top: 10, right: 10, left: -25, bottom: 0 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorMood" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--color-accent)" stopOpacity={0.25}/>
+                          <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0.01}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-surface-highlight)" opacity={0.6} />
+                      <XAxis 
+                        dataKey="date" 
+                        stroke="var(--color-secondary)" 
+                        fontSize={11}
+                        tickLine={false}
+                        axisLine={false}
+                        dy={10}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis 
+                        stroke="var(--color-secondary)" 
+                        fontSize={14}
+                        tickLine={false}
+                        axisLine={false}
+                        domain={[0.5, 5.5]}
+                        ticks={[1, 2, 3, 4, 5]}
+                        tickFormatter={yAxisFormatter}
+                        dx={-5}
+                      />
+                      <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'var(--color-accent)', strokeWidth: 1, strokeDasharray: '4 4' }} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="score" 
+                        stroke="var(--color-accent)" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorMood)" 
+                        activeDot={{ r: 7, strokeWidth: 0, fill: 'var(--color-accent)' }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
 
               <div className="flex items-center justify-between pt-3 mt-2 border-t border-surface-highlight/30 text-[11px] text-secondary">
                 <span className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-accent inline-block"></span>
-                  Touch or hover chart to inspect
+                  7-Day Cover View • Touch points to inspect
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowFullBreakdownModal(true)}
-                  className="text-accent hover:underline flex items-center gap-1 font-semibold"
+                  className="text-accent hover:underline flex items-center gap-1 font-semibold cursor-pointer"
                 >
-                  <span>Expand to full graph</span>
+                  <span>Expand to reveal full history</span>
                   <ArrowUpRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -1475,50 +1468,28 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                       Full Emotional Journey
                     </h2>
                     <p className="text-xs text-secondary truncate">
-                      {modalTrendData.length} records • {graphTimeRange === 'all' ? 'All Time' : graphTimeRange === '30d' ? 'Last 30 Days' : graphTimeRange === '90d' ? 'Last 3 Months' : 'Last 6 Months'}
+                      {modalTrendData.length} records • {graphTimeRange === 'all' ? 'All Time' : graphTimeRange === '7d' ? 'Last 7 Days' : graphTimeRange === '30d' ? 'Last 30 Days' : graphTimeRange === '90d' ? 'Last 3 Months' : 'Last 6 Months'}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* View Mode Switcher (Chart vs Accessible Table) */}
-                  <div className="flex items-center p-1 bg-surface-highlight/30 rounded-xl border border-surface-highlight/40">
-                    <button
-                      type="button"
-                      onClick={() => setGraphViewMode('chart')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                        graphViewMode === 'chart' 
-                          ? 'bg-surface text-primary shadow-xs border border-surface-highlight/40' 
-                          : 'text-secondary hover:text-primary'
-                      }`}
-                      aria-label="Switch to Graph View"
-                      title="Visual Chart View"
-                    >
-                      <LineChart className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Graph</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setGraphViewMode('table')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
-                        graphViewMode === 'table' 
-                          ? 'bg-surface text-primary shadow-xs border border-surface-highlight/40' 
-                          : 'text-secondary hover:text-primary'
-                      }`}
-                      aria-label="Switch to Accessible Table View"
-                      title="Accessible Table View"
-                    >
-                      <Table className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Table</span>
-                    </button>
-                  </div>
+                  {/* View Mode Switcher (Chart vs Accessible Table) using Draggable Segmented Control */}
+                  <DraggableSegmentedToggle
+                    options={[
+                      { value: 'chart', label: 'Graph', icon: <LineChart className="w-3.5 h-3.5" /> },
+                      { value: 'table', label: 'Table', icon: <Table className="w-3.5 h-3.5" /> }
+                    ]}
+                    value={graphViewMode}
+                    onChange={(val) => setGraphViewMode(val as 'chart' | 'table')}
+                  />
 
                   {/* Close Modal Button */}
                   <button 
                     type="button"
                     onClick={() => setShowFullBreakdownModal(false)}
                     aria-label="Close full graph view"
-                    className="p-2 sm:p-2.5 rounded-full bg-surface-highlight/40 text-secondary hover:text-primary hover:bg-surface-highlight transition active:scale-95 min-w-[40px] min-h-[40px] flex items-center justify-center"
+                    className="p-2 sm:p-2.5 rounded-full bg-surface-highlight/40 text-secondary hover:text-primary hover:bg-surface-highlight transition active:scale-95 min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -1529,15 +1500,15 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               <div className="p-3 sm:p-4 bg-surface-highlight/15 border-b border-surface-highlight/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
                 {/* Time Range Filter Pills */}
                 <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-                  {(['30d', '90d', '180d', 'all'] as const).map(rangeKey => {
-                    const label = rangeKey === '30d' ? '30 Days' : rangeKey === '90d' ? '3 Months' : rangeKey === '180d' ? '6 Months' : 'All Time';
+                  {(['7d', '30d', '90d', '180d', 'all'] as const).map(rangeKey => {
+                    const label = rangeKey === '7d' ? '7 Days' : rangeKey === '30d' ? '30 Days' : rangeKey === '90d' ? '3 Months' : rangeKey === '180d' ? '6 Months' : 'All Time';
                     const active = graphTimeRange === rangeKey;
                     return (
                       <button
                         key={rangeKey}
                         type="button"
                         onClick={() => setGraphTimeRange(rangeKey)}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition active:scale-95 ${
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition active:scale-95 cursor-pointer ${
                           active 
                             ? 'bg-accent text-accent-fg shadow-xs font-bold' 
                             : 'bg-surface border border-surface-highlight/60 text-secondary hover:text-primary hover:border-accent/30'

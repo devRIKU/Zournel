@@ -19,6 +19,7 @@ import { useTaskStore } from './store/useTaskStore';
 import { useJournalStore } from './store/useJournalStore';
 import { SpotlightGlow } from './components/ui/background-beams';
 import { SparklesText } from './components/ui/sparkles';
+import { SquigglyLine, DoodleAccent } from './components/ui/DoodleDividers';
 
 const ALL_THEME_CLASSES = [
   'theme-cozy-light', 'theme-cozy-dark', 'theme-evergreen-light', 'theme-evergreen-dark', 
@@ -382,20 +383,25 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-hidden flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
+    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
       <SpotlightGlow className="opacity-40 pointer-events-none" />
       
-      {/* Zone 1: Pinned Slim Top Bar */}
-      <header className="shrink-0 z-20 pt-3 sm:pt-4 px-4 sm:px-6 md:px-8 pb-3 flex justify-between items-center bg-surface-lowest/80 backdrop-blur-md border-b border-surface-high/30">
+      {/* Zone 1: Unsticky Top Bar (Normal flow, scrolls away with content) */}
+      <header className="relative w-full max-w-7xl mx-auto pt-3 sm:pt-5 px-4 sm:px-6 md:px-8 pb-3 flex justify-between items-center bg-transparent z-10">
         <div className="flex items-center gap-2.5 sm:gap-3">
           <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-xl sm:rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
             <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
           </div>
           <div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-black text-primary tracking-tight leading-tight">
-              Zournel
-            </h1>
-            <span className="text-accent italic font-grotesk text-[11px] sm:text-xs font-semibold">Reflect &amp; Execute</span>
+            <div className="flex items-center gap-1.5">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-black text-primary tracking-tight leading-tight">
+                Zournel
+              </h1>
+              <DoodleAccent className="text-accent/60 w-4 h-3 -mt-2 hidden sm:inline-block" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-accent italic font-grotesk text-[11px] sm:text-xs font-semibold">Reflect &amp; Execute</span>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2.5">
@@ -425,8 +431,13 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      {/* Zone 2: Flexible Scroll Container with kinetic momentum */}
-      <main className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 pb-32">
+      {/* Playful Subtle Squiggly Separator under Header (Low Opacity, Small Wavelength) */}
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-1">
+        <SquigglyLine className="text-primary/20" height={5} strokeWidth={1} wavelength={7} />
+      </div>
+
+      {/* Zone 2: Flexible Content Container */}
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 pb-32">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}

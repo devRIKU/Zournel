@@ -6,6 +6,7 @@ import { Task, Priority, ModelType } from '../types';
 import { generateSubtasks } from '../services/geminiService';
 import { AiGlitterPill } from './AiGlitterTypewriter';
 import { iosSpringSnappy, mechanicalSpring, triggerHaptic } from '../utils/uiSprings';
+import { DraggableSegmentedToggle } from './ui/DraggableToggle';
 
 interface TodoViewProps {
   tasks: Task[];
@@ -295,14 +296,21 @@ export const TodoView: React.FC<TodoViewProps> = ({
     } 
   };
   
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  
   const sortedTasks = [...tasks].sort((a, b) => b.createdAt - a.createdAt);
   const activeTasks = sortedTasks.filter(t => !t.completed);
   const completedTasks = sortedTasks.filter(t => t.completed);
+  const displayedTasks = sortedTasks.filter(t => {
+    if (filter === 'active') return !t.completed;
+    if (filter === 'completed') return t.completed;
+    return true;
+  });
 
   return (
     <div className="max-w-2xl mx-auto w-full pb-32">
       {/* Editorial Header */}
-      <div className="mb-6 mt-1 flex items-baseline justify-between border-b border-black/[0.04] dark:border-white/[0.06] pb-3">
+      <div className="mb-6 mt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.04] dark:border-white/[0.06] pb-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight">
             Today
@@ -311,6 +319,18 @@ export const TodoView: React.FC<TodoViewProps> = ({
             {activeTasks.length} PENDING &bull; {completedTasks.length} COMPLETED
           </p>
         </div>
+
+        {/* Smooth Draggable Filter Toggle */}
+        <DraggableSegmentedToggle
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'active', label: `Active (${activeTasks.length})` },
+            { value: 'completed', label: `Done (${completedTasks.length})` }
+          ]}
+          value={filter}
+          onChange={(val) => setFilter(val as 'all' | 'active' | 'completed')}
+          className="self-start sm:self-auto shrink-0"
+        />
       </div>
 
       {/* Mechanical Quick-Entry Input (Things 3 style) */}
@@ -345,15 +365,19 @@ export const TodoView: React.FC<TodoViewProps> = ({
       </div>
 
       {/* Task List */}
-      {sortedTasks.length === 0 ? (
+      {displayedTasks.length === 0 ? (
         <div className="py-16 text-center flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.08] p-6">
           <CheckCircle2 className="w-6 h-6 text-secondary/40" />
-          <p className="text-sm font-medium text-primary">No tasks in your queue</p>
-          <p className="text-xs text-secondary/60">Press Enter above to log an action.</p>
+          <p className="text-sm font-medium text-primary">
+            {filter === 'all' ? 'No tasks in your queue' : filter === 'active' ? 'No pending tasks' : 'No completed tasks yet'}
+          </p>
+          <p className="text-xs text-secondary/60">
+            {filter === 'completed' ? 'Mark a task as complete to see it here.' : 'Press Enter above to log an action.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-1">
-          {activeTasks.length === 0 && completedTasks.length > 0 && (
+          {activeTasks.length === 0 && completedTasks.length > 0 && filter !== 'completed' && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -366,7 +390,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
           )}
           
           <AnimatePresence mode="popLayout">
-            {sortedTasks.map(task => (
+            {displayedTasks.map(task => (
               <TaskItem 
                 key={task.id} 
                 task={task} 

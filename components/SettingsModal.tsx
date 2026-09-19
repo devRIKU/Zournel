@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw } from './Icons';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
+import { DraggableSwitch } from './ui/DraggableToggle';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -139,26 +140,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   <ShieldCheck className="w-4 h-4" /> Cloud & Auto-Backup
                 </h3>
                 <div className="p-5 bg-surface-highlight/50 rounded-[1.5rem] border border-surface-highlight space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-4">
                     <div>
                       <h4 className="text-sm font-bold text-primary">Automatic Background Backup</h4>
                       <p className="text-[11px] text-secondary/70">Sync memories and app config seamlessly to cloud storage</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleUpdate({ ...settings, autoBackupEnabled: !(settings.autoBackupEnabled ?? true) })}
-                      style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-150 active:scale-95 cursor-pointer ${
-                        (settings.autoBackupEnabled ?? true) ? 'bg-emerald-500' : 'bg-surface-highlight/80'
-                      }`}
-                    >
-                      <span
-                        style={{ transform: 'translateZ(0)', willChange: 'transform' }}
-                        className={`inline-block h-4 w-4 rounded-full bg-white transition-transform duration-150 ${
-                          (settings.autoBackupEnabled ?? true) ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
+                    <DraggableSwitch
+                      checked={settings.autoBackupEnabled ?? true}
+                      onChange={(checked) => handleUpdate({ ...settings, autoBackupEnabled: checked })}
+                      size="md"
+                    />
                   </div>
 
                   {(settings.autoBackupEnabled ?? true) && (
