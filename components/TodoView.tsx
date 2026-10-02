@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { Plus, Check, Trash2, Bot, CheckCircle2, Sparkles } from 'lucide-react';
-import { Task, Priority, ModelType } from '../types';
+import { Plus, Check, Trash2, Bot, CheckCircle2, Sparkles } from './Icons';
+import { Task, Priority } from '../types';
 import { generateSubtasks } from '../services/geminiService';
 import { AiGlitterPill } from './AiGlitterTypewriter';
 import { iosSpringSnappy, mechanicalSpring, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSegmentedToggle } from './ui/DraggableToggle';
+import { PageHeader } from './ui/PageHeader';
 
 interface TodoViewProps {
   tasks: Task[];
@@ -17,7 +18,7 @@ interface TodoViewProps {
   focusInputSignal?: number;
   completionAnim?: string;
   deleteAnim?: string;
-  selectedModel?: ModelType;
+  selectedModel?: string;
 }
 
 const PriorityBadge: React.FC<{ priority: Priority; onClick: () => void }> = ({ priority, onClick }) => {
@@ -50,7 +51,7 @@ const TaskItem: React.FC<{
   onDelete: () => void;
   onUpdate: (task: Task) => void;
   completionAnim?: string;
-  selectedModel?: ModelType;
+  selectedModel?: string;
 }> = ({ task, onToggle, onDelete, onUpdate, completionAnim, selectedModel }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [loadingSubtasks, setLoadingSubtasks] = useState(false);
@@ -117,7 +118,7 @@ const TaskItem: React.FC<{
         transform: 'translateZ(0)',
         willChange: 'transform, opacity'
       }}
-      className={`group relative mb-2.5 rounded-2xl bg-surface/90 dark:bg-surface/60 border border-black/[0.06] dark:border-white/[0.08] p-3.5 sm:p-4 transition-colors ${
+      className={`group relative rounded-2xl bg-surface border border-surface-highlight p-4 transition-colors ${
         task.completed ? 'opacity-60 bg-surface/50' : 'hover:border-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
       }`}
     >
@@ -141,7 +142,7 @@ const TaskItem: React.FC<{
                 animate={{ scale: 1 }}
                 transition={mechanicalSpring}
               >
-                <Check className="w-3 h-3 stroke-[3] text-accent-fg" />
+                <Check className="w-3 h-3 text-accent-fg" />
               </motion.div>
             )}
           </div>
@@ -201,7 +202,7 @@ const TaskItem: React.FC<{
           exit={{ opacity: 0, y: -4 }}
           transition={iosSpringSnappy}
           style={{ willChange: 'transform, opacity' }}
-          className="mt-3 pt-3 border-t border-black/[0.04] dark:border-white/[0.06] pl-2 sm:pl-7 space-y-2.5"
+          className="mt-3 pt-3 border-t border-surface-highlight/60 pl-2 sm:pl-7 space-y-2.5"
         >
           {loadingSubtasks && (
             <div className="py-2 space-y-2 animate-pulse">
@@ -256,7 +257,7 @@ const TaskItem: React.FC<{
                 style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
                 className="w-5 h-5 rounded border border-secondary/50 flex items-center justify-center transition active:scale-90"
               >
-                {st.completed && <Check className="w-3 h-3 stroke-[3] text-accent" />}
+                {st.completed && <Check className="w-3 h-3 text-accent" />}
               </button>
               <span className={`text-xs sm:text-sm transition-colors ${st.completed ? 'text-secondary line-through' : 'text-primary'}`}>
                 {st.text}
@@ -308,34 +309,26 @@ export const TodoView: React.FC<TodoViewProps> = ({
   });
 
   return (
-    <div className="max-w-2xl mx-auto w-full pb-32">
-      {/* Editorial Header */}
-      <div className="mb-6 mt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.04] dark:border-white/[0.06] pb-3">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight">
-            Today
-          </h2>
-          <p className="text-xs text-secondary/80 font-mono tracking-wider mt-0.5">
-            {activeTasks.length} PENDING &bull; {completedTasks.length} COMPLETED
-          </p>
-        </div>
-
-        {/* Smooth Draggable Filter Toggle */}
-        <DraggableSegmentedToggle
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'active', label: `Active (${activeTasks.length})` },
-            { value: 'completed', label: `Done (${completedTasks.length})` }
-          ]}
-          value={filter}
-          onChange={(val) => setFilter(val as 'all' | 'active' | 'completed')}
-          className="self-start sm:self-auto shrink-0"
-        />
-      </div>
+    <div className="max-w-3xl mx-auto w-full">
+      <PageHeader
+        title="Today"
+        subtitle={<>{activeTasks.length} pending &bull; {completedTasks.length} completed</>}
+        actions={
+          <DraggableSegmentedToggle
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'active', label: `Active (${activeTasks.length})` },
+              { value: 'completed', label: `Done (${completedTasks.length})` }
+            ]}
+            value={filter}
+            onChange={(val) => setFilter(val as 'all' | 'active' | 'completed')}
+          />
+        }
+      />
 
       {/* Mechanical Quick-Entry Input (Things 3 style) */}
       <div className="relative mb-6">
-        <div className="flex items-center rounded-xl bg-surface/80 dark:bg-surface/40 border border-black/[0.06] dark:border-white/[0.08] focus-within:border-accent/60 transition-colors px-3.5 py-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2 h-12 rounded-2xl bg-surface border border-surface-highlight focus-within:border-accent/60 transition-colors px-4">
           <input 
             ref={inputRef} 
             type="text" 
@@ -356,9 +349,9 @@ export const TodoView: React.FC<TodoViewProps> = ({
               }}
               title="Add task"
               style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-              className="p-1.5 bg-accent text-accent-fg rounded-lg active:scale-90 transition-transform shrink-0 cursor-pointer"
+              className="w-8 h-8 bg-accent text-accent-fg rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <Plus className="w-4 h-4" weight="bold" />
             </button>
           )}
         </div>
@@ -366,7 +359,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
 
       {/* Task List */}
       {displayedTasks.length === 0 ? (
-        <div className="py-16 text-center flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.08] p-6">
+        <div className="py-16 text-center flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-surface-highlight p-6">
           <CheckCircle2 className="w-6 h-6 text-secondary/40" />
           <p className="text-sm font-medium text-primary">
             {filter === 'all' ? 'No tasks in your queue' : filter === 'active' ? 'No pending tasks' : 'No completed tasks yet'}
@@ -376,7 +369,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
           </p>
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {activeTasks.length === 0 && completedTasks.length > 0 && filter !== 'completed' && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.98 }}

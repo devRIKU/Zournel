@@ -90,13 +90,8 @@ export const DraggableSwitch: React.FC<DraggableSwitchProps> = ({
           dragMomentum={false}
           onDragStart={() => setIsDragging(true)}
           onDragEnd={handleDragEnd}
-          style={{ x }}
-          className={`rounded-full bg-surface shadow-md border border-black/5 dark:border-white/10 cursor-grab active:cursor-grabbing flex items-center justify-center`}
-          style={{
-            x,
-            width: knobSize,
-            height: knobSize,
-          }}
+          className="rounded-full bg-surface shadow-md border border-black/5 dark:border-white/10 cursor-grab active:cursor-grabbing flex items-center justify-center"
+          style={{ x, width: knobSize, height: knobSize }}
         >
           <div className="w-1.5 h-1.5 rounded-full bg-accent/40" />
         </motion.div>
@@ -131,7 +126,7 @@ export const DraggableSegmentedToggle = <T extends string = string>({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-flex items-center bg-surface-highlight/40 p-1 rounded-2xl border border-surface-highlight/30 shadow-inner select-none ${className}`}
+      className={`relative inline-flex items-center h-10 p-1 rounded-full bg-surface-highlight/40 border border-surface-highlight select-none ${className}`}
     >
       {options.map((option, idx) => {
         const isSelected = option.value === value;
@@ -140,8 +135,8 @@ export const DraggableSegmentedToggle = <T extends string = string>({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`relative flex items-center justify-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold tracking-wider uppercase transition-colors duration-200 z-10 touch-manipulation cursor-pointer ${
-              isSelected ? 'text-accent' : 'text-secondary hover:text-primary'
+            className={`relative flex items-center justify-center gap-1.5 h-8 px-3 sm:px-4 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 z-10 touch-manipulation cursor-pointer ${
+              isSelected ? 'text-primary' : 'text-secondary hover:text-primary'
             }`}
           >
             {isSelected && (
@@ -158,12 +153,12 @@ export const DraggableSegmentedToggle = <T extends string = string>({
                     onChange(options[selectedIndex - 1].value);
                   }
                 }}
-                className="absolute inset-0 bg-surface rounded-xl shadow-md border border-accent/15 -z-10 cursor-grab active:cursor-grabbing"
+                className="absolute inset-0 bg-surface rounded-full shadow-sm border border-surface-highlight -z-10 cursor-grab active:cursor-grabbing"
                 transition={{ type: 'spring', damping: 26, stiffness: 320 }}
               />
             )}
             {option.icon}
-            <span className="text-[11px] sm:text-xs">{option.label}</span>
+            <span>{option.label}</span>
           </button>
         );
       })}

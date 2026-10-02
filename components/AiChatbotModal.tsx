@@ -5,7 +5,7 @@ import {
   Database, Cpu, ChevronDown, Copy, ThumbsUp, ThumbsDown, Share2, 
   RotateCw, MoreHorizontal, Mic, AudioLines, Plus, Check,
   PanelLeft, Brain, Trash2, Volume2, VolumeX, MessageSquare, Clock
-} from 'lucide-react';
+} from './Icons';
 import { GoogleGenAI } from '@google/genai';
 import { JournalEntry, ChatSession, ChatMessage } from '../types';
 import { retrieveOptimizedContext, getStoredMemories } from '../services/memoryService';
@@ -490,7 +490,7 @@ Output strictly a JSON object:
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex w-screen h-screen m-0 p-0 bg-[#121212] text-slate-100 font-sans overflow-hidden"
+          className="fixed inset-0 z-[100] flex w-screen h-screen m-0 p-0 bg-surface-lowest text-primary font-sans overflow-hidden"
         >
           {/* Toast Notification */}
           <AnimatePresence>
@@ -518,26 +518,26 @@ Output strictly a JSON object:
 
           <aside className={`
             fixed lg:static inset-y-0 left-0 z-50 
-            w-72 sm:w-80 bg-[#141416] border-r border-neutral-800 
+            w-72 sm:w-80 bg-surface-lowest border-r border-surface-highlight 
             flex flex-col shrink-0 transition-transform duration-300 ease-in-out
             ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0 lg:w-72'}
             ${!isSidebarOpen ? 'lg:hidden' : 'lg:flex'}
           `}>
             {/* Sidebar Top: Branding & Close */}
-            <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
+            <div className="p-4 border-b border-surface-highlight flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-accent/20 border border-accent/30 text-accent flex items-center justify-center">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-sm text-slate-100">Zournel AI</h3>
-                  <p className="text-[10px] font-mono text-slate-400">Contextual Companion</p>
+                  <h3 className="font-display font-bold text-sm text-primary">Zournel AI</h3>
+                  <p className="text-[10px] font-mono text-secondary/70">Contextual Companion</p>
                 </div>
               </div>
 
               <button
                 onClick={() => setIsSidebarOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-neutral-800 transition lg:hidden"
+                className="p-1.5 rounded-lg text-secondary/70 hover:text-primary hover:bg-surface-highlight/60 transition lg:hidden"
                 title="Close sidebar"
               >
                 <X className="w-4 h-4" />
@@ -562,13 +562,13 @@ Output strictly a JSON object:
                   setIsMemoriesModalOpen(true);
                   if (window.innerWidth < 1024) setIsSidebarOpen(false);
                 }}
-                className="w-full py-2.5 px-3.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 hover:border-neutral-700 text-slate-200 text-xs font-medium flex items-center justify-between transition group"
+                className="w-full py-2.5 px-3.5 rounded-xl bg-surface hover:bg-surface-highlight/60 border border-surface-highlight hover:border-accent/40 text-primary text-xs font-medium flex items-center justify-between transition group"
               >
                 <div className="flex items-center gap-2">
-                  <Brain className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+                  <Brain className="w-4 h-4 text-accent group-hover:scale-110 transition-transform" />
                   <span>Memories</span>
                 </div>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-neutral-800 text-slate-300 border border-neutral-700">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-surface-highlight/50 text-secondary border border-surface-highlight">
                   {memoriesCount} facts
                 </span>
               </button>
@@ -576,13 +576,13 @@ Output strictly a JSON object:
 
             {/* Chat History Section */}
             <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
-              <div className="flex items-center justify-between px-2 text-[10px] font-mono uppercase tracking-wider text-slate-400">
+              <div className="flex items-center justify-between px-2 text-[10px] font-mono uppercase tracking-wider text-secondary/70">
                 <span>Chat History</span>
-                <Clock className="w-3 h-3 text-slate-500" />
+                <Clock className="w-3 h-3 text-secondary/70" />
               </div>
 
               {sessions.length === 0 ? (
-                <div className="text-center py-10 px-4 text-xs text-slate-500 border border-dashed border-neutral-800/80 rounded-xl">
+                <div className="text-center py-10 px-4 text-xs text-secondary/70 border border-dashed border-surface-highlight/80 rounded-xl">
                   No previous conversations yet. Start typing to begin.
                 </div>
               ) : (
@@ -590,15 +590,15 @@ Output strictly a JSON object:
                   {/* Today */}
                   {groupedSessions.today.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-slate-400 px-2 block">Today</span>
+                      <span className="text-[10px] font-mono text-secondary/70 px-2 block">Today</span>
                       {groupedSessions.today.map(session => (
                         <div
                           key={session.id}
                           onClick={() => handleSelectSession(session)}
                           className={`group w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 cursor-pointer border ${
                             activeSessionId === session.id
-                              ? 'bg-neutral-800/90 text-slate-100 border-neutral-700 font-semibold'
-                              : 'hover:bg-neutral-800/50 text-slate-300 border-transparent'
+                              ? 'bg-surface-highlight/50/90 text-primary border-surface-highlight font-semibold'
+                              : 'hover:bg-surface-highlight/60/50 text-secondary border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
@@ -607,7 +607,7 @@ Output strictly a JSON object:
                           </div>
                           <button
                             onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition shrink-0"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-secondary/70 hover:text-red-400 rounded transition shrink-0"
                             title="Delete chat"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -620,15 +620,15 @@ Output strictly a JSON object:
                   {/* Yesterday */}
                   {groupedSessions.yesterday.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-slate-400 px-2 block">Yesterday</span>
+                      <span className="text-[10px] font-mono text-secondary/70 px-2 block">Yesterday</span>
                       {groupedSessions.yesterday.map(session => (
                         <div
                           key={session.id}
                           onClick={() => handleSelectSession(session)}
                           className={`group w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 cursor-pointer border ${
                             activeSessionId === session.id
-                              ? 'bg-neutral-800/90 text-slate-100 border-neutral-700 font-semibold'
-                              : 'hover:bg-neutral-800/50 text-slate-300 border-transparent'
+                              ? 'bg-surface-highlight/50/90 text-primary border-surface-highlight font-semibold'
+                              : 'hover:bg-surface-highlight/60/50 text-secondary border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
@@ -637,7 +637,7 @@ Output strictly a JSON object:
                           </div>
                           <button
                             onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition shrink-0"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-secondary/70 hover:text-red-400 rounded transition shrink-0"
                             title="Delete chat"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -650,15 +650,15 @@ Output strictly a JSON object:
                   {/* Previous 7 Days */}
                   {groupedSessions.previousWeek.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-slate-400 px-2 block">Previous 7 Days</span>
+                      <span className="text-[10px] font-mono text-secondary/70 px-2 block">Previous 7 Days</span>
                       {groupedSessions.previousWeek.map(session => (
                         <div
                           key={session.id}
                           onClick={() => handleSelectSession(session)}
                           className={`group w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 cursor-pointer border ${
                             activeSessionId === session.id
-                              ? 'bg-neutral-800/90 text-slate-100 border-neutral-700 font-semibold'
-                              : 'hover:bg-neutral-800/50 text-slate-300 border-transparent'
+                              ? 'bg-surface-highlight/50/90 text-primary border-surface-highlight font-semibold'
+                              : 'hover:bg-surface-highlight/60/50 text-secondary border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
@@ -667,7 +667,7 @@ Output strictly a JSON object:
                           </div>
                           <button
                             onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition shrink-0"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-secondary/70 hover:text-red-400 rounded transition shrink-0"
                             title="Delete chat"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -680,15 +680,15 @@ Output strictly a JSON object:
                   {/* Older */}
                   {groupedSessions.older.length > 0 && (
                     <div className="space-y-1">
-                      <span className="text-[10px] font-mono text-slate-400 px-2 block">Older</span>
+                      <span className="text-[10px] font-mono text-secondary/70 px-2 block">Older</span>
                       {groupedSessions.older.map(session => (
                         <div
                           key={session.id}
                           onClick={() => handleSelectSession(session)}
                           className={`group w-full text-left p-2.5 rounded-xl transition flex items-center justify-between gap-2 cursor-pointer border ${
                             activeSessionId === session.id
-                              ? 'bg-neutral-800/90 text-slate-100 border-neutral-700 font-semibold'
-                              : 'hover:bg-neutral-800/50 text-slate-300 border-transparent'
+                              ? 'bg-surface-highlight/50/90 text-primary border-surface-highlight font-semibold'
+                              : 'hover:bg-surface-highlight/60/50 text-secondary border-transparent'
                           }`}
                         >
                           <div className="flex items-center gap-2 overflow-hidden">
@@ -697,7 +697,7 @@ Output strictly a JSON object:
                           </div>
                           <button
                             onClick={(e) => handleDeleteSession(session.id, e)}
-                            className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-red-400 rounded transition shrink-0"
+                            className="opacity-0 group-hover:opacity-100 p-1 text-secondary/70 hover:text-red-400 rounded transition shrink-0"
                             title="Delete chat"
                           >
                             <Trash2 className="w-3 h-3" />
@@ -711,7 +711,7 @@ Output strictly a JSON object:
             </div>
 
             {/* Sidebar Footer: Model and voice info */}
-            <div className="p-3 border-t border-neutral-800 bg-[#111113] text-[11px] text-slate-400 flex items-center justify-between">
+            <div className="p-3 border-t border-surface-highlight bg-surface-lowest text-[11px] text-secondary/70 flex items-center justify-between">
               <span className="flex items-center gap-1.5 font-mono">
                 <AudioLines className="w-3 h-3 text-accent" />
                 Edge TTS ({selectedEdgeVoice.name.split(' ')[1] || 'Aria'})
@@ -721,17 +721,17 @@ Output strictly a JSON object:
           </aside>
 
           {/* MAIN CHAT AREA */}
-          <div className="flex-1 flex flex-col h-full bg-[#121212] overflow-hidden relative">
+          <div className="flex-1 flex flex-col h-full bg-surface-lowest overflow-hidden relative">
             {/* Header */}
-            <header className="px-4 sm:px-6 py-3.5 border-b border-neutral-800 flex items-center justify-between bg-[#181818] shrink-0 z-30">
+            <header className="px-4 sm:px-6 py-3.5 border-b border-surface-highlight flex items-center justify-between bg-surface shrink-0 z-30">
               <div className="flex items-center gap-3">
                 {/* Sidebar Toggle Button */}
                 <button
                   onClick={() => setIsSidebarOpen(prev => !prev)}
                   className={`p-2 rounded-xl border transition ${
                     isSidebarOpen 
-                      ? 'bg-neutral-800 border-neutral-700 text-accent' 
-                      : 'bg-neutral-900 border-neutral-800 text-slate-300 hover:text-slate-100 hover:border-neutral-700'
+                      ? 'bg-surface-highlight/50 border-surface-highlight text-accent' 
+                      : 'bg-surface border-surface-highlight text-secondary hover:text-primary hover:border-accent/40'
                   }`}
                   title="Toggle Chat History & Sidebar"
                 >
@@ -740,8 +740,8 @@ Output strictly a JSON object:
 
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-display font-bold text-base sm:text-lg text-slate-100 leading-tight">AI Companion</h2>
-                    <span className="hidden xs:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                    <h2 className="font-display font-bold text-base sm:text-lg text-primary leading-tight">AI Companion</h2>
+                    <span className="hidden xs:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-medium bg-accent/10 text-accent border border-accent/20">
                       <Brain className="w-2.5 h-2.5" />
                       RAG Memory Active
                     </span>
@@ -755,7 +755,7 @@ Output strictly a JSON object:
                 <div className="relative hidden sm:block">
                   <button
                     onClick={() => setIsVoiceDropdownOpen(prev => !prev)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-slate-300 text-xs font-mono transition border border-neutral-800"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface hover:bg-surface-highlight/60 text-secondary text-xs font-mono transition border border-surface-highlight"
                     title="Select Microsoft Edge TTS Voice"
                   >
                     <AudioLines className="w-3.5 h-3.5 text-accent" />
@@ -764,8 +764,8 @@ Output strictly a JSON object:
                   </button>
 
                   {isVoiceDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-64 bg-[#1a1a1a] rounded-2xl shadow-xl border border-neutral-700 p-1.5 z-50">
-                      <div className="text-[10px] font-mono font-bold text-slate-400 px-2.5 py-1 uppercase tracking-wider">
+                    <div className="absolute right-0 top-full mt-2 w-64 bg-surface rounded-2xl shadow-xl border border-surface-highlight p-1.5 z-50">
+                      <div className="text-[10px] font-mono font-bold text-secondary/70 px-2.5 py-1 uppercase tracking-wider">
                         Microsoft Edge TTS Voices
                       </div>
                       {EDGE_VOICES.map(v => (
@@ -780,11 +780,11 @@ Output strictly a JSON object:
                           className={`w-full text-left px-2.5 py-2 rounded-xl transition text-xs flex flex-col ${
                             selectedEdgeVoice.id === v.id
                               ? 'bg-accent/20 text-accent font-semibold'
-                              : 'hover:bg-neutral-800 text-slate-200'
+                              : 'hover:bg-surface-highlight/60 text-primary'
                           }`}
                         >
                           <span className="font-semibold">{v.name}</span>
-                          <span className="text-[10px] text-slate-400">{v.description}</span>
+                          <span className="text-[10px] text-secondary/70">{v.description}</span>
                         </button>
                       ))}
                     </div>
@@ -795,7 +795,7 @@ Output strictly a JSON object:
                 <div className="relative">
                   <button
                     onClick={() => setIsModelDropdownOpen(prev => !prev)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-slate-200 text-xs font-semibold transition border border-neutral-700"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-highlight/50 hover:bg-surface-highlight text-primary text-xs font-semibold transition border border-surface-highlight"
                   >
                     <Cpu className="w-3.5 h-3.5 text-accent" />
                     <span className="hidden sm:inline">{currentModelObj.name}</span>
@@ -804,8 +804,8 @@ Output strictly a JSON object:
                   </button>
 
                   {isModelDropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 bg-[#1a1a1a] rounded-2xl shadow-xl border border-neutral-700 p-1.5 z-50">
-                      <div className="text-[10px] font-mono font-bold text-slate-400 px-2.5 py-1 uppercase tracking-wider">Select Model</div>
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-surface-highlight p-1.5 z-50">
+                      <div className="text-[10px] font-mono font-bold text-secondary/70 px-2.5 py-1 uppercase tracking-wider">Select Model</div>
                       {AVAILABLE_MODELS.map(m => (
                         <button
                           key={m.id}
@@ -817,11 +817,11 @@ Output strictly a JSON object:
                           className={`w-full text-left px-2.5 py-2 rounded-xl transition text-xs flex flex-col ${
                             selectedModel === m.id
                               ? 'bg-accent/20 text-accent font-semibold'
-                              : 'hover:bg-neutral-800 text-slate-200'
+                              : 'hover:bg-surface-highlight/60 text-primary'
                           }`}
                         >
                           <span className="font-semibold">{m.name}</span>
-                          <span className="text-[10px] text-slate-400 font-light">{m.desc}</span>
+                          <span className="text-[10px] text-secondary/70 font-light">{m.desc}</span>
                         </button>
                       ))}
                     </div>
@@ -834,10 +834,10 @@ Output strictly a JSON object:
                     edgeTts.stop();
                     onClose();
                   }}
-                  className="p-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-slate-300 hover:text-white transition"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
                   title="Close AI Companion"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </header>
@@ -849,7 +849,7 @@ Output strictly a JSON object:
                   initial={{ height: 0, opacity: 0 }}
                   animate={{ height: 'auto', opacity: 1 }}
                   exit={{ height: 0, opacity: 0 }}
-                  className="bg-purple-950/70 border-b border-purple-800/60 px-4 py-2 flex items-center justify-between text-xs text-purple-200 z-20 shrink-0"
+                  className="bg-accent/10 border-b border-accent/20 px-4 py-2 flex items-center justify-between text-xs text-accent z-20 shrink-0"
                 >
                   <div className="flex items-center gap-2 overflow-hidden">
                     <div className="flex items-center gap-1 text-accent">
@@ -857,12 +857,12 @@ Output strictly a JSON object:
                       <span className="w-1 h-4 bg-accent animate-pulse delay-75" />
                       <span className="w-1 h-2 bg-accent animate-pulse delay-150" />
                     </div>
-                    <span className="font-mono text-[11px] font-semibold text-purple-300">Microsoft Edge TTS ({selectedEdgeVoice.name.split(' ')[1] || 'Aria'})</span>
-                    <span className="text-slate-400 truncate hidden sm:inline">• "{activeTtsSnippet}"</span>
+                    <span className="font-mono text-[11px] font-semibold text-accent">Microsoft Edge TTS ({selectedEdgeVoice.name.split(' ')[1] || 'Aria'})</span>
+                    <span className="text-secondary/70 truncate hidden sm:inline">• "{activeTtsSnippet}"</span>
                   </div>
                   <button
                     onClick={() => edgeTts.stop()}
-                    className="px-2.5 py-1 rounded-lg bg-purple-900/80 hover:bg-purple-800 text-purple-100 text-xs font-medium transition flex items-center gap-1 shrink-0"
+                    className="px-2.5 py-1 rounded-lg bg-accent/15 hover:bg-accent/25 text-accent text-xs font-medium transition flex items-center gap-1 shrink-0"
                   >
                     <VolumeX className="w-3.5 h-3.5" />
                     <span>Stop Audio</span>
@@ -876,15 +876,15 @@ Output strictly a JSON object:
               {/* NO DEFAULT GREETINGS: Clean, elegant empty state when there are 0 messages */}
               {messages.length === 0 && (
                 <div className="h-full flex flex-col items-center justify-center text-center px-4 max-w-lg mx-auto my-auto space-y-6">
-                  <div className="w-14 h-14 rounded-3xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-accent shadow-xl">
+                  <div className="w-14 h-14 rounded-3xl bg-surface border border-surface-highlight flex items-center justify-center text-accent shadow-xl">
                     <Sparkles className="w-7 h-7" />
                   </div>
 
                   <div className="space-y-1.5">
-                    <h3 className="font-display text-xl sm:text-2xl font-bold text-slate-100">
+                    <h3 className="font-display text-xl sm:text-2xl font-bold text-primary">
                       {userName ? `What's on your mind, ${userName.trim()}?` : "What's on your mind today?"}
                     </h3>
-                    <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-secondary/70 leading-relaxed">
                       I have deep awareness of your memories and core knowledge. Start typing or tap a prompt below to begin.
                     </p>
                   </div>
@@ -900,7 +900,7 @@ Output strictly a JSON object:
                       <button
                         key={idx}
                         onClick={() => handleSendMessage(chip.prompt)}
-                        className="p-3 text-left rounded-2xl bg-neutral-900/90 hover:bg-neutral-800 border border-neutral-800/80 hover:border-neutral-700 transition text-xs text-slate-300 hover:text-slate-100 flex items-start gap-2 group"
+                        className="p-3 text-left rounded-2xl bg-surface/90 hover:bg-surface-highlight/60 border border-surface-highlight/80 hover:border-accent/40 transition text-xs text-secondary hover:text-primary flex items-start gap-2 group"
                       >
                         <Sparkles className="w-3.5 h-3.5 text-accent shrink-0 mt-0.5 group-hover:scale-110 transition-transform" />
                         <span className="leading-snug">{chip.label}</span>
@@ -920,7 +920,7 @@ Output strictly a JSON object:
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-xs ${
                       msg.sender === 'user' 
                         ? 'bg-accent text-accent-fg' 
-                        : 'bg-neutral-800 text-slate-300 border border-neutral-700'
+                        : 'bg-surface-highlight/50 text-secondary border border-surface-highlight'
                     }`}>
                       {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
@@ -929,13 +929,13 @@ Output strictly a JSON object:
                       <div className={`p-4 rounded-3xl text-sm leading-relaxed ${
                         msg.sender === 'user'
                           ? 'bg-accent text-accent-fg rounded-tr-xs'
-                          : 'bg-[#1e1e1e] text-slate-200 border border-neutral-800 rounded-tl-xs shadow-md'
+                          : 'bg-surface text-primary border border-surface-highlight rounded-tl-xs shadow-md'
                       }`}>
                         <div className="whitespace-pre-wrap">{msg.text}</div>
 
                         {/* Referenced Memories Pill */}
                         {msg.sender === 'bot' && msg.referencedMemories && msg.referencedMemories.length > 0 && (
-                          <div className="mt-3 pt-2.5 border-t border-neutral-800/80">
+                          <div className="mt-3 pt-2.5 border-t border-surface-highlight/80">
                             <button
                               type="button"
                               onClick={() => setExpandedMemoryMsgId(expandedMemoryMsgId === msg.id ? null : msg.id)}
@@ -947,14 +947,14 @@ Output strictly a JSON object:
                             </button>
 
                             {expandedMemoryMsgId === msg.id && (
-                              <div className="mt-2 space-y-1.5 bg-neutral-900/90 p-2.5 rounded-xl border border-neutral-800 text-xs">
+                              <div className="mt-2 space-y-1.5 bg-surface/90 p-2.5 rounded-xl border border-surface-highlight text-xs">
                                 {msg.referencedMemories.map((ref, idx) => (
                                   <div key={idx} className="space-y-0.5">
-                                    <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
-                                      <span className="font-bold text-slate-300 truncate">{ref.title}</span>
+                                    <div className="flex items-center justify-between text-[10px] font-mono text-secondary/70">
+                                      <span className="font-bold text-secondary truncate">{ref.title}</span>
                                       <span>{ref.date}</span>
                                     </div>
-                                    <p className="text-[11px] text-slate-400 italic leading-snug">{ref.snippet}</p>
+                                    <p className="text-[11px] text-secondary/70 italic leading-snug">{ref.snippet}</p>
                                   </div>
                                 ))}
                               </div>
@@ -964,8 +964,8 @@ Output strictly a JSON object:
 
                         {/* Action buttons for extracted insights */}
                         {msg.sender === 'bot' && (msg.extractedTasks?.length || msg.extractedJournal || msg.extractedMood) && (
-                          <div className="mt-3 pt-2 border-t border-neutral-800 flex flex-wrap gap-2 items-center justify-between">
-                            <span className="text-[11px] font-mono text-slate-400">
+                          <div className="mt-3 pt-2 border-t border-surface-highlight flex flex-wrap gap-2 items-center justify-between">
+                            <span className="text-[11px] font-mono text-secondary/70">
                               {msg.extractedTasks?.length ? `${msg.extractedTasks.length} task(s)` : ''}
                               {msg.extractedMood ? ` • Mood: ${msg.extractedMood}` : ''}
                             </span>
@@ -976,7 +976,7 @@ Output strictly a JSON object:
                               className={`px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 transition ${
                                 addedIds[msg.id]
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                  : 'bg-neutral-800 hover:bg-neutral-700 text-slate-200 border border-neutral-700'
+                                  : 'bg-surface-highlight/50 hover:bg-surface-highlight text-primary border border-surface-highlight'
                               }`}
                             >
                               {addedIds[msg.id] ? <CheckCircle className="w-3 h-3 text-emerald-400" /> : <PlusCircle className="w-3 h-3 text-accent" />}
@@ -988,14 +988,14 @@ Output strictly a JSON object:
 
                       {/* Bot Message Action Toolbar */}
                       {msg.sender === 'bot' && (
-                        <div className="flex items-center gap-1 mt-1 text-slate-400 text-xs">
+                        <div className="flex items-center gap-1 mt-1 text-secondary/70 text-xs">
                           {/* Microsoft Edge TTS Speak Button */}
                           <button
                             onClick={() => handleSpeakWithEdgeTts(msg.text)}
-                            className="p-1.5 hover:text-purple-300 hover:bg-neutral-800 rounded-lg transition"
+                            className="p-1.5 hover:text-accent hover:bg-surface-highlight/60 rounded-lg transition"
                             title={`Read aloud with Microsoft Edge TTS (${selectedEdgeVoice.name.split(' ')[1] || 'Aria'})`}
                           >
-                            <Volume2 className="w-3.5 h-3.5 text-purple-400" />
+                            <Volume2 className="w-3.5 h-3.5 text-accent" />
                           </button>
 
                           {/* Copy */}
@@ -1006,7 +1006,7 @@ Output strictly a JSON object:
                               setTimeout(() => setCopiedId(null), 2000);
                               showToast("Copied to clipboard");
                             }}
-                            className="p-1.5 hover:text-slate-200 hover:bg-neutral-800 rounded-lg transition"
+                            className="p-1.5 hover:text-primary hover:bg-surface-highlight/60 rounded-lg transition"
                             title="Copy text"
                           >
                             {copiedId === msg.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1018,7 +1018,7 @@ Output strictly a JSON object:
                               setFeedbackState(prev => ({ ...prev, [msg.id]: 'up' }));
                               showToast("Thanks for the positive feedback!");
                             }}
-                            className={`p-1.5 hover:bg-neutral-800 rounded-lg transition ${feedbackState[msg.id] === 'up' ? 'text-accent' : 'hover:text-slate-200'}`}
+                            className={`p-1.5 hover:bg-surface-highlight/60 rounded-lg transition ${feedbackState[msg.id] === 'up' ? 'text-accent' : 'hover:text-primary'}`}
                             title="Helpful response"
                           >
                             <ThumbsUp className="w-3.5 h-3.5" />
@@ -1030,7 +1030,7 @@ Output strictly a JSON object:
                               setFeedbackState(prev => ({ ...prev, [msg.id]: 'down' }));
                               showToast("Feedback recorded. We'll improve future answers.");
                             }}
-                            className={`p-1.5 hover:bg-neutral-800 rounded-lg transition ${feedbackState[msg.id] === 'down' ? 'text-red-400' : 'hover:text-slate-200'}`}
+                            className={`p-1.5 hover:bg-surface-highlight/60 rounded-lg transition ${feedbackState[msg.id] === 'down' ? 'text-red-400' : 'hover:text-primary'}`}
                             title="Not helpful"
                           >
                             <ThumbsDown className="w-3.5 h-3.5" />
@@ -1046,7 +1046,7 @@ Output strictly a JSON object:
                                 showToast("Share link copied");
                               }
                             }}
-                            className="p-1.5 hover:text-slate-200 hover:bg-neutral-800 rounded-lg transition"
+                            className="p-1.5 hover:text-primary hover:bg-surface-highlight/60 rounded-lg transition"
                             title="Share reflection"
                           >
                             <Share2 className="w-3.5 h-3.5" />
@@ -1055,7 +1055,7 @@ Output strictly a JSON object:
                           {/* Regenerate */}
                           <button
                             onClick={handleRegenerate}
-                            className="p-1.5 hover:text-slate-200 hover:bg-neutral-800 rounded-lg transition"
+                            className="p-1.5 hover:text-primary hover:bg-surface-highlight/60 rounded-lg transition"
                             title="Regenerate response"
                           >
                             <RotateCw className="w-3.5 h-3.5" />
@@ -1070,10 +1070,10 @@ Output strictly a JSON object:
               {/* Typing indicator */}
               {isTyping && (
                 <div className="flex gap-3 max-w-4xl mx-auto w-full items-start">
-                  <div className="w-8 h-8 rounded-full bg-neutral-800 border border-neutral-700 flex items-center justify-center text-slate-300 shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-surface-highlight/50 border border-surface-highlight flex items-center justify-center text-secondary shrink-0">
                     <Bot className="w-4 h-4" />
                   </div>
-                  <div className="p-4 rounded-3xl bg-[#1e1e1e] border border-neutral-800 rounded-tl-xs text-xs text-slate-400 flex items-center gap-2">
+                  <div className="p-4 rounded-3xl bg-surface border border-surface-highlight rounded-tl-xs text-xs text-secondary/70 flex items-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin text-accent" />
                     <span>{isThinkEnabled ? 'Reasoning across memories and core context...' : 'Thinking...'}</span>
                   </div>
@@ -1083,29 +1083,29 @@ Output strictly a JSON object:
             </div>
 
             {/* Input Bar */}
-            <div className="p-3 sm:p-5 border-t border-neutral-800 bg-[#121212] shrink-0 flex justify-center">
+            <div className="p-3 sm:p-5 border-t border-surface-highlight bg-surface-lowest shrink-0 flex justify-center">
               <div className="w-full max-w-3xl relative">
                 {/* Attachment Menu Popup */}
                 {isAttachOpen && (
-                  <div className="absolute bottom-full mb-3 left-0 w-64 bg-[#1f1f1f] rounded-2xl shadow-2xl border border-neutral-700 p-2 z-50">
-                    <div className="text-[10px] font-mono font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">Attach Memory Context</div>
+                  <div className="absolute bottom-full mb-3 left-0 w-64 bg-surface rounded-2xl shadow-2xl border border-surface-highlight p-2 z-50">
+                    <div className="text-[10px] font-mono font-bold text-secondary/70 px-2 py-1 uppercase tracking-wider">Attach Memory Context</div>
                     <button
                       onClick={() => handleAttachOption('recent')}
-                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-neutral-800 text-slate-200 transition flex items-center gap-2"
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-surface-highlight/60 text-primary transition flex items-center gap-2"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-accent" />
                       <span>Reference Recent Journal</span>
                     </button>
                     <button
                       onClick={() => handleAttachOption('summary')}
-                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-neutral-800 text-slate-200 transition flex items-center gap-2"
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-surface-highlight/60 text-primary transition flex items-center gap-2"
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                      <Sparkles className="w-3.5 h-3.5 text-accent" />
                       <span>Summarize Recent Week</span>
                     </button>
                     <button
                       onClick={() => handleAttachOption('tasks')}
-                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-neutral-800 text-slate-200 transition flex items-center gap-2"
+                      className="w-full text-left px-3 py-2.5 rounded-xl text-xs hover:bg-surface-highlight/60 text-primary transition flex items-center gap-2"
                     >
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
                       <span>Extract Pending Action Items</span>
@@ -1118,14 +1118,14 @@ Output strictly a JSON object:
                     e.preventDefault();
                     handleSendMessage();
                   }}
-                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[#1a1a1a] rounded-3xl sm:rounded-full p-2.5 sm:px-4 sm:py-3 border border-neutral-800 focus-within:border-accent transition shadow-xl"
+                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-surface rounded-3xl sm:rounded-full p-2.5 sm:px-4 sm:py-3 border border-surface-highlight focus-within:border-accent transition shadow-xl"
                 >
                   <div className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto">
                     <div className="flex items-center gap-2 w-full sm:w-auto flex-grow">
                       <button
                         type="button"
                         onClick={() => setIsAttachOpen(prev => !prev)}
-                        className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 text-slate-300 flex items-center justify-center transition shrink-0"
+                        className="w-9 h-9 rounded-full bg-surface-highlight/50 hover:bg-surface-highlight text-secondary flex items-center justify-center transition shrink-0"
                         title="Attach memories or prompt presets"
                       >
                         <Plus className="w-4 h-4" />
@@ -1136,7 +1136,7 @@ Output strictly a JSON object:
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         placeholder={userName ? `Ask anything, ${userName.trim()}...` : "Ask anything"}
-                        className="flex-grow bg-transparent px-2 sm:px-3 py-1 text-sm sm:text-base text-slate-100 placeholder:text-slate-500 outline-none"
+                        className="flex-grow bg-transparent px-2 sm:px-3 py-1 text-sm sm:text-base text-primary placeholder:text-secondary/70 outline-none"
                         disabled={isTyping}
                       />
                     </div>
@@ -1154,7 +1154,7 @@ Output strictly a JSON object:
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-neutral-800">
+                  <div className="flex items-center justify-between sm:justify-end gap-1.5 sm:gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-surface-highlight">
                     <button
                       type="button"
                       onClick={() => {
@@ -1163,8 +1163,8 @@ Output strictly a JSON object:
                       }}
                       className={`px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 transition border ${
                         isThinkEnabled 
-                          ? 'bg-neutral-800 border-neutral-700 text-accent' 
-                          : 'bg-neutral-900 border-neutral-800 text-slate-400'
+                          ? 'bg-surface-highlight/50 border-surface-highlight text-accent' 
+                          : 'bg-surface border-surface-highlight text-secondary/70'
                       }`}
                       title="Toggle Think mode"
                     >
@@ -1175,7 +1175,7 @@ Output strictly a JSON object:
                     <button
                       type="button"
                       onClick={handleVoiceInput}
-                      className={`p-2 transition rounded-full hover:bg-neutral-800 ${isListening ? 'text-red-400 animate-pulse bg-neutral-800' : 'text-slate-400 hover:text-slate-100'}`}
+                      className={`p-2 transition rounded-full hover:bg-surface-highlight/60 ${isListening ? 'text-red-400 animate-pulse bg-surface-highlight/50' : 'text-secondary/70 hover:text-primary'}`}
                       title="Voice input dictation"
                     >
                       <Mic className="w-4 h-4" />
@@ -1194,8 +1194,8 @@ Output strictly a JSON object:
                       }}
                       className={`w-8 h-8 rounded-full flex items-center justify-center transition shrink-0 shadow-sm ${
                         isSpeakingAudio 
-                          ? 'bg-purple-600 text-white animate-pulse' 
-                          : 'bg-[#3b1f5e] hover:bg-[#4a2779] text-purple-200'
+                          ? 'bg-accent text-accent-fg animate-pulse' 
+                          : 'bg-accent/15 hover:bg-accent/25 text-accent'
                       }`}
                       title={`Read last response with Microsoft Edge TTS (${selectedEdgeVoice.name.split(' ')[1] || 'Aria'})`}
                     >

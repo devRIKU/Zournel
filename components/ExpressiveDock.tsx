@@ -1,60 +1,46 @@
 import React from 'react';
-import { BookOpen, CheckSquare, User } from 'lucide-react';
+import { motion } from 'motion/react';
+import { BookOpen, CheckSquare, User } from './Icons';
 import { Tab } from '../types';
-import { FloatingDock, FloatingDockItem } from './ui/floating-dock';
+import { triggerHaptic } from '../utils/uiSprings';
 
-export interface DockProps {
-  currentTab: string | Tab;
-  onSelectTab: (tab: string | Tab) => void;
-  activeTab?: Tab;
-  onTabChange?: (tab: Tab) => void;
-}
+const ITEMS: { tab: Tab; label: string; Icon: typeof BookOpen }[] = [
+  { tab: Tab.TODO, label: 'Tasks', Icon: CheckSquare },
+  { tab: Tab.JOURNAL, label: 'Journal', Icon: BookOpen },
+  { tab: Tab.PROFILE, label: 'Profile', Icon: User },
+];
 
-export const ExpressiveDock: React.FC<DockProps> = ({ 
-  currentTab, 
-  onSelectTab,
-  activeTab,
-  onTabChange
-}) => {
-  const activeValue = currentTab || activeTab || 'todos';
-
-  const isItemActive = (id: string, tabEnum: Tab) => {
-    return activeValue === id || activeValue === tabEnum || 
-           (id === 'todos' && (activeValue === 'todos' || activeValue === Tab.TODO)) ||
-           (id === 'journal' && (activeValue === 'journal' || activeValue === Tab.JOURNAL)) ||
-           (id === 'profile' && (activeValue === 'profile' || activeValue === Tab.PROFILE));
-  };
-
-  const handleSelect = (id: string, tabEnum: Tab) => {
-    if (onTabChange) onTabChange(tabEnum);
-    if (onSelectTab) onSelectTab(id);
-  };
-
-  const dockItems: FloatingDockItem[] = [
-    {
-      title: 'Tasks',
-      icon: <CheckSquare className="w-5 h-5 stroke-[2.2]" />,
-      onClick: () => handleSelect('todos', Tab.TODO),
-      active: isItemActive('todos', Tab.TODO),
-    },
-    {
-      title: 'Journal',
-      icon: <BookOpen className="w-5 h-5 stroke-[2.2]" />,
-      onClick: () => handleSelect('journal', Tab.JOURNAL),
-      active: isItemActive('journal', Tab.JOURNAL),
-    },
-    {
-      title: 'Profile',
-      icon: <User className="w-5 h-5 stroke-[2.2]" />,
-      onClick: () => handleSelect('profile', Tab.PROFILE),
-      active: isItemActive('profile', Tab.PROFILE),
-    },
-  ];
-
-  return (
-    <FloatingDock items={dockItems} />
-  );
-};
-
-export const BottomNav = ExpressiveDock;
-export default ExpressiveDock;
+// One dock for every breakpoint: same pill, same item, same active state.
+export const ExpressiveDock: React.FC<{ activeTab: Tab; onTabChange: (tab: Tab) => void }> = ({ activeTab, onTabChange }) => (
+  <nav
+    aria-label="Primary"
+    className="fixed inset-x-0 bottom-0 z-30 flex justify-center px-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] sm:pb-6 pointer-events-none"
+  >
+    <div className="pointer-events-auto flex items-center gap-1 p-1.5 rounded-full bg-surface/90 backdrop-blur-xl border border-surface-highlight/70 shadow-lg shadow-black/5">
+      {ITEMS.map(({ tab, label, Icon }) => {
+        const active = activeTab === tab;
+        return (
+          <button
+            key={tab}
+            type="button"
+            aria-current={active ? 'page' : undefined}
+            onClick={() => { triggerHaptic(8); onTabChange(tab); }}
+            className={`relative flex items-center gap-2 h-11 px-4 sm:px-5 rounded-full text-sm font-medium transition-colors duration-200 active:scale-95 select-none ${
+              active ? 'text-accent' : 'text-secondary hover:text-primary'
+            }`}
+          >
+            {active && (
+              <motion.span
+                layoutId="dock-active"
+                className="absolute inset-0 rounded-full bg-accent/12 border border-accent/20"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+              />
+            )}
+            <Icon className="relative w-5 h-5" weight={active ? 'fill' : 'regular'} />
+            <span className="relative">{label}</span>
+          </button>
+        );
+      })}
+    </div>
+  </nav>
+);

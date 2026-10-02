@@ -18,13 +18,14 @@ import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, ext
 import { useTaskStore } from './store/useTaskStore';
 import { useJournalStore } from './store/useJournalStore';
 import { SpotlightGlow } from './components/ui/background-beams';
-import { SparklesText } from './components/ui/sparkles';
-import { SquigglyLine, DoodleAccent } from './components/ui/DoodleDividers';
 
 const ALL_THEME_CLASSES = [
   'theme-cozy-light', 'theme-cozy-dark', 'theme-evergreen-light', 'theme-evergreen-dark', 
   'theme-catppuccin-light', 'theme-catppuccin-dark', 'theme-gruvbox-light', 'theme-gruvbox-dark'
 ];
+
+// Shared 40px round icon button used across the top bar.
+const ICON_BUTTON = 'w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition';
 
 export const App: React.FC = () => {
   const [hasEntered, setHasEntered] = useState(true);
@@ -359,7 +360,7 @@ export const App: React.FC = () => {
             <div className="absolute inset-0 rounded-full border border-accent/20 animate-ping" />
             <div className="absolute inset-2 rounded-full border-2 border-accent border-t-transparent animate-spin" />
           </div>
-          <span className="text-xs font-grotesk tracking-[0.2em] uppercase text-secondary/60 animate-pulse">Entering Zournel...</span>
+          <span className="text-xs font-mono tracking-wider uppercase text-secondary/60 animate-pulse">Entering Zournel...</span>
         </div>
       </div>
     );
@@ -386,58 +387,38 @@ export const App: React.FC = () => {
     <div className="h-[100dvh] overflow-y-auto overscroll-y-contain flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
       <SpotlightGlow className="opacity-40 pointer-events-none" />
       
-      {/* Zone 1: Unsticky Top Bar (Normal flow, scrolls away with content) */}
-      <header className="relative w-full max-w-7xl mx-auto pt-3 sm:pt-5 px-4 sm:px-6 md:px-8 pb-3 flex justify-between items-center bg-transparent z-10">
-        <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="p-2 sm:p-2.5 bg-accent/15 text-accent rounded-xl sm:rounded-2xl border border-accent/25 shadow-xs flex items-center justify-center shrink-0">
-            <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 stroke-[2.5]" />
+      {/* Top bar */}
+      <header className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 h-16 sm:h-20 flex items-center justify-between border-b border-surface-highlight/60">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-accent/12 border border-accent/20 text-accent flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5" weight="fill" />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-black text-primary tracking-tight leading-tight">
-                Zournel
-              </h1>
-              <DoodleAccent className="text-accent/60 w-4 h-3 -mt-2 hidden sm:inline-block" />
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-accent italic font-grotesk text-[11px] sm:text-xs font-semibold">Reflect &amp; Execute</span>
-            </div>
+          <div className="leading-none">
+            <h1 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight">Zournel</h1>
+            <p className="mt-1 text-[11px] font-mono uppercase tracking-wider text-secondary/70">Reflect &amp; Execute</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2.5">
-           <div className="hidden md:block">
-             <AutoBackupPill
-               isBackingUp={isAutoBackingUp}
-               lastBackupTime={lastAutoBackupTime}
-               autoBackupEnabled={settings.autoBackupEnabled ?? true}
-               onManualBackup={performAutoBackup}
-               onOpenSettings={() => setIsSettingsOpen(true)}
-             />
-           </div>
-           <button 
-             onClick={() => setIsAddModalOpen(true)} 
-             title="AI Companion Chat" 
-             className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] p-2 sm:p-2.5 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-accent flex items-center justify-center"
-           >
-            <Sparkles className="w-5 h-5 sm:w-6 sm:h-6" />
-           </button>
-           <button 
-             onClick={() => setIsSettingsOpen(true)} 
-             title="Preferences & Themes" 
-             className="min-w-[40px] min-h-[40px] sm:min-w-[44px] sm:min-h-[44px] p-2 sm:p-2.5 rounded-full hover:bg-surface-highlight/70 transition active:scale-95 text-primary flex items-center justify-center"
-           >
-            <Settings className="w-5 h-5 sm:w-6 sm:h-6" />
-           </button>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <div className="hidden md:block mr-1">
+            <AutoBackupPill
+              isBackingUp={isAutoBackingUp}
+              lastBackupTime={lastAutoBackupTime}
+              autoBackupEnabled={settings.autoBackupEnabled ?? true}
+              onManualBackup={performAutoBackup}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+            />
+          </div>
+          <button type="button" onClick={() => setIsAddModalOpen(true)} title="AI Companion" aria-label="AI Companion" className={ICON_BUTTON}>
+            <Sparkles className="w-5 h-5" />
+          </button>
+          <button type="button" onClick={() => setIsSettingsOpen(true)} title="Settings" aria-label="Settings" className={ICON_BUTTON}>
+            <Settings className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
-      {/* Playful Subtle Squiggly Separator under Header (Low Opacity, Small Wavelength) */}
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-1">
-        <SquigglyLine className="text-primary/20" height={5} strokeWidth={1} wavelength={7} />
-      </div>
-
       {/* Zone 2: Flexible Content Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 py-4 pb-32">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-6 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -486,33 +467,21 @@ export const App: React.FC = () => {
         </AnimatePresence>
       </main>
 
-      {/* Floating Action Button */}
-      <div className={`fixed bottom-[calc(env(safe-area-inset-bottom,0px)+5.25rem)] sm:bottom-24 right-4 sm:right-6 z-40 transition-transform duration-300 will-change-transform ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
-        <button 
-          onClick={handlePlusClick} 
-          title={activeTab === Tab.TODO ? "Add new task" : "Write new memory"} 
-          className="w-12 h-12 sm:w-14 sm:h-14 bg-accent text-accent-fg rounded-full shadow-lg shadow-accent/25 ring-2 ring-accent/20 flex items-center justify-center hover:scale-105 active:scale-90 transition-transform cursor-pointer"
+      {/* Floating action button — sits one step above the dock on both breakpoints */}
+      <div className={`fixed right-4 sm:right-6 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] sm:bottom-24 z-40 transition-all duration-200 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
+        <button
+          type="button"
+          onClick={handlePlusClick}
+          title={activeTab === Tab.TODO ? 'Add task' : 'New memory'}
+          aria-label={activeTab === Tab.TODO ? 'Add task' : 'New memory'}
+          className="w-14 h-14 rounded-full bg-accent text-accent-fg shadow-lg shadow-accent/25 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
         >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
+          <Plus className="w-6 h-6" weight="bold" />
         </button>
       </div>
 
-      {/* Zone 3: Anchored Bottom Dock / Navigation */}
-      {!isEditorOpen && (
-        <div className="shrink-0 z-30">
-          <ExpressiveDock 
-            currentTab={activeTab === Tab.TODO ? 'todos' : activeTab === Tab.JOURNAL ? 'journal' : 'profile'} 
-            onSelectTab={(tabId) => {
-              if (tabId === 'todos') setActiveTab(Tab.TODO);
-              else if (tabId === 'journal') setActiveTab(Tab.JOURNAL);
-              else if (tabId === 'profile') setActiveTab(Tab.PROFILE);
-            }}
-            activeTab={activeTab} 
-            onTabChange={setActiveTab} 
-          />
-        </div>
-      )}
-      
+      {!isEditorOpen && <ExpressiveDock activeTab={activeTab} onTabChange={setActiveTab} />}
+
       <JournalEditor 
         key={editingEntry ? editingEntry.id : 'new-entry'}
         isOpen={isEditorOpen} 

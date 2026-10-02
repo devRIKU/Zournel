@@ -206,7 +206,7 @@ export const ScribblePadModal: React.FC<ScribblePadModalProps> = ({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[120] flex items-center justify-center p-3 sm:p-6 bg-black/60 backdrop-blur-md"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-black/50 backdrop-blur-sm"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 15 }}
@@ -222,7 +222,7 @@ export const ScribblePadModal: React.FC<ScribblePadModalProps> = ({
                   <Pencil className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-primary text-base">Hand-drawn Scribble</h3>
+                  <h3 className="text-xl font-display font-bold text-primary">Hand-drawn Scribble</h3>
                   <p className="text-[10px] text-secondary font-mono uppercase tracking-wider">Sketch a quick thought or doodle</p>
                 </div>
               </div>
@@ -245,10 +245,10 @@ export const ScribblePadModal: React.FC<ScribblePadModalProps> = ({
                 )}
                 <button
                   onClick={onClose}
-                  className="p-2 hover:bg-surface-highlight text-secondary hover:text-primary rounded-xl transition cursor-pointer"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
                   title="Close"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -268,7 +268,7 @@ export const ScribblePadModal: React.FC<ScribblePadModalProps> = ({
                 {!hasContent && !isDrawing && (
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-secondary/40 select-none">
                     <Pencil className="w-8 h-8 stroke-1 mb-2 animate-pulse" />
-                    <span className="text-xs font-grotesk tracking-widest uppercase">Draw here with mouse or finger</span>
+                    <span className="text-xs font-mono tracking-wider uppercase">Draw here with mouse or finger</span>
                   </div>
                 )}
               </div>

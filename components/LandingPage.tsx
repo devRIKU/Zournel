@@ -62,7 +62,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
           ) : (
             <Moon className="w-4 h-4 text-accent" />
           )}
-          <span className="text-[10px] sm:text-xs font-grotesk font-semibold tracking-[0.2em] text-secondary uppercase">
+          <span className="text-[10px] sm:text-xs font-mono font-semibold tracking-wider text-secondary uppercase">
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </span>
         </div>
@@ -86,12 +86,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
           {/* Focus Task Card with Aceternity CardSpotlight */}
           <CardSpotlight
             onClick={onEnter}
-            className="cursor-pointer border-surface-highlight hover:border-accent/50 transition-all rounded-[2rem] p-6 sm:p-7 flex flex-col justify-between min-h-[220px]"
+            className="cursor-pointer border-surface-highlight hover:border-accent/50 transition-all rounded-3xl p-6 sm:p-7 flex flex-col justify-between min-h-[220px]"
           >
             <div className="flex items-center justify-between w-full mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-accent/15 text-accent">
-                  <CheckCircle className="w-4 h-4 stroke-[2.5]" />
+                  <CheckCircle className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
                   Focus Task
@@ -128,12 +128,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter, tasks, journa
           {/* Latest Memory Card with Aceternity CardSpotlight */}
           <CardSpotlight
             onClick={onEnter}
-            className="cursor-pointer border-surface-highlight hover:border-accent/50 transition-all rounded-[2rem] p-6 sm:p-7 flex flex-col justify-between min-h-[220px]"
+            className="cursor-pointer border-surface-highlight hover:border-accent/50 transition-all rounded-3xl p-6 sm:p-7 flex flex-col justify-between min-h-[220px]"
           >
             <div className="flex items-center justify-between w-full mb-4">
               <div className="flex items-center gap-2.5">
                 <div className="p-2 rounded-xl bg-accent/15 text-accent">
-                  <BookOpen className="w-4 h-4 stroke-[2.5]" />
+                  <BookOpen className="w-4 h-4" />
                 </div>
                 <span className="text-xs font-bold uppercase tracking-[0.18em] text-secondary">
                   Latest Memory
