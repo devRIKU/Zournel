@@ -6,11 +6,11 @@ import {
   History, CheckCircle, XCircle, Heading1, Heading2, Heading3, Heading4, Quote, Minus,
   MoreHorizontal, CheckCheck, RefreshCw, Maximize2, Shuffle, Command, Search,
   CheckSquare, MessageSquareCode, Table as TableIcon, Lightbulb,
-  GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown, Pencil, Music
+  GripVertical, Plus, Trash2, Copy, ArrowUp, ArrowDown, Pencil, Music, BookOpen
 } from './Icons';
 import { ScribblePadModal } from './ScribblePadModal';
 import { SongAttachmentModal } from './SongAttachmentModal';
-import { AttachedSong } from '../types';
+import { AttachedSong, JournalEntry } from '../types';
 import { Play, Pause, MoreVertical } from './Icons';
 import { toggleAudioPreview, subscribeToAudio, stopAudioPreview } from '../services/songService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,9 +33,10 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle, moodFromLabel } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle, generateAutoTitle, extractTasksFromJournal, moodFromLabel } from '../services/geminiService';
 import { isJevAvailable, detectMoodWithJev } from '../services/jevService';
 import { useJournalStore } from '../store/useJournalStore';
+import { useTaskStore } from '../store/useTaskStore';
 import { AiGlitterTypewriter, AiGlitterPill } from './AiGlitterTypewriter';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -81,9 +82,12 @@ interface JournalEditorProps {
     scribble?: string, 
     song?: AttachedSong,
     lyrics?: string,
-    id?: string
+    id?: string,
+    linkedEntryIds?: string[],
+    linkedTaskIds?: string[]
   ) => void;
   onDelete?: (id: string) => void;
+  onSwitchEntry?: (entry: JournalEntry) => void;
   initialContent?: string;
   initialTitle?: string;
   initialImage?: string;
@@ -92,6 +96,8 @@ interface JournalEditorProps {
   initialScribble?: string;
   initialSong?: AttachedSong;
   initialLyrics?: string;
+  initialLinkedEntryIds?: string[];
+  initialLinkedTaskIds?: string[];
   selectedModel?: string;
 }
 
@@ -174,8 +180,10 @@ const EditorInstance = memo(({ defaultValue, onMarkdownUpdate, onEditorReady, on
 });
 
 export const JournalEditor: React.FC<JournalEditorProps> = ({ 
-  isOpen, onClose, onSave, onDelete, initialContent = '', initialTitle = '', initialImage, initialId, initialMood, initialScribble, initialSong, initialLyrics, selectedModel 
+  isOpen, onClose, onSave, onDelete, onSwitchEntry, initialContent = '', initialTitle = '', initialImage, initialId, initialMood, initialScribble, initialSong, initialLyrics, initialLinkedEntryIds, initialLinkedTaskIds, selectedModel 
 }) => {
+  const allEntries = useJournalStore((s) => s.entries);
+  const { tasks: allTasks, addTask, toggleTask } = useTaskStore();
   const [content, setContent] = useState(() => initialContent);
   const [title, setTitle] = useState<string>(() => initialTitle || '');
   const initialContentRef = useRef<string>(initialContent || '');
@@ -187,6 +195,13 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const [scribble, setScribble] = useState<string | undefined>(() => initialScribble);
   const [song, setSong] = useState<AttachedSong | undefined>(() => initialSong);
   const [lyrics, setLyrics] = useState<string | undefined>(() => initialLyrics || initialSong?.lyrics);
+  const [linkedEntryIds, setLinkedEntryIds] = useState<string[]>(() => initialLinkedEntryIds || []);
+  const [linkedTaskIds, setLinkedTaskIds] = useState<string[]>(() => initialLinkedTaskIds || []);
+  const [showMentionDropdown, setShowMentionDropdown] = useState(false);
+  const [mentionTab, setMentionTab] = useState<'memories' | 'tasks'>('memories');
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [isExtractingTasks, setIsExtractingTasks] = useState(false);
+  const mentionMenuRef = useRef<HTMLDivElement>(null);
   const [playingPreviewUrl, setPlayingPreviewUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -274,23 +289,40 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`)
   );
 
-  // Top header menus
+  // Top header & toolbar menus
   const [showPlusDropdown, setShowPlusDropdown] = useState(false);
   const [showKebabDropdown, setShowKebabDropdown] = useState(false);
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
+  const moodMenuRef = useRef<HTMLDivElement>(null);
+  const aiMenuRef = useRef<HTMLDivElement>(null);
+  const blockMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleMenuClickOutside = (e: MouseEvent) => {
-      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+    const handleMenuClickOutside = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node;
+      if (plusMenuRef.current && !plusMenuRef.current.contains(target)) {
         setShowPlusDropdown(false);
       }
-      if (kebabMenuRef.current && !kebabMenuRef.current.contains(e.target as Node)) {
+      if (kebabMenuRef.current && !kebabMenuRef.current.contains(target)) {
         setShowKebabDropdown(false);
       }
+      if (moodMenuRef.current && !moodMenuRef.current.contains(target)) {
+        setShowMoodMenu(false);
+      }
+      if (aiMenuRef.current && !aiMenuRef.current.contains(target)) {
+        setShowAiMenu(false);
+      }
+      if (blockMenuRef.current && !blockMenuRef.current.contains(target)) {
+        setShowBlockMenu(false);
+      }
+      if (mentionMenuRef.current && !mentionMenuRef.current.contains(target)) {
+        setShowMentionDropdown(false);
+      }
     };
-    document.addEventListener('mousedown', handleMenuClickOutside);
-    return () => document.removeEventListener('mousedown', handleMenuClickOutside);
+    document.addEventListener('pointerdown', handleMenuClickOutside);
+    return () => document.removeEventListener('pointerdown', handleMenuClickOutside);
   }, []);
 
   // Notion/BlockNote Style Floating Selection Toolbar & Block Handle State
@@ -421,6 +453,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setMood(initialMood);
       setScribble(initialScribble);
       setSong(initialSong);
+      setLinkedEntryIds(initialLinkedEntryIds || []);
+      setLinkedTaskIds(initialLinkedTaskIds || []);
+      setShowMentionDropdown(false);
+      setMentionQuery('');
       setShowScribbleModal(false);
       setShowSongModal(false);
       setShowPlusDropdown(false);
@@ -444,7 +480,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       setBlockHandlePos(null);
       setShowBlockMenu(false);
     }
-  }, [isOpen, initialId, initialContent, initialTitle, initialImage, initialMood, initialScribble, initialSong]);
+  }, [isOpen, initialId, initialContent, initialTitle, initialImage, initialMood, initialScribble, initialSong, initialLinkedEntryIds, initialLinkedTaskIds]);
 
   // Debounced Auto-Save Effect
   useEffect(() => {
@@ -455,7 +491,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       return;
     }
 
-    if (!content.trim()) return;
+    if (!content.trim() && linkedEntryIds.length === 0 && linkedTaskIds.length === 0) return;
 
     setSaveStatus('unsaved');
     if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
@@ -463,7 +499,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     autoSaveTimerRef.current = setTimeout(() => {
       setSaveStatus('saving');
       const activeTitle = title.trim() || extractAutoTitle(content);
-      onSave(content, image, mood, true, activeTitle, scribble, song, lyrics || song?.lyrics, currentIdRef.current);
+      onSave(content, image, mood, true, activeTitle, scribble, song, lyrics || song?.lyrics, currentIdRef.current, linkedEntryIds, linkedTaskIds);
       setTimeout(() => {
         setSaveStatus('saved');
         setLastSavedTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
@@ -473,7 +509,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [content, image, mood, title, scribble, song, isOpen, onSave]);
+  }, [content, image, mood, title, scribble, song, linkedEntryIds, linkedTaskIds, isOpen, onSave]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
@@ -482,10 +518,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const handleMarkdownUpdate = useCallback((md: string) => {
     setContent(md);
     
-    // Detect slash command at current input or line end
-    const match = md.match(/(?:^|\n|\s)\/([a-zA-Z0-9\s_-]*)$/);
+    // Detect slash command at current input or line end (without spaces so normal writing won't re-trigger)
+    const match = md.match(/(?:^|\n|\s)\/([a-zA-Z0-9_-]{0,18})$/);
     if (match) {
       setShowSlashMenu(true);
+      setShowPlusDropdown(false);
+      setShowKebabDropdown(false);
+      setShowMoodMenu(false);
+      setShowAiMenu(false);
       setSlashQuery(match[1].toLowerCase());
       requestAnimationFrame(() => {
         updateSlashMenuPosition();
@@ -594,7 +634,17 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       return (leadingChar === '\n' || leadingChar === ' ') ? leadingChar : '';
     });
 
-    if (cmdId === 'h1' || cmdId === 'h2' || cmdId === 'bullet' || cmdId === 'number' || cmdId === 'quote' || cmdId === 'code' || cmdId === 'hr') {
+    const stylingIds = ['h1', 'h2', 'h3', 'h4', 'bullet', 'number', 'todo', 'quote', 'callout', 'code', 'table', 'hr'];
+    const aiCommandMap: Record<string, AiActionType> = {
+      proofread: 'PROOFREAD',
+      rewrite: 'REWRITE',
+      improve: 'IMPROVE',
+      poetic: 'REPHRASE',
+      summarize: 'SUMMARIZE',
+      expand: 'EXPAND',
+    };
+
+    if (stylingIds.includes(cmdId)) {
       const lines = clean.split('\n');
       let targetIdx = lines.length - 1;
       
@@ -638,12 +688,12 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         editorRef.current.action(replaceAll(updatedMd));
         setContent(updatedMd);
       }
-    } else if (cmdId === 'proofread' || cmdId === 'rewrite' || cmdId === 'improve' || cmdId === 'poetic' || cmdId === 'summarize' || cmdId === 'expand') {
+    } else if (cmdId in aiCommandMap) {
       if (editorRef.current) {
         editorRef.current.action(replaceAll(clean));
         setContent(clean);
       }
-      handleAiAction(cmdId as AiActionType, clean);
+      handleAiAction(aiCommandMap[cmdId], clean);
     } else if (cmdId === 'random') {
       if (editorRef.current) {
         editorRef.current.action(replaceAll(clean));
@@ -846,7 +896,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     const meaningfulChange = isMeaningfulContentChange(initialContentRef.current, content);
     const userEditedTitle = userHasEditedTitleRef.current;
 
-    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics, currentId);
+    onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics, currentId, linkedEntryIds, linkedTaskIds);
     onClose();
 
     // Only generate the title once a Journal is exited to the memories view,
@@ -859,6 +909,93 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   };
 
+  const toggleLinkEntry = (targetEntryId: string) => {
+    triggerHaptic(8);
+    setLinkedEntryIds((prev) =>
+      prev.includes(targetEntryId)
+        ? prev.filter((id) => id !== targetEntryId)
+        : [...prev, targetEntryId]
+    );
+  };
+
+  const toggleLinkTask = (targetTaskId: string) => {
+    triggerHaptic(8);
+    setLinkedTaskIds((prev) =>
+      prev.includes(targetTaskId)
+        ? prev.filter((id) => id !== targetTaskId)
+        : [...prev, targetTaskId]
+    );
+  };
+
+  const handleCreateAndLinkTask = (taskTitle: string) => {
+    const clean = taskTitle.trim();
+    if (!clean) return;
+    triggerHaptic(12);
+    const newTaskId = addTask(clean, 'medium', currentIdRef.current);
+    setLinkedTaskIds((prev) => (prev.includes(newTaskId) ? prev : [...prev, newTaskId]));
+    setMentionQuery('');
+  };
+
+  const handleExtractTasksFromEntry = async () => {
+    if (!content.trim() || isExtractingTasks) return;
+    setIsExtractingTasks(true);
+    triggerHaptic(10);
+    try {
+      const extracted = await extractTasksFromJournal(content, selectedModel);
+      if (extracted.length > 0) {
+        const createdIds: string[] = [];
+        for (const item of extracted) {
+          if (item.text.trim()) {
+            const id = addTask(item.text.trim(), item.priority, currentIdRef.current);
+            createdIds.push(id);
+          }
+        }
+        if (createdIds.length > 0) {
+          setLinkedTaskIds((prev) => Array.from(new Set([...prev, ...createdIds])));
+        }
+      }
+    } catch (e) {
+      console.error('Task extraction failed', e);
+    } finally {
+      setIsExtractingTasks(false);
+    }
+  };
+
+  const handleNavigateToLinkedEntry = (targetEntry: JournalEntry) => {
+    if (!onSwitchEntry) return;
+    triggerHaptic(12);
+    const activeTitle = title.trim() || extractAutoTitle(content);
+    onSave(
+      content,
+      image,
+      mood,
+      true,
+      activeTitle,
+      scribble,
+      song,
+      lyrics || song?.lyrics,
+      currentIdRef.current,
+      linkedEntryIds,
+      linkedTaskIds
+    );
+    onSwitchEntry(targetEntry);
+  };
+
+  const linkableMemories = allEntries.filter((e) => e.id !== currentIdRef.current);
+  const filteredMentionMemories = linkableMemories.filter((e) => {
+    const q = mentionQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      (e.title || '').toLowerCase().includes(q) ||
+      e.content.toLowerCase().includes(q)
+    );
+  });
+  const filteredMentionTasks = allTasks.filter((t) => {
+    const q = mentionQuery.trim().toLowerCase();
+    if (!q) return true;
+    return t.text.toLowerCase().includes(q);
+  });
+
   return (
     <>
       <AnimatePresence>
@@ -870,251 +1007,566 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           transition={{ type: 'spring', damping: 26, stiffness: 220 }}
           className="fixed inset-0 z-[100] bg-bg flex flex-col overflow-hidden"
         >
-          {/* Cover Image Header */}
-          <div className="relative h-48 md:h-64 w-full shrink-0 group bg-surface-highlight overflow-hidden">
-        {image ? (
-          <>
-            {imgLoading && (
-              <div className="absolute inset-0 bg-surface-highlight animate-pulse flex items-center justify-center z-0">
-                 <Loader2 className="w-8 h-8 text-accent animate-spin opacity-50" />
-              </div>
-            )}
-            {imgError && (
-              <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-surface-highlight flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2 text-secondary/50">
-                  <ImageOff className="w-8 h-8" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider">Image unavailable</span>
-                </div>
-              </div>
-            )}
-
-            <img 
-              src={image} 
-              alt="Cover" 
-              onLoad={() => setImgLoading(false)}
-              onError={() => { setImgError(true); setImgLoading(false); }}
-              className={`w-full h-full object-cover transition duration-700 ${imgLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`} 
-            />
-          </>
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-accent/20 via-surface-highlight to-bg flex items-center justify-center opacity-60">
-            <span className="text-xs font-mono text-secondary uppercase tracking-wider">No Cover Selected</span>
-          </div>
-        )}
-        
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-bg"></div>
-        
-        <div className="absolute top-0 left-0 w-full p-4 md:p-6 flex justify-between items-center text-white z-10">
-          <div className="flex items-center gap-3">
-            <button onClick={handleExitAndSave} className="p-2.5 md:p-3 bg-white/10 backdrop-blur-md rounded-full hover:bg-white/20 transition active:scale-[0.97]" title="Back">
-              <ArrowLeft className="w-5 h-5 md:w-6 h-6" />
-            </button>
-            {/* Auto-Save Status Indicator */}
-            {saveStatus && (
-              <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 rounded-full text-[11px] font-mono tracking-wide">
-                {saveStatus === 'saving' && (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 text-accent animate-spin" />
-                    <span className="text-white/80">Saving draft...</span>
-                  </>
-                )}
-                {saveStatus === 'saved' && (
-                  <>
-                    <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-emerald-200">Auto-saved {lastSavedTime ? `at ${lastSavedTime}` : ''}</span>
-                  </>
-                )}
-                {saveStatus === 'unsaved' && (
-                  <>
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="text-amber-200">Editing...</span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-          
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            {/* 1. Plus Button with Dropdown (Scribbles & Song) */}
-            <div className="relative" ref={plusMenuRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowPlusDropdown((prev) => !prev);
-                  setShowKebabDropdown(false);
-                }}
-                className={`p-2.5 sm:p-3 backdrop-blur-md rounded-full transition active:scale-[0.97] border flex items-center justify-center ${
-                  showPlusDropdown
-                    ? 'bg-accent text-accent-fg border-accent shadow-md ring-2 ring-accent/30'
-                    : (scribble || song)
-                      ? 'bg-white/25 text-white border-white/30'
-                      : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
-                }`}
-                title="Add media (Scribbles, Song)"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
-
-              <AnimatePresence>
-                {showPlusDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 6 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 6 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-56 bg-surface/95 backdrop-blur-xl border border-surface-highlight rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 text-left"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusDropdown(false);
-                        setShowScribbleModal(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Pencil className="w-4 h-4 text-accent" />
-                        <span>Scribbles</span>
+          {/* Cover Image Header — outer wrapper has z-[60] and NO overflow-hidden so Plus & Kebab menus never clip or fall behind the editor toolbar */}
+          <div className={`relative ${image ? 'h-32 sm:h-44 md:h-56' : 'h-20 sm:h-24'} w-full shrink-0 group bg-surface-highlight z-[60] transition-all duration-300`}>
+            {/* Clipped background layer */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              {image ? (
+                <>
+                  {imgLoading && (
+                    <div className="absolute inset-0 bg-surface-highlight animate-pulse flex items-center justify-center z-0">
+                      <Loader2 className="w-8 h-8 text-accent animate-spin opacity-50" />
+                    </div>
+                  )}
+                  {imgError && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-surface-highlight flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-2 text-secondary/50">
+                        <ImageOff className="w-6 h-6" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Image unavailable</span>
                       </div>
-                      {scribble && (
-                        <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                          Attached
-                        </span>
-                      )}
-                    </button>
+                    </div>
+                  )}
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPlusDropdown(false);
-                        setShowSongModal(true);
-                      }}
-                      className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Music className="w-4 h-4 text-accent shrink-0" />
-                        <span className="truncate">{song ? song.title : 'Song & Soundtrack'}</span>
-                      </div>
-                      {song && (
-                        <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ml-1">
-                          Attached
-                        </span>
-                      )}
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  <img 
+                    src={image} 
+                    alt="Cover" 
+                    onLoad={() => setImgLoading(false)}
+                    onError={() => { setImgError(true); setImgLoading(false); }}
+                    className={`w-full h-full object-cover transition duration-700 ${imgLoading ? 'opacity-0 scale-105' : 'opacity-100 scale-100'}`} 
+                  />
+                </>
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-accent/25 via-surface-highlight to-bg flex items-center justify-center opacity-75" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/65 via-black/20 to-bg" />
             </div>
 
-            {/* 2. Kebab Menu (3-dot vertical) right next to it */}
-            <div className="relative" ref={kebabMenuRef}>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowKebabDropdown((prev) => !prev);
-                  setShowPlusDropdown(false);
-                }}
-                className={`p-2.5 sm:p-3 backdrop-blur-md rounded-full transition active:scale-[0.97] border flex items-center justify-center ${
-                  showKebabDropdown
-                    ? 'bg-accent text-accent-fg border-accent shadow-md ring-2 ring-accent/30'
-                    : 'bg-white/10 hover:bg-white/20 text-white border-white/10'
-                }`}
-                title="Options (Save, Gallery, Delete)"
-              >
-                <MoreVertical className="w-5 h-5" />
-              </button>
-
-              <AnimatePresence>
-                {showKebabDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: 6 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 6 }}
-                    transition={{ duration: 0.15, ease: 'easeOut' }}
-                    className="absolute right-0 top-full mt-2 w-56 bg-surface/95 backdrop-blur-xl border border-surface-highlight rounded-2xl shadow-2xl p-1.5 z-50 flex flex-col gap-1 text-left"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowKebabDropdown(false);
-                        handleExitAndSave();
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-accent/15 text-accent text-xs font-bold transition text-left"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Save Memory</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowKebabDropdown(false);
-                        setShowGallery(true);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
-                    >
-                      <LayoutTemplate className="w-4 h-4 text-secondary" />
-                      <span>{image ? 'Change Cover (Gallery)' : 'Add Cover (Gallery)'}</span>
-                    </button>
-
-                    {image && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowKebabDropdown(false);
-                          setImage('');
-                          setImgError(false);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-primary text-xs font-semibold transition text-left"
-                      >
-                        <ImageOff className="w-4 h-4 text-secondary" />
-                        <span>Remove Cover Photo</span>
-                      </button>
-                    )}
-
-                    {onDelete && (
+            {/* Top Action Bar — z-[70] sits above both the cover image and the z-20/z-40 editor toolbar below */}
+            <div className="relative z-[70] w-full px-3.5 py-3 sm:px-6 sm:py-4 pt-[calc(env(safe-area-inset-top,0px)+0.65rem)] flex justify-between items-center text-white">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <button
+                  type="button"
+                  onClick={handleExitAndSave}
+                  className="w-10 h-10 bg-black/35 hover:bg-black/55 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition active:scale-95 shrink-0"
+                  title="Save & Back"
+                  aria-label="Save & Back"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                {/* Auto-Save Status Indicator — visible on both mobile and desktop */}
+                {saveStatus && (
+                  <div className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 bg-black/45 backdrop-blur-md border border-white/15 rounded-full text-[10px] sm:text-[11px] font-mono tracking-wide truncate">
+                    {saveStatus === 'saving' && (
                       <>
-                        <div className="h-px bg-surface-highlight/70 my-1"></div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (showDeleteConfirm) {
-                              setShowKebabDropdown(false);
-                              onDelete(currentIdRef.current);
-                              onClose();
-                            } else {
-                              setShowDeleteConfirm(true);
-                              setTimeout(() => setShowDeleteConfirm(false), 4000);
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition text-left ${
-                            showDeleteConfirm
-                              ? 'bg-red-600 text-white'
-                              : 'hover:bg-red-500/15 text-red-500 hover:text-red-600'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Trash2 className="w-4 h-4" />
-                            <span>{showDeleteConfirm ? 'Confirm Delete?' : 'Delete Memory'}</span>
-                          </div>
-                          {showDeleteConfirm && (
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Confirm</span>
-                          )}
-                        </button>
+                        <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-accent animate-spin shrink-0" />
+                        <span className="text-white/90">Saving…</span>
                       </>
                     )}
-                  </motion.div>
+                    {saveStatus === 'saved' && (
+                      <>
+                        <CheckCircle className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400 shrink-0" />
+                        <span className="text-emerald-200 truncate">
+                          <span className="sm:hidden">Saved</span>
+                          <span className="hidden sm:inline">Auto-saved {lastSavedTime ? `at ${lastSavedTime}` : ''}</span>
+                        </span>
+                      </>
+                    )}
+                    {saveStatus === 'unsaved' && (
+                      <>
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                        <span className="text-amber-200">Editing…</span>
+                      </>
+                    )}
+                  </div>
                 )}
-              </AnimatePresence>
-            </div>
+              </div>
+              
+              <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+                {/* 0. @ Mention Button with Bidirectional Memory & Task Picker */}
+                <div className="relative" ref={mentionMenuRef}>
+                  <button
+                    type="button"
+                    aria-expanded={showMentionDropdown}
+                    aria-haspopup="dialog"
+                    onClick={() => {
+                      setShowMentionDropdown((prev) => !prev);
+                      setShowPlusDropdown(false);
+                      setShowKebabDropdown(false);
+                      setShowMoodMenu(false);
+                      setShowAiMenu(false);
+                      setShowSlashMenu(false);
+                    }}
+                    className={`h-10 px-3 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center gap-1.5 text-xs font-mono font-bold ${
+                      showMentionDropdown
+                        ? 'bg-accent text-accent-fg border-accent shadow-lg ring-2 ring-accent/30'
+                        : linkedEntryIds.length + linkedTaskIds.length > 0
+                          ? 'bg-black/45 text-white border-accent/60'
+                          : 'bg-black/35 hover:bg-black/55 text-white border-white/15'
+                    }`}
+                    title="Bidirectional Mentions (@Memory & Tasks)"
+                    aria-label="Mention a Memory or Task"
+                  >
+                    <span className="text-sm font-bold leading-none">@</span>
+                    {linkedEntryIds.length + linkedTaskIds.length > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-accent/25 text-accent font-mono font-bold leading-none">
+                        {linkedEntryIds.length + linkedTaskIds.length}
+                      </span>
+                    )}
+                  </button>
 
-            {/* Direct Save Button */}
-            <Button onClick={handleExitAndSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-5 rounded-full font-mono text-[10px] md:text-xs font-bold uppercase tracking-wider shadow-lg">
-              <Save className="w-3.5 h-3.5 md:w-4 h-4" />
-              <span>Save</span>
-            </Button>
-          </div>
-        </div>
+                  <AnimatePresence>
+                    {showMentionDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        className="absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-1.5rem)] bg-surface/98 backdrop-blur-2xl border border-surface-highlight rounded-2xl shadow-2xl p-2.5 z-[95] flex flex-col gap-2 text-left"
+                      >
+                        {/* Segmented Tabs: Memories vs Tasks */}
+                        <div className="flex items-center justify-between gap-1 bg-surface-highlight/60 p-1 rounded-xl border border-surface-highlight">
+                          <button
+                            type="button"
+                            onClick={() => setMentionTab('memories')}
+                            className={`flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
+                              mentionTab === 'memories'
+                                ? 'bg-surface text-primary shadow-xs'
+                                : 'text-secondary hover:text-primary'
+                            }`}
+                          >
+                            <BookOpen className="w-3.5 h-3.5 text-accent" />
+                            <span>Memories ({linkedEntryIds.length})</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMentionTab('tasks')}
+                            className={`flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider transition flex items-center justify-center gap-1.5 ${
+                              mentionTab === 'tasks'
+                                ? 'bg-surface text-primary shadow-xs'
+                                : 'text-secondary hover:text-primary'
+                            }`}
+                          >
+                            <CheckSquare className="w-3.5 h-3.5 text-accent" />
+                            <span>Tasks ({linkedTaskIds.length})</span>
+                          </button>
+                        </div>
+
+                        {/* Search / Filter or Create Input */}
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={mentionQuery}
+                            onChange={(e) => setMentionQuery(e.target.value)}
+                            placeholder={
+                              mentionTab === 'memories'
+                                ? 'Search memories to link (@)…'
+                                : 'Search or create a task to link…'
+                            }
+                            className="w-full px-3 py-2 rounded-xl bg-bg/80 border border-surface-highlight text-xs text-primary placeholder:text-secondary/50 focus:outline-none focus:border-accent"
+                          />
+                          {mentionQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setMentionQuery('')}
+                              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-secondary hover:text-primary"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+
+                        {mentionTab === 'memories' ? (
+                          <div className="max-h-56 overflow-y-auto space-y-1 pr-0.5">
+                            {filteredMentionMemories.length === 0 ? (
+                              <div className="py-6 text-center text-[11px] text-secondary/70 font-mono">
+                                {linkableMemories.length === 0
+                                  ? 'No other memories yet to link'
+                                  : 'No matching memories found'}
+                              </div>
+                            ) : (
+                              filteredMentionMemories.map((entry) => {
+                                const isLinked = linkedEntryIds.includes(entry.id);
+                                const entryTitle =
+                                  entry.title?.trim() || extractAutoTitle(entry.content) || 'Untitled Memory';
+                                return (
+                                  <button
+                                    key={entry.id}
+                                    type="button"
+                                    onClick={() => toggleLinkEntry(entry.id)}
+                                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left transition ${
+                                      isLinked
+                                        ? 'bg-accent/15 border border-accent/30 text-primary'
+                                        : 'hover:bg-surface-highlight text-primary border border-transparent'
+                                    }`}
+                                  >
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5">
+                                        {entry.mood && (
+                                          <span className="text-xs shrink-0">
+                                            {entry.mood.split(' ')[0]}
+                                          </span>
+                                        )}
+                                        <span className="text-xs font-semibold truncate">
+                                          {entryTitle}
+                                        </span>
+                                      </div>
+                                      <p className="text-[10px] text-secondary truncate mt-0.5 font-mono">
+                                        {new Date(entry.createdAt).toLocaleDateString(undefined, {
+                                          month: 'short',
+                                          day: 'numeric',
+                                        })}{' '}
+                                        • {entry.content.replace(/[#*`>_~-]/g, '').slice(0, 48)}
+                                      </p>
+                                    </div>
+                                    <span
+                                      className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                        isLinked
+                                          ? 'bg-accent text-accent-fg'
+                                          : 'bg-surface-highlight text-secondary'
+                                      }`}
+                                    >
+                                      {isLinked ? 'Linked ↔' : 'Link'}
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1.5">
+                            {/* Quick Create & Link Task */}
+                            {mentionQuery.trim().length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleCreateAndLinkTask(mentionQuery)}
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-accent/15 hover:bg-accent/25 border border-accent/30 text-accent text-xs font-semibold transition"
+                              >
+                                <span className="truncate">+ Create & link "{mentionQuery.trim()}"</span>
+                                <span className="text-[10px] font-mono uppercase tracking-wider shrink-0 ml-2">
+                                  New Task
+                                </span>
+                              </button>
+                            )}
+
+                            {/* AI Extract Actionable Tasks from Current Entry */}
+                            {content.trim().length > 15 && (
+                              <button
+                                type="button"
+                                onClick={handleExtractTasksFromEntry}
+                                disabled={isExtractingTasks}
+                                className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-surface-highlight/70 hover:bg-surface-highlight border border-surface-highlight text-primary text-xs font-semibold transition disabled:opacity-50"
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  {isExtractingTasks ? (
+                                    <Loader2 className="w-3.5 h-3.5 text-accent animate-spin" />
+                                  ) : (
+                                    <Sparkles className="w-3.5 h-3.5 text-accent" />
+                                  )}
+                                  <span>
+                                    {isExtractingTasks
+                                      ? 'Extracting tasks…'
+                                      : 'Extract Tasks from Entry with AI'}
+                                  </span>
+                                </span>
+                                <span className="text-[9px] font-mono uppercase tracking-wider text-accent">
+                                  Auto-Link
+                                </span>
+                              </button>
+                            )}
+
+                            <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
+                              {filteredMentionTasks.length === 0 ? (
+                                <div className="py-5 text-center text-[11px] text-secondary/70 font-mono">
+                                  Type above to create & link a task
+                                </div>
+                              ) : (
+                                filteredMentionTasks.map((t) => {
+                                  const isLinked = linkedTaskIds.includes(t.id);
+                                  return (
+                                    <button
+                                      key={t.id}
+                                      type="button"
+                                      onClick={() => toggleLinkTask(t.id)}
+                                      className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-left transition ${
+                                        isLinked
+                                          ? 'bg-accent/15 border border-accent/30 text-primary'
+                                          : 'hover:bg-surface-highlight text-primary border border-transparent'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <span
+                                          className={`w-3.5 h-3.5 rounded flex items-center justify-center text-[9px] shrink-0 border ${
+                                            t.completed
+                                              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-500'
+                                              : 'border-secondary/40 text-transparent'
+                                          }`}
+                                        >
+                                          ✓
+                                        </span>
+                                        <span
+                                          className={`text-xs font-medium truncate ${
+                                            t.completed ? 'line-through text-secondary' : ''
+                                          }`}
+                                        >
+                                          {t.text}
+                                        </span>
+                                      </div>
+                                      <span
+                                        className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                          isLinked
+                                            ? 'bg-accent text-accent-fg'
+                                            : 'bg-surface-highlight text-secondary'
+                                        }`}
+                                      >
+                                        {isLinked ? 'Linked ↔' : 'Link'}
+                                      </span>
+                                    </button>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* 1. Plus Button with Dropdown (Scribbles, Song, Cover) */}
+                <div className="relative" ref={plusMenuRef}>
+                  <button
+                    type="button"
+                    aria-expanded={showPlusDropdown}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      setShowPlusDropdown((prev) => !prev);
+                      setShowMentionDropdown(false);
+                      setShowKebabDropdown(false);
+                      setShowMoodMenu(false);
+                      setShowAiMenu(false);
+                      setShowSlashMenu(false);
+                    }}
+                    className={`w-10 h-10 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center ${
+                      showPlusDropdown
+                        ? 'bg-accent text-accent-fg border-accent shadow-lg ring-2 ring-accent/30'
+                        : (scribble || song)
+                          ? 'bg-black/45 text-white border-accent/60'
+                          : 'bg-black/35 hover:bg-black/55 text-white border-white/15'
+                    }`}
+                    title="Add media (Scribbles, Song, Cover)"
+                    aria-label="Add media"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+
+                  <AnimatePresence>
+                    {showPlusDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        role="menu"
+                        className="absolute right-0 top-full mt-2 w-60 max-w-[calc(100vw-1.5rem)] bg-surface/98 backdrop-blur-2xl border border-surface-highlight rounded-2xl shadow-2xl p-1.5 z-[90] flex flex-col gap-1 text-left"
+                      >
+                        <div className="px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-secondary/70">
+                          Attach to Memory
+                        </div>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowPlusDropdown(false);
+                            setShowScribbleModal(true);
+                          }}
+                          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <Pencil className="w-4 h-4 text-accent" />
+                            <span>Hand-drawn Scribble</span>
+                          </div>
+                          {scribble && (
+                            <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                              Attached
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowPlusDropdown(false);
+                            setShowSongModal(true);
+                          }}
+                          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <Music className="w-4 h-4 text-accent shrink-0" />
+                            <span className="truncate">{song ? song.title : 'Song & Soundtrack'}</span>
+                          </div>
+                          {song && (
+                            <span className="text-[10px] font-bold text-accent bg-accent/15 px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0 ml-1">
+                              Attached
+                            </span>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowPlusDropdown(false);
+                            setShowGallery(true);
+                          }}
+                          className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <LayoutTemplate className="w-4 h-4 text-accent" />
+                            <span>Cover Photo Gallery</span>
+                          </div>
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* 2. Kebab Menu (3-dot vertical) right next to it */}
+                <div className="relative" ref={kebabMenuRef}>
+                  <button
+                    type="button"
+                    aria-expanded={showKebabDropdown}
+                    aria-haspopup="menu"
+                    onClick={() => {
+                      setShowKebabDropdown((prev) => !prev);
+                      setShowPlusDropdown(false);
+                      setShowMoodMenu(false);
+                      setShowAiMenu(false);
+                      setShowSlashMenu(false);
+                    }}
+                    className={`w-10 h-10 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center ${
+                      showKebabDropdown
+                        ? 'bg-accent text-accent-fg border-accent shadow-lg ring-2 ring-accent/30'
+                        : 'bg-black/35 hover:bg-black/55 text-white border-white/15'
+                    }`}
+                    title="Options (Save, Gallery, Delete)"
+                    aria-label="Entry options"
+                  >
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+
+                  <AnimatePresence>
+                    {showKebabDropdown && (
+                      <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 6 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 6 }}
+                        transition={{ duration: 0.15, ease: 'easeOut' }}
+                        role="menu"
+                        className="absolute right-0 top-full mt-2 w-60 max-w-[calc(100vw-1.5rem)] bg-surface/98 backdrop-blur-2xl border border-surface-highlight rounded-2xl shadow-2xl p-1.5 z-[90] flex flex-col gap-1 text-left"
+                      >
+                        <div className="px-3 py-1 text-[10px] font-mono font-bold uppercase tracking-wider text-secondary/70">
+                          Memory Options
+                        </div>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowKebabDropdown(false);
+                            handleExitAndSave();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-accent/15 text-accent text-xs font-bold transition text-left"
+                        >
+                          <Save className="w-4 h-4" />
+                          <span>Save &amp; Close Memory</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowKebabDropdown(false);
+                            setShowGallery(true);
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                        >
+                          <LayoutTemplate className="w-4 h-4 text-secondary" />
+                          <span>{image ? 'Change Cover (Gallery)' : 'Add Cover (Gallery)'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setShowKebabDropdown(false);
+                            handleRandomCover();
+                          }}
+                          className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-primary text-xs font-semibold transition text-left"
+                        >
+                          <Shuffle className="w-4 h-4 text-secondary" />
+                          <span>Shuffle Random Cover</span>
+                        </button>
+
+                        {image && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => {
+                              setShowKebabDropdown(false);
+                              setImage('');
+                              setImgError(false);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-primary text-xs font-semibold transition text-left"
+                          >
+                            <ImageOff className="w-4 h-4 text-secondary" />
+                            <span>Remove Cover Photo</span>
+                          </button>
+                        )}
+
+                        {onDelete && (
+                          <>
+                            <div className="h-px bg-surface-highlight/70 my-1"></div>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                if (showDeleteConfirm) {
+                                  setShowKebabDropdown(false);
+                                  onDelete(currentIdRef.current);
+                                  onClose();
+                                } else {
+                                  setShowDeleteConfirm(true);
+                                  setTimeout(() => setShowDeleteConfirm(false), 4000);
+                                }
+                              }}
+                              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition text-left ${
+                                showDeleteConfirm
+                                  ? 'bg-red-600 text-white'
+                                  : 'hover:bg-red-500/15 text-red-500 hover:text-red-600'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5">
+                                <Trash2 className="w-4 h-4" />
+                                <span>{showDeleteConfirm ? 'Tap Again to Delete' : 'Delete Memory'}</span>
+                              </div>
+                              {showDeleteConfirm && (
+                                <span className="text-[10px] font-bold uppercase tracking-wider">Confirm</span>
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Direct Save Button */}
+                <Button onClick={handleExitAndSave} size="sm" className="h-10 gap-1.5 px-4 sm:px-5 rounded-full font-mono text-xs font-bold uppercase tracking-wider shadow-lg">
+                  <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span>Done</span>
+                </Button>
+              </div>
+            </div>
 
         {/* Gallery Modal */}
         <AnimatePresence>
@@ -1232,9 +1684,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       </AnimatePresence>
 
       <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full overflow-hidden">
-        {/* Attached Media Micro-Chips (Non-intrusive) */}
-        {(scribble || song) && (
-          <div className="flex items-center gap-2 mb-2 px-1 flex-wrap shrink-0">
+        {/* Attached Media & Bidirectional Mention Micro-Chips (Non-intrusive, Mobile-First) */}
+        {(scribble || song || linkedEntryIds.length > 0 || linkedTaskIds.length > 0) && (
+          <div className="flex items-center gap-1.5 mb-2 px-1 overflow-x-auto no-scrollbar shrink-0">
             {scribble && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-surface/90 border border-surface-highlight rounded-full shadow-xs text-xs">
                 <button 
@@ -1339,70 +1791,120 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Bidirectional Mentioned Memories Chips */}
+            {linkedEntryIds.map((linkedId) => {
+              const targetEntry = allEntries.find((e) => e.id === linkedId);
+              if (!targetEntry) return null;
+              const targetTitle =
+                targetEntry.title?.trim() ||
+                extractAutoTitle(targetEntry.content) ||
+                'Untitled Memory';
+              return (
+                <div
+                  key={`mem-${linkedId}`}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface/95 border border-accent/35 rounded-full shadow-xs text-xs shrink-0"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateToLinkedEntry(targetEntry)}
+                    className="flex items-center gap-1 text-accent hover:opacity-80 font-mono font-semibold text-[11px] max-w-[150px] truncate"
+                    title={`Open mentioned memory: ${targetTitle}`}
+                  >
+                    <BookOpen className="w-3 h-3 shrink-0" />
+                    <span className="truncate">@{targetTitle}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleLinkEntry(linkedId)}
+                    className="p-0.5 text-secondary hover:text-red-500 rounded-full transition"
+                    title="Unlink memory"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Bidirectional Linked Tasks Chips */}
+            {linkedTaskIds.map((taskId) => {
+              const targetTask = allTasks.find((t) => t.id === taskId);
+              if (!targetTask) return null;
+              return (
+                <div
+                  key={`task-${taskId}`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 bg-surface/95 border rounded-full shadow-xs text-xs shrink-0 ${
+                    targetTask.completed
+                      ? 'border-emerald-500/35 text-emerald-500'
+                      : 'border-surface-highlight text-primary'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic(8);
+                      toggleTask(targetTask.id);
+                    }}
+                    className="flex items-center gap-1 font-mono font-semibold text-[11px] max-w-[160px] truncate hover:opacity-80"
+                    title="Tap to toggle task completion"
+                  >
+                    <span>{targetTask.completed ? '✓' : '○'}</span>
+                    <span className={`truncate ${targetTask.completed ? 'line-through opacity-80' : ''}`}>
+                      {targetTask.text}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleLinkTask(taskId)}
+                    className="p-0.5 text-secondary hover:text-red-500 rounded-full transition"
+                    title="Unlink task"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Optimized Compact Toolbar */}
-        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-2xl p-1 flex items-center mb-2 md:mb-4 shrink-0 relative z-40">
+        {/* Mobile-First Formatting & Context Toolbar */}
+        <div className="bg-surface/95 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl p-1 flex items-center mb-2 md:mb-3 shrink-0 relative z-40">
           
-          <div className="flex-1 flex items-center pr-2">
-            <div className="flex items-center gap-0.5 pr-2 border-r border-surface-highlight/50 mr-1 md:mr-2 shrink-0">
-              <button onClick={() => callCommand(undoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Undo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(redoCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors"><Redo className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+          {/* Horizontally scrollable formatting tools strip (keeps keyboard open via onMouseDown preventDefault) */}
+          <div className="flex-1 flex items-center gap-0.5 overflow-x-auto no-scrollbar pr-1">
+            <div className="flex items-center gap-0.5 pr-1.5 border-r border-surface-highlight/60 mr-1 shrink-0">
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(undoCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Undo"><Undo className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(redoCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Redo"><Redo className="w-4 h-4" /></button>
             </div>
 
-            {/* Primary Tools - Always Visible */}
-            <div className="flex items-center gap-0.5 px-1 shrink-0">
-              <button onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1"><Heading1 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2"><Heading2 className="w-3.5 h-3.5 md:w-4 h-4" /></button>
+            <div className="flex items-center gap-0.5 shrink-0">
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Heading 1"><Heading1 className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Heading 2"><Heading2 className="w-4 h-4" /></button>
               
-              <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
+              <div className="w-px h-4 bg-surface-highlight/60 mx-0.5 shrink-0" />
               
-              <button onClick={() => callCommand(toggleStrongCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bold"><Bold className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Italic"><Italic className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            </div>
-
-            {/* Secondary Tools - Desktop Only */}
-            <div className="hidden md:flex items-center gap-0.5 px-1 shrink-0">
-              <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Strikethrough"><Strikethrough className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Code"><Code className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              
-              <div className="w-px h-4 bg-surface-highlight/50 mx-1"></div>
-              
-              <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bullet List"><List className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Ordered List"><ListOrdered className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Quote"><Quote className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-              <button onClick={() => callCommand(insertHrCommand.key)} className="p-1.5 md:p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Divider"><Minus className="w-3.5 h-3.5 md:w-4 h-4" /></button>
-            </div>
-
-             {/* Mobile More Button */}
-             <div className="md:hidden ml-1 relative">
-                <button 
-                    onClick={() => setShowToolbarMore(!showToolbarMore)}
-                    className={`p-1.5 rounded-xl transition-colors ${showToolbarMore ? 'bg-accent text-accent-fg' : 'text-secondary hover:bg-surface-highlight'}`}
-                >
-                    <MoreHorizontal className="w-4 h-4" />
-                </button>
-                
-                {showToolbarMore && (
-                    <div className="absolute top-full left-0 mt-2 p-1.5 bg-surface border border-surface-highlight shadow-xl rounded-xl flex flex-wrap gap-1 min-w-[180px] z-50 animate-scale-in origin-top-left">
-                         <button onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
-                        <button onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Code"><Code className="w-4 h-4" /></button>
-                        <div className="w-full h-px bg-surface-highlight/50 my-1"></div>
-                        <button onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Bullet List"><List className="w-4 h-4" /></button>
-                        <button onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Ordered List"><ListOrdered className="w-4 h-4" /></button>
-                        <button onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Quote"><Quote className="w-4 h-4" /></button>
-                        <button onClick={() => callCommand(insertHrCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-lg transition-colors" title="Divider"><Minus className="w-4 h-4" /></button>
-                    </div>
-                )}
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleStrongCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Bold"><Bold className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Italic"><Italic className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Bullet List"><List className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Ordered List"><ListOrdered className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Quote"><Quote className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Code"><Code className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(insertHrCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Divider"><Minus className="w-4 h-4" /></button>
             </div>
           </div>
 
-          {/* Mood Selector Button & Dropdown */}
-          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
+          {/* Mood Selector Button & Dropdown (outside overflow-x-auto so popover never clips) */}
+          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/60 ml-0.5" ref={moodMenuRef}>
             <button 
-              onClick={() => setShowMoodMenu(!showMoodMenu)}
-              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              type="button"
+              onClick={() => {
+                setShowMoodMenu((prev) => !prev);
+                setShowAiMenu(false);
+                setShowPlusDropdown(false);
+                setShowKebabDropdown(false);
+              }}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
               title="Add current emotional state or mood"
             >
               {isAutoDetectingMood ? (
@@ -1430,7 +1932,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-                  className="absolute right-0 top-full mt-2 w-64 origin-top-right sm:w-72 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-3 z-50 flex flex-col gap-2.5 max-h-[80vh] overflow-y-auto no-scrollbar"
+                  className="absolute right-0 top-full mt-2 w-64 sm:w-72 max-w-[calc(100vw-1.5rem)] origin-top-right bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-3 z-[80] flex flex-col gap-2.5 max-h-[75vh] overflow-y-auto no-scrollbar"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between pb-2 border-b border-surface-highlight/50">
@@ -1582,11 +2084,19 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           </div>
 
           {/* Assistant Button */}
-          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/50 ml-1">
+          <div className="relative shrink-0 pl-1 border-l border-surface-highlight/60 ml-0.5" ref={aiMenuRef}>
             <button 
-              onClick={() => !isProcessing && setShowAiMenu(!showAiMenu)}
+              type="button"
+              onClick={() => {
+                if (isProcessing) return;
+                setShowAiMenu((prev) => !prev);
+                setShowMoodMenu(false);
+                setShowPlusDropdown(false);
+                setShowKebabDropdown(false);
+              }}
               disabled={isProcessing}
-              className={`flex items-center gap-1.5 px-3 md:px-4 py-1.5 md:py-2 rounded-xl transition border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              title="AI Writing Assistant"
             >
               {isProcessing ? (
                 <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 animate-spin text-accent" />
@@ -1604,7 +2114,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
                   transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-                  className="absolute right-0 top-full mt-2 w-48 origin-top-right md:w-56 bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1 md:p-1.5 z-50 flex flex-col gap-0.5"
+                  className="absolute right-0 top-full mt-2 w-52 sm:w-56 max-w-[calc(100vw-1.5rem)] origin-top-right bg-surface rounded-2xl border border-surface-highlight shadow-2xl p-1.5 z-[80] flex flex-col gap-0.5"
                 >
                   <button onClick={() => handleAiAction('PROOFREAD')} className="flex items-center gap-3 w-full p-2 rounded-xl hover:bg-surface-highlight text-left group transition-colors">
                     <div className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg group-hover:scale-110 transition-transform">
@@ -1666,8 +2176,53 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           ref={editorContainerRef} 
           onMouseMove={handleMouseMoveContainer}
           onMouseLeave={handleMouseLeaveContainer}
-          className={`flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-3xl p-4 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[350px] transition-all duration-700 ${isProcessing ? 'border-accent/50 shadow-[0_0_40px_rgba(198,156,109,0.15)] animate-pulse' : 'border-surface-highlight/60'}`}
+          onClick={(e) => {
+            // If clicking the empty canvas area below the prose, focus the Milkdown editor
+            const target = e.target as HTMLElement;
+            if (target === editorContainerRef.current || target.dataset.editorCanvas === 'true') {
+              const pm = editorContainerRef.current?.querySelector('.ProseMirror') as HTMLElement | null;
+              if (pm) pm.focus();
+            }
+          }}
+          className={`flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[300px] transition-all duration-500 ${isProcessing ? 'border-accent/50 shadow-[0_0_40px_rgba(198,156,109,0.15)] animate-pulse' : 'border-surface-highlight/60'}`}
         >
+          {/* Editorial Title Input + Optional AI Auto-Title Button */}
+          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-surface-highlight/50">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                userHasEditedTitleRef.current = Boolean(e.target.value.trim());
+              }}
+              placeholder={content.trim() ? extractAutoTitle(content) : 'Untitled Memory…'}
+              className="flex-1 min-w-0 bg-transparent font-display text-lg sm:text-2xl font-bold text-primary placeholder:text-secondary/35 outline-none border-none p-0 tracking-tight"
+            />
+            {content.trim().length >= 10 && (
+              <button
+                type="button"
+                disabled={isGeneratingTitle}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setIsGeneratingTitle(true);
+                  try {
+                    const generated = await generateAutoTitle(content, selectedModel);
+                    if (generated) {
+                      setTitle(generated);
+                      userHasEditedTitleRef.current = true;
+                    }
+                  } finally {
+                    setIsGeneratingTitle(false);
+                  }
+                }}
+                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 hover:bg-accent/20 border border-accent/20 text-accent text-[10px] font-mono font-bold uppercase tracking-wider transition active:scale-95 disabled:opacity-40"
+                title="Generate a poetic title with AI"
+              >
+                <Sparkles className={`w-3 h-3 ${isGeneratingTitle ? 'animate-spin' : ''}`} />
+                <span className="hidden xs:inline">{isGeneratingTitle ? 'Crafting…' : 'AI Title'}</span>
+              </button>
+            )}
+          </div>
           {/* Notion/BlockNote Style Block Handle (+ / ⋮⋮) */}
           <AnimatePresence>
             {blockHandlePos && (
@@ -1695,8 +2250,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                   <Plus className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
 
-                <div className="relative">
+                <div className="relative" ref={blockMenuRef}>
                   <button
+                    type="button"
                     onClick={() => setShowBlockMenu(!showBlockMenu)}
                     className="p-0.5 sm:p-1 hover:bg-surface-highlight text-secondary hover:text-primary rounded-md sm:rounded-lg transition-colors cursor-grab"
                     title="Block Actions & Options"
@@ -1913,9 +2469,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       type="text"
                       value={slashQuery}
                       onChange={(e) => setSlashQuery(e.target.value)}
-                      placeholder="Type to search..."
+                      placeholder="Filter commands..."
                       className="w-full bg-surface-highlight/50 focus:bg-surface-highlight text-xs font-medium pl-8 pr-2.5 py-1 rounded-lg border border-transparent focus:border-accent/40 text-primary outline-none transition placeholder:text-secondary/50"
-                      autoFocus
                     />
                   </div>
 
@@ -1993,18 +2548,30 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
 
 
-          <MilkdownProvider>
-            <EditorInstance 
-              defaultValue={initialContent || ''} 
-              onMarkdownUpdate={handleMarkdownUpdate} 
-              onEditorReady={handleEditorReady}
-              onStateChange={updateActiveStates}
-            />
-          </MilkdownProvider>
+          <div className="relative" data-editor-canvas="true">
+            {!content.trim() && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none select-none absolute top-0.5 left-0 text-secondary/40 text-base sm:text-lg font-sans"
+              >
+                Start writing your thoughts, or type <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-surface-highlight/60 text-secondary/70">/</span> for commands…
+              </div>
+            )}
+            <MilkdownProvider>
+              <EditorInstance 
+                defaultValue={initialContent || ''} 
+                onMarkdownUpdate={handleMarkdownUpdate} 
+                onEditorReady={handleEditorReady}
+                onStateChange={updateActiveStates}
+              />
+            </MilkdownProvider>
+          </div>
         </div>
         
-        <div className="mt-1 md:mt-2 px-2 md:px-4 flex justify-between items-center text-[9px] font-mono text-secondary opacity-40 uppercase tracking-wider">
-           <span>{content.length} characters</span>
+        <div className="mt-1.5 md:mt-2 px-2 md:px-4 flex justify-between items-center text-[10px] font-mono text-secondary/60 uppercase tracking-wider shrink-0">
+           <span>
+             {content.trim() ? content.trim().split(/\s+/).filter(Boolean).length : 0} words &bull; {content.length} chars &bull; {Math.max(1, Math.ceil((content.trim() ? content.trim().split(/\s+/).filter(Boolean).length : 0) / 180))} min read
+           </span>
            <span>{selectedModel?.replace('gemini-', '') || 'AI-Ready'}</span>
         </div>
       </div>

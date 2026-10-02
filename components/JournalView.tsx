@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, ArrowUpRight, Table, Clock, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink, Check, CheckSquare } from './Icons';
-import { JournalEntry } from '../types';
+import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, Calendar, Heart, Smile, Activity, Trash2, BookOpen, ArrowRight, ArrowUpRight, Table, Clock, Pencil, X, Loader2, Search, Upload, Code, Edit3, Music, ExternalLink, Check, CheckSquare, ChevronDown } from './Icons';
+import { JournalEntry, Task } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { useJournalStore } from '../store/useJournalStore';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
@@ -28,7 +28,9 @@ import {
 
 interface JournalViewProps {
   entries: JournalEntry[];
+  tasks?: Task[];
   onEdit: (entry: JournalEntry) => void;
+  onReflectOnMemory?: (entry: JournalEntry) => void;
   onDeleteEntry?: (id: string) => void;
   onDeleteEntries?: (ids: string[]) => void;
   onRenameEntry?: (id: string, newTitle: string) => void;
@@ -125,8 +127,9 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDeleteEntry, onDeleteEntries, onRenameEntry, onImportClick, onImportEntries, selectedModel }) => {
+export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], onEdit, onReflectOnMemory, onDeleteEntry, onDeleteEntries, onRenameEntry, onImportClick, onImportEntries, selectedModel }) => {
   const [subTab, setSubTab] = useState<'timeline' | 'reflections'>('timeline');
+  const [isResurfaceCollapsed, setIsResurfaceCollapsed] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showFullBreakdownModal, setShowFullBreakdownModal] = useState(false);
@@ -492,8 +495,175 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
     return '';
   };
 
+  // Resurfaced ("On This Day" & Past Reflections) Memories
+  const resurfacedMemories = useMemo(() => {
+    if (entries.length === 0) return [];
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const DAY_MS = 86_400_000;
+    const sorted = [...entries].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    const milestoneMatches: { badge: string; dateStr: string; entry: JournalEntry }[] = [];
+    const earlierMatches: { badge: string; dateStr: string; entry: JournalEntry }[] = [];
+
+    for (const entry of sorted) {
+      const ts = entry.createdAt || 0;
+      const d = new Date(ts);
+      const entryDayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      const diffDays = Math.max(0, Math.round((startOfToday - entryDayStart) / DAY_MS));
+      const dateStr = !isNaN(d.getTime())
+        ? d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        : '';
+
+      if (d.getMonth() === now.getMonth() && d.getDate() === now.getDate() && d.getFullYear() < now.getFullYear()) {
+        const yrs = now.getFullYear() - d.getFullYear();
+        milestoneMatches.push({ badge: `${yrs} yr${yrs > 1 ? 's' : ''} ago`, dateStr, entry });
+      } else if (diffDays >= 28 && diffDays <= 32) {
+        milestoneMatches.push({ badge: '1 month ago', dateStr, entry });
+      } else if (diffDays >= 6 && diffDays <= 8) {
+        milestoneMatches.push({ badge: '1 week ago', dateStr, entry });
+      } else if (diffDays >= 1) {
+        earlierMatches.push({
+          badge: diffDays === 1 ? 'Yesterday' : `${diffDays} days ago`,
+          dateStr,
+          entry,
+        });
+      }
+    }
+
+    if (milestoneMatches.length > 0) {
+      return [...milestoneMatches, ...earlierMatches].slice(0, 4);
+    }
+    if (earlierMatches.length > 0) {
+      return earlierMatches.slice(0, 4);
+    }
+    // If all entries were written today, resurface earlier entries from the archive beyond the newest
+    if (sorted.length > 1) {
+      return sorted.slice(1, 4).map((entry) => {
+        const d = new Date(entry.createdAt || Date.now());
+        return {
+          badge: 'From Archive',
+          dateStr: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          entry,
+        };
+      });
+    }
+    return [];
+  }, [entries]);
+
   return (
     <div className="w-full">
+      {/* 1. VERY FIRST: Progressive Gradient Resurface Section (Minimal & Accessible, Mobile-First) */}
+      {resurfacedMemories.length > 0 && !searchQuery && (
+        <section
+          aria-label="Resurfaced Memories"
+          className="relative mb-5 sm:mb-6 rounded-3xl border border-accent/25 bg-gradient-to-br from-accent/[0.14] via-accent/[0.05] to-transparent p-3.5 sm:p-5 shadow-2xs overflow-hidden transition-all"
+        >
+          {/* Ambient progressive top-edge shimmer */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent"
+          />
+
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-7 h-7 rounded-xl bg-accent/15 border border-accent/25 text-accent flex items-center justify-center shrink-0">
+                <Clock className="w-3.5 h-3.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs sm:text-sm font-display font-bold text-primary tracking-tight">
+                    On This Day &bull; Resurfaced
+                  </h2>
+                  <span className="px-1.5 py-0.5 rounded-full bg-surface/80 border border-surface-highlight text-[10px] font-mono text-secondary">
+                    {resurfacedMemories.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsResurfaceCollapsed((prev) => !prev)}
+              aria-expanded={!isResurfaceCollapsed}
+              aria-label={isResurfaceCollapsed ? 'Expand resurfaced memories' : 'Collapse resurfaced memories'}
+              className="h-8 px-2.5 rounded-full bg-surface/80 hover:bg-surface border border-surface-highlight text-[11px] font-mono text-secondary hover:text-primary flex items-center gap-1 transition active:scale-95 shrink-0"
+            >
+              <span>{isResurfaceCollapsed ? 'Show' : 'Hide'}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isResurfaceCollapsed ? '' : 'rotate-180'}`} />
+            </button>
+          </div>
+
+          {!isResurfaceCollapsed && (
+            <div className="relative mt-3">
+              <div className="flex gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pr-6">
+                {resurfacedMemories.map(({ badge, dateStr, entry }) => {
+                  const titleText = entry.title || extractAutoTitle(entry.content);
+                  const moodEmoji = entry.mood ? entry.mood.split(' ')[0] : null;
+                  return (
+                    <div
+                      key={entry.id}
+                      className="snap-start shrink-0 w-[260px] sm:w-[285px] rounded-2xl bg-surface/90 backdrop-blur-md border border-surface-highlight/80 hover:border-accent/40 p-3.5 flex flex-col justify-between gap-2.5 transition shadow-2xs"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onEdit(entry)}
+                        className="text-left group/resurface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-xl"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/12 border border-accent/25 text-accent text-[10px] font-mono font-bold uppercase tracking-wider">
+                            {badge}
+                          </span>
+                          <span className="text-[10px] font-mono text-secondary/70 flex items-center gap-1">
+                            {dateStr}
+                            {moodEmoji && <span>{moodEmoji}</span>}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-display font-bold text-primary group-hover/resurface:text-accent transition-colors truncate">
+                          {titleText}
+                        </h3>
+                        <p className="text-xs text-secondary line-clamp-2 mt-1 leading-relaxed">
+                          {stripMarkdownAndTruncate(entry.content)}
+                        </p>
+                      </button>
+
+                      <div className="pt-2 border-t border-surface-highlight/50 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(entry)}
+                          className="text-[11px] font-semibold text-secondary hover:text-primary transition"
+                        >
+                          Revisit →
+                        </button>
+                        {onReflectOnMemory && (
+                          <button
+                            type="button"
+                            onClick={() => onReflectOnMemory(entry)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/12 hover:bg-accent text-accent hover:text-accent-fg text-[10px] font-mono font-bold uppercase tracking-wider transition active:scale-95"
+                            title="Write a new reflection mentioning this memory"
+                          >
+                            <Feather className="w-3 h-3" />
+                            <span>Reflect</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Progressive right-edge gradient mask for multi-card mobile carousel */}
+              {resurfacedMemories.length > 1 && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg/80 to-transparent sm:hidden"
+                />
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       <PageHeader
         title={
           isEditingTitle && subTab === 'timeline' ? (
@@ -525,49 +695,16 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
         actions={
           <>
             {subTab === 'timeline' && (
-              <AnimatePresence mode="wait" initial={false}>
-                {isSearchOpen ? (
-                  <motion.div
-                    key="search-input"
-                    initial={{ width: 44, opacity: 0 }}
-                    animate={{ width: 240, opacity: 1 }}
-                    exit={{ width: 44, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                    className="flex items-center gap-2 h-10 px-3 rounded-full bg-surface border border-accent/50 overflow-hidden shrink-0"
-                  >
-                    <Search className="w-4 h-4 text-accent shrink-0" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Escape' && setIsSearchOpen(false)}
-                      placeholder="Search memories…"
-                      className="bg-transparent text-sm text-primary outline-none w-full placeholder:text-secondary/50"
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => { setSearchQuery(''); setIsSearchOpen(false); }}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 transition shrink-0"
-                      title="Close search"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </motion.div>
-                ) : (
-                  <motion.button
-                    key="search-button"
-                    type="button"
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setIsSearchOpen(true)}
-                    className={`${HEADER_BUTTON} ${searchQuery ? 'text-accent border-accent/40 bg-accent/10' : ''}`}
-                    title="Search memories"
-                    aria-label="Search memories"
-                  >
-                    <Search className="w-4 h-4" />
-                  </motion.button>
-                )}
-              </AnimatePresence>
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsSearchOpen((prev) => !prev)}
+                className={`${HEADER_BUTTON} ${isSearchOpen || searchQuery ? 'text-accent border-accent/40 bg-accent/10' : ''}`}
+                title="Search memories"
+                aria-label="Search memories"
+              >
+                <Search className="w-4 h-4" />
+              </motion.button>
             )}
 
             <DraggableSegmentedToggle
@@ -597,6 +734,49 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           </>
         }
       />
+
+      {/* Mobile-First Expandable Search Bar */}
+      <AnimatePresence>
+        {subTab === 'timeline' && isSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 20 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="flex items-center gap-2.5 h-11 px-4 rounded-2xl bg-surface border border-accent/50 shadow-xs">
+              <Search className="w-4 h-4 text-accent shrink-0" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Escape' && setIsSearchOpen(false)}
+                placeholder="Search memories by title, mood, or words…"
+                className="bg-transparent text-sm text-primary outline-none w-full placeholder:text-secondary/50"
+                autoFocus
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-[11px] font-mono text-secondary hover:text-primary px-1.5 py-0.5 rounded bg-surface-highlight/60 shrink-0"
+                >
+                  Clear
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsSearchOpen(false)}
+                className="w-7 h-7 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 transition shrink-0"
+                title="Close search"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Active Search Filter Chip (when closed) */}
       {subTab === 'timeline' && searchQuery && !isSearchOpen && (
@@ -657,15 +837,15 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                 </button>
               </div>
             ) : (
-          <div className="space-y-32">
+          <div className="space-y-12 sm:space-y-20">
             {groupedEntries.map(([dateLabel, dayEntries]) => (
               <section key={dateLabel} className="group/section animate-slide-up">
-                <div className="flex items-baseline gap-4 sm:gap-6 mb-8 sm:mb-12">
+                <div className="flex items-baseline gap-3 sm:gap-6 mb-5 sm:mb-8">
                   <span className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-primary group-hover/section:text-accent transition-colors duration-500 break-words">{dateLabel}</span>
                   <div className="h-px flex-grow bg-surface-highlight opacity-50"></div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
                   {dayEntries.map((entry, idx) => {
                     const isHero = dayEntries.length === 1 || (dayEntries.length > 2 && idx === 0);
                     const timeString = entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -920,6 +1100,55 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                              <p className="font-sans text-sm sm:text-base leading-relaxed text-primary/75 line-clamp-3 mb-4">
                                {stripMarkdownAndTruncate(entry.content)}
                              </p>
+
+                             {/* Bidirectional Connected Memories & Tasks Mentions */}
+                             {(() => {
+                               const connectedMemories = entries.filter(
+                                 (other) =>
+                                   other.id !== entry.id &&
+                                   (entry.linkedEntryIds?.includes(other.id) || other.linkedEntryIds?.includes(entry.id))
+                               );
+                               const connectedTasks = tasks.filter(
+                                 (t) => entry.linkedTaskIds?.includes(t.id) || t.linkedEntryId === entry.id
+                               );
+                               if (connectedMemories.length === 0 && connectedTasks.length === 0) return null;
+
+                               return (
+                                 <div
+                                   className="flex flex-wrap items-center gap-1.5 mb-4"
+                                   onClick={(e) => e.stopPropagation()}
+                                 >
+                                   {connectedMemories.map((linkedMem) => (
+                                     <button
+                                       key={linkedMem.id}
+                                       type="button"
+                                       onClick={(e) => {
+                                         e.stopPropagation();
+                                         onEdit(linkedMem);
+                                       }}
+                                       title={`Open mentioned memory: ${linkedMem.title || extractAutoTitle(linkedMem.content)}`}
+                                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 hover:bg-accent/20 border border-accent/25 text-accent text-[11px] font-medium transition active:scale-95 max-w-[210px] truncate"
+                                     >
+                                       <BookOpen className="w-3 h-3 shrink-0" />
+                                       <span className="truncate">@{linkedMem.title || extractAutoTitle(linkedMem.content)}</span>
+                                     </button>
+                                   ))}
+                                   {connectedTasks.map((linkedTask) => (
+                                     <span
+                                       key={linkedTask.id}
+                                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-medium max-w-[210px] truncate ${
+                                         linkedTask.completed
+                                           ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-700 dark:text-emerald-300 line-through'
+                                           : 'bg-surface-highlight/60 border-surface-highlight text-secondary'
+                                       }`}
+                                     >
+                                       <CheckSquare className="w-3 h-3 shrink-0 text-accent" />
+                                       <span className="truncate">{linkedTask.text}</span>
+                                     </span>
+                                   ))}
+                                 </div>
+                               );
+                             })()}
 
                              {/* Attached Scribble, Song, or Lyrics */}
                              {(entry.song || entry.lyrics || entry.scribble) && (
