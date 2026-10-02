@@ -1,6 +1,6 @@
 import { db, defaultDb } from './firebase';
 import { collection, doc, getDoc, setDoc, updateDoc, deleteDoc, query, where, getDocs, Firestore } from 'firebase/firestore';
-import { getLocalUserId } from './authService';
+import { getLocalUserId } from './localIdentity';
 import { JournalEntry, UserProfile } from '../types';
 
 // Helper to prevent any Firestore operation from hanging indefinitely

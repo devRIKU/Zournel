@@ -33,7 +33,8 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle, moodFromLabel } from '../services/geminiService';
+import { isJevAvailable, detectMoodWithJev } from '../services/jevService';
 import { useJournalStore } from '../store/useJournalStore';
 import { AiGlitterTypewriter, AiGlitterPill } from './AiGlitterTypewriter';
 import { Button } from './ui/button';
@@ -232,6 +233,20 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
   const [isAutoDetectingMood, setIsAutoDetectingMood] = useState(false);
   const [autoMoodActive, setAutoMoodActive] = useState<boolean>(() => initialMood === '✨ Auto');
+
+  // Predictive mood: while the user writes (and hasn't picked a mood), Jev quietly scores the
+  // text. Debounced + cached in jevService, so a long session costs a handful of tiny requests.
+  const [predictedMood, setPredictedMood] = useState<{ emoji: string; label: string; fullMood: string } | null>(null);
+  useEffect(() => {
+    if ((mood && !autoMoodActive) || !isJevAvailable() || content.trim().length < 40) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      detectMoodWithJev(content, ctrl.signal).then(res => {
+        if (!ctrl.signal.aborted && res && res.confidence >= 0.35) setPredictedMood(moodFromLabel(res.label));
+      });
+    }, 1500);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [content, mood, autoMoodActive]);
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -808,7 +823,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
     let finalMood = mood;
     if (autoMoodActive || mood === '✨ Auto') {
-      if (content && content.trim().length >= 5) {
+      if (predictedMood) {
+        finalMood = predictedMood.fullMood;
+        setMood(finalMood);
+      } else if (content && content.trim().length >= 5) {
         setIsAutoDetectingMood(true);
         try {
           const autoRes = await detectMoodFromJournal(content, selectedModel);
@@ -1391,15 +1409,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 text-accent animate-spin" />
               ) : (
                 <span className="text-sm md:text-base leading-none select-none">
-                  {mood ? (mood.split(' ')[0] || '✨') : (autoMoodActive ? '✨' : '😊')}
+                  {mood && !autoMoodActive ? (mood.split(' ')[0] || '✨') : (predictedMood ? predictedMood.emoji : (autoMoodActive ? '✨' : '😊'))}
                 </span>
               )}
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline select-none">
+              <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline select-none ${!mood && predictedMood ? 'opacity-60' : ''}`}>
                 {isAutoDetectingMood 
                   ? 'Detecting...' 
-                  : (mood 
+                  : (mood && !autoMoodActive
                       ? (mood.split(' ').slice(1).join(' ') || mood) 
-                      : (autoMoodActive ? 'Auto Mood' : 'Mood'))
+                      : predictedMood ? `${predictedMood.label}?` : (autoMoodActive ? 'Auto Mood' : 'Mood'))
                 }
               </span>
               <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showMoodMenu ? 'rotate-180' : ''}`} />
@@ -1431,6 +1449,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                     )}
                   </div>
 
+                  {predictedMood && (!mood || autoMoodActive) && (
+                    <button
+                      onClick={() => { setMood(predictedMood.fullMood); setAutoMoodActive(false); setShowMoodMenu(false); }}
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl border border-accent/30 bg-accent/10 hover:bg-accent/15 transition text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-lg leading-none">{predictedMood.emoji}</span>
+                        <div>
+                          <p className="text-xs font-bold text-primary">Feels {predictedMood.label.toLowerCase()}</p>
+                          <p className="text-[10px] text-secondary opacity-70">Predicted by Jev as you write</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Use</span>
+                    </button>
+                  )}
+
                   {/* Auto Mood Detector AI Button */}
                   <button 
                     onClick={() => handleAutoDetectMood(true)}
@@ -1449,7 +1483,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           <span>✨ Auto Detect Mood</span>
                         </p>
-                        <p className="text-[10px] text-secondary opacity-70">Analyze text with Gemini AI</p>
+                        <p className="text-[10px] text-secondary opacity-70">Analyze the full entry</p>
                       </div>
                     </div>
                     {(autoMoodActive || mood === '✨ Auto') && <Check className="w-4 h-4 text-accent" />}

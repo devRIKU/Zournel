@@ -5,6 +5,7 @@ import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coff
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSwitch } from './ui/DraggableToggle';
+import { ensureFontLoaded } from '../utils/fonts';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -39,6 +40,11 @@ const BODY_FONTS = [
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
+  // Font previews need every family; fetch them only once the picker is actually opened.
+  React.useEffect(() => {
+    if (isOpen) [...BODY_FONTS, ...HEADING_FONTS].forEach(f => ensureFontLoaded(f.id));
+  }, [isOpen]);
+
   const handleUpdate = (updated: AppSettings) => {
     triggerHaptic(6);
     onUpdateSettings(updated);
@@ -53,7 +59,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     <button 
       type="button"
       onClick={() => handleUpdate({ ...settings, theme })}
-      style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+     
       className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-transform duration-150 active:scale-95 w-full cursor-pointer ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-[1.02] font-semibold' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
     >
       <div className={`w-9 h-9 rounded-xl ${colorClass} flex items-center justify-center shadow-md`}>
@@ -70,7 +76,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          style={{ transform: 'translateZ(0)', willChange: 'opacity' }}
+          style={{ willChange: 'opacity' }}
           className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={handleClose}
         >
@@ -88,7 +94,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               }
             }}
             onClick={(e) => e.stopPropagation()}
-            style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
+            style={{ willChange: 'transform, opacity' }}
             className="bg-surface rounded-3xl w-full max-w-xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border border-surface-highlight"
           >
             {/* Gesture Handle Bar */}
@@ -104,7 +110,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               <button 
                 type="button"
                 onClick={handleClose} 
-                style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+               
                 className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
               >
                 <X className="w-5 h-5" />
@@ -130,7 +136,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
                    />
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
-                     Your key is stored locally on this device. We use it to communicate directly with Google's Gemini API for task analysis and journaling insights.
+                     Stored only on this device. Used for writing help, chat and subtask generation.
+                   </p>
+
+                   <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2 mt-5">OpenCode Zen Key <span className="text-accent normal-case tracking-normal font-medium">· Jev</span></label>
+                   <input 
+                     type="password" 
+                     value={settings.opencodeApiKey || ''}
+                     onChange={(e) => handleUpdate({ ...settings, opencodeApiKey: e.target.value })}
+                     placeholder="Enter your OpenCode Zen key…"
+                     className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
+                   />
+                   <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
+                     Unlocks Jev 1.13 (free) — a tiny decision model that predicts mood while you write, task priority and when a to-do should be split. No text generation, near-instant, cached on device. Get a key at opencode.ai/auth.
                    </p>
                 </div>
               </section>
@@ -166,7 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             key={freq.val}
                             type="button"
                             onClick={() => handleUpdate({ ...settings, autoBackupIntervalMinutes: freq.val })}
-                            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                           
                             className={`py-2 rounded-xl text-xs font-bold transition-transform duration-150 border active:scale-95 cursor-pointer ${
                               (settings.autoBackupIntervalMinutes ?? 5) === freq.val
                                 ? 'bg-surface text-accent border-accent/40 shadow-xs'
@@ -248,7 +266,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             key={f.id}
                             type="button"
                             onClick={() => handleUpdate({ ...settings, headingFontFamily: f.id })}
-                            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                           
                             className={`p-2.5 rounded-xl border text-left transition-transform duration-150 active:scale-95 cursor-pointer ${
                               active
                                 ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20 text-primary'
@@ -282,7 +300,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             key={f.id}
                             type="button"
                             onClick={() => handleUpdate({ ...settings, fontFamily: f.id })}
-                            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                           
                             className={`p-2.5 rounded-xl border text-left transition-transform duration-150 active:scale-95 cursor-pointer ${
                               active
                                 ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20 text-primary'
@@ -318,7 +336,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                         key={m.id}
                         type="button"
                         onClick={() => handleUpdate({ ...settings, model: m.id })}
-                        style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                       
                         className={`w-full text-left p-3 rounded-2xl border transition-transform duration-150 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer ${
                           isSelected
                             ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20'
@@ -359,7 +377,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       key={opt}
                       type="button"
                       onClick={() => handleUpdate({ ...settings, completionAnimation: opt as CompletionAnimation })}
-                      style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                     
                       className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-transform duration-150 active:scale-95 cursor-pointer ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
                      >
                        {opt}

@@ -1,23 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Settings, Plus, Sparkles, BookOpen } from './components/Icons';
 import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
 import { ExpressiveDock } from './components/ExpressiveDock';
 import { TodoView } from './components/TodoView';
-import { JournalView } from './components/JournalView';
-import { JournalEditor } from './components/JournalEditor';
-import { SettingsModal } from './components/SettingsModal';
-import { LandingPage } from './components/LandingPage';
-import { AiChatbotModal } from './components/AiChatbotModal';
-import { ProfileView, PublicProfileView } from './components/ProfileView';
-import { ImportModal } from './components/ImportModal';
-import { getLocalUserId, listenToAuthChanges, getSavedGoogleUser } from './services/authService';
-import { syncMemoriesToCloud, fetchMemoriesFromCloud } from './services/dbService';
+import { getLocalUserId, getSavedGoogleUser } from './services/localIdentity';
 import { AutoBackupPill } from './components/AutoBackupPill';
-import { generateJournalInsight, extractTasksFromJournal, generateAutoTitle, extractAutoTitle } from './services/geminiService';
 import { useTaskStore } from './store/useTaskStore';
 import { useJournalStore } from './store/useJournalStore';
 import { SpotlightGlow } from './components/ui/background-beams';
+import { ensureFontLoaded } from './utils/fonts';
+
+// Only the Tasks tab is in the boot bundle. Everything else (Milkdown editor, recharts,
+// Firebase-heavy profile, AI chat) loads on first use so low-end devices paint fast.
+const JournalView = lazy(() => import('./components/JournalView').then(m => ({ default: m.JournalView })));
+const ProfileView = lazy(() => import('./components/ProfileView').then(m => ({ default: m.ProfileView })));
+const PublicProfileView = lazy(() => import('./components/ProfileView').then(m => ({ default: m.PublicProfileView })));
+const JournalEditor = lazy(() => import('./components/JournalEditor').then(m => ({ default: m.JournalEditor })));
+const SettingsModal = lazy(() => import('./components/SettingsModal').then(m => ({ default: m.SettingsModal })));
+const AiChatbotModal = lazy(() => import('./components/AiChatbotModal').then(m => ({ default: m.AiChatbotModal })));
+const ImportModal = lazy(() => import('./components/ImportModal').then(m => ({ default: m.ImportModal })));
+const LandingPage = lazy(() => import('./components/LandingPage').then(m => ({ default: m.LandingPage })));
+
+const ViewFallback = () => (
+  <div className="w-full max-w-3xl mx-auto animate-pulse" aria-hidden>
+    <div className="h-8 w-40 rounded-lg bg-surface-highlight/60 mb-2" />
+    <div className="h-3 w-24 rounded bg-surface-highlight/40 mb-8" />
+    <div className="space-y-2">
+      <div className="h-16 rounded-2xl bg-surface-highlight/30" />
+      <div className="h-16 rounded-2xl bg-surface-highlight/30" />
+    </div>
+  </div>
+);
 
 const ALL_THEME_CLASSES = [
   'theme-cozy-light', 'theme-cozy-dark', 'theme-evergreen-light', 'theme-evergreen-dark', 
@@ -146,7 +160,12 @@ export const App: React.FC = () => {
   // Firebase auth & cloud state sync
   useEffect(() => {
     if (!loaded) return;
-    const unsubscribe = listenToAuthChanges(async (googleUser) => {
+    // Firebase (~670 KB) loads after first paint, not before it.
+    let unsubscribe = () => {};
+    let cancelled = false;
+    Promise.all([import('./services/authService'), import('./services/dbService')]).then(([{ listenToAuthChanges }, { fetchMemoriesFromCloud }]) => {
+      if (cancelled) return;
+      unsubscribe = listenToAuthChanges(async (googleUser) => {
       if (googleUser) {
         setSettings(prev => ({
           ...prev,
@@ -184,8 +203,9 @@ export const App: React.FC = () => {
           console.warn("Auto pull memories failed on Google login:", err);
         }
       }
+      });
     });
-    return () => unsubscribe();
+    return () => { cancelled = true; unsubscribe(); };
   }, [loaded, setJournalEntries]);
 
   // System theme detection listener
@@ -227,6 +247,7 @@ export const App: React.FC = () => {
       const { journalEntries: currentEntries, settings: currentSettings } = latestDataRef.current;
       const savedUser = getSavedGoogleUser();
       const targetId = savedUser?.uid || getLocalUserId();
+      const { syncMemoriesToCloud } = await import('./services/dbService');
       await syncMemoriesToCloud(targetId, currentEntries, {
         googleEmail: savedUser?.email,
         deviceKey: getLocalUserId(),
@@ -313,6 +334,8 @@ export const App: React.FC = () => {
     const selectedBodyFont = bodyFontMap[settings.fontFamily || 'inter'] || "'Inter', sans-serif";
     const selectedHeadingFont = headingFontMap[settings.headingFontFamily || 'outfit'] || "'Outfit', sans-serif";
 
+    ensureFontLoaded(settings.fontFamily || 'inter');
+    ensureFontLoaded(settings.headingFontFamily || 'outfit');
     document.documentElement.style.setProperty('--font-body', selectedBodyFont);
     document.documentElement.style.setProperty('--font-heading', selectedHeadingFont);
     document.documentElement.setAttribute('data-heading-font', settings.headingFontFamily || 'outfit');
@@ -367,19 +390,21 @@ export const App: React.FC = () => {
   }
 
   if (publicProfile) {
-    return <PublicProfileView profile={publicProfile} />;
+    return <Suspense fallback={null}><PublicProfileView profile={publicProfile} /></Suspense>;
   }
 
   if (!hasEntered) {
     return (
-      <LandingPage 
-        onEnter={() => {
-          setHasEntered(true);
-          setActiveTab(Tab.TODO);
-        }} 
-        tasks={tasks} 
-        journalEntries={journalEntries} 
-      />
+      <Suspense fallback={null}>
+        <LandingPage 
+          onEnter={() => {
+            setHasEntered(true);
+            setActiveTab(Tab.TODO);
+          }} 
+          tasks={tasks} 
+          journalEntries={journalEntries} 
+        />
+      </Suspense>
     );
   }
 
@@ -427,42 +452,45 @@ export const App: React.FC = () => {
             exit={{ opacity: 0, y: -8, scale: 0.99 }}
             transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
           >
-            {activeTab === Tab.TODO && (
-              <TodoView 
-                tasks={tasks} 
-                onToggleTask={toggleTask} 
-                onDeleteTask={deleteTask} 
-                onUpdateTask={updateTask}
-                onAddTask={addTask} 
-                focusInputSignal={focusInputSignal}
-                completionAnim={settings.completionAnimation} 
-                deleteAnim={settings.deleteAnimation}
-                selectedModel={settings.model}
-              />
-            )}
-            {activeTab === Tab.JOURNAL && (
-              <JournalView 
-                entries={journalEntries} 
-                onEdit={e => { setEditingEntry(e); setIsEditorOpen(true); }} 
-                onDeleteEntry={deleteJournalEntryStore} 
-                onDeleteEntries={deleteJournalEntriesStore}
-                onRenameEntry={renameJournalEntryStore}
-                onImportClick={() => setIsImportModalOpen(true)}
-                onImportEntries={handleImportEntriesStore}
-                selectedModel={settings.model}
-              />
-            )}
-            {activeTab === Tab.PROFILE && (
-              <ProfileView 
-                profile={settings.profile} 
-                journalEntries={journalEntries} 
-                onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))}
-                onOpenImportModal={() => setIsImportModalOpen(true)}
-                onImportEntries={handleImportEntriesStore}
-                settings={settings}
-                onUpdateSettings={setSettings}
-              />
-            )}
+            <Suspense fallback={<ViewFallback />}>
+              {activeTab === Tab.TODO && (
+                <TodoView 
+                  tasks={tasks} 
+                  onToggleTask={toggleTask} 
+                  onDeleteTask={deleteTask} 
+                  onUpdateTask={updateTask}
+                  onAddTask={addTask} 
+                  onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, settings.model); setActiveTab(Tab.JOURNAL); }}
+                  focusInputSignal={focusInputSignal}
+                  completionAnim={settings.completionAnimation} 
+                  deleteAnim={settings.deleteAnimation}
+                  selectedModel={settings.model}
+                />
+              )}
+              {activeTab === Tab.JOURNAL && (
+                <JournalView 
+                  entries={journalEntries} 
+                  onEdit={e => { setEditingEntry(e); setIsEditorOpen(true); }} 
+                  onDeleteEntry={deleteJournalEntryStore} 
+                  onDeleteEntries={deleteJournalEntriesStore}
+                  onRenameEntry={renameJournalEntryStore}
+                  onImportClick={() => setIsImportModalOpen(true)}
+                  onImportEntries={handleImportEntriesStore}
+                  selectedModel={settings.model}
+                />
+              )}
+              {activeTab === Tab.PROFILE && (
+                <ProfileView 
+                  profile={settings.profile} 
+                  journalEntries={journalEntries} 
+                  onUpdateProfile={(p) => setSettings(prev => ({...prev, profile: p}))}
+                  onOpenImportModal={() => setIsImportModalOpen(true)}
+                  onImportEntries={handleImportEntriesStore}
+                  settings={settings}
+                  onUpdateSettings={setSettings}
+                />
+              )}
+            </Suspense>
           </motion.div>
         </AnimatePresence>
       </main>
@@ -482,6 +510,8 @@ export const App: React.FC = () => {
 
       {!isEditorOpen && <ExpressiveDock activeTab={activeTab} onTabChange={setActiveTab} />}
 
+      {isEditorOpen && (
+      <Suspense fallback={null}>
       <JournalEditor 
         key={editingEntry ? editingEntry.id : 'new-entry'}
         isOpen={isEditorOpen} 
@@ -498,14 +528,22 @@ export const App: React.FC = () => {
         initialLyrics={editingEntry?.lyrics || editingEntry?.song?.lyrics}
         selectedModel={settings.model} 
       />
+      </Suspense>
+      )}
       
+      {isSettingsOpen && (
+      <Suspense fallback={null}>
       <SettingsModal 
         isOpen={isSettingsOpen} 
         onClose={() => setIsSettingsOpen(false)} 
         settings={settings} 
         onUpdateSettings={setSettings} 
       />
+      </Suspense>
+      )}
 
+      {isAddModalOpen && (
+      <Suspense fallback={null}>
       <AiChatbotModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -515,13 +553,19 @@ export const App: React.FC = () => {
         apiKey={settings.apiKey}
         onUpdateApiKey={(key) => setSettings(prev => ({ ...prev, apiKey: key }))}
       />
+      </Suspense>
+      )}
 
+      {isImportModalOpen && (
+      <Suspense fallback={null}>
       <ImportModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImportEntries={handleImportEntriesStore}
         currentDeviceKey={getLocalUserId()}
       />
+      </Suspense>
+      )}
     </div>
   );
 };

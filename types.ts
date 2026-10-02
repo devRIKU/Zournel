@@ -31,6 +31,8 @@ export interface AppSettings {
   deleteAnimation: DeleteAnimation;
   model: string;
   apiKey: string;
+  /** OpenCode Zen key — enables Jev (fast structured decisions: mood, priority, intent). */
+  opencodeApiKey?: string;
   profile?: UserProfile;
   autoBackupEnabled?: boolean;
   autoBackupIntervalMinutes?: number;
@@ -51,6 +53,8 @@ export interface Task {
   priority: Priority;
   subtasks?: SubTask[];
   aiAnalysis?: string; 
+  /** Set by Jev when priority was predicted rather than chosen. */
+  predicted?: { priorityConfidence: number; isCompound: number };
 }
 
 export interface AttachedSong {

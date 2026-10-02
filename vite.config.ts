@@ -22,6 +22,23 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
+      target: 'es2019',
+      cssCodeSplit: true,
+      rollupOptions: {
+        output: {
+          // Long-lived vendor chunks: a feature change never re-downloads React/Firebase/etc.
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return;
+            if (/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'react';
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'firebase';
+            if (id.includes('node_modules/@milkdown') || id.includes('node_modules/prosemirror') || id.includes('node_modules/@prosemirror') || id.includes('node_modules/remark') || id.includes('node_modules/mdast') || id.includes('node_modules/micromark') || id.includes('node_modules/unified')) return 'milkdown';
+            if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-') || id.includes('node_modules/victory-vendor')) return 'charts';
+            if (id.includes('node_modules/@google/genai')) return 'genai';
+            if (id.includes('node_modules/motion') || id.includes('node_modules/framer-motion')) return 'motion';
+            return 'vendor';
+          },
+        },
+      },
     },
     server: {
       port: 3000,

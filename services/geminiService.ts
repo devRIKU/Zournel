@@ -1,6 +1,9 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import type { GoogleGenAI } from "@google/genai";
+// The GenAI SDK (~290 KB) is loaded on first AI call, never at boot.
+const loadGenAI = () => import("@google/genai");
 import { AIProcessedInput, Priority } from "../types";
+import { isJevAvailable, detectMoodWithJev } from "./jevService";
 
 // Modern standard model names
 const imageModelName = 'gemini-3.1-flash-lite-image';
@@ -26,7 +29,7 @@ const cleanJsonString = (str: string) => {
   return str.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-const getAiClient = (apiKeyOverride?: string) => {
+const getAiClient = async (apiKeyOverride?: string): Promise<GoogleGenAI | null> => {
   let apiKey = apiKeyOverride || '';
 
   if (!apiKey) {
@@ -54,6 +57,7 @@ const getAiClient = (apiKeyOverride?: string) => {
   if (!apiKey) {
     return null;
   }
+  const { GoogleGenAI } = await loadGenAI();
   return new GoogleGenAI({ apiKey });
 };
 
@@ -79,7 +83,7 @@ const generateContentWithFallback = async (ai: GoogleGenAI, primaryModel: string
 
 export const processUserInput = async (input: string, model: string = 'gemini-3.5-flash-lite'): Promise<AIProcessedInput> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
       return { tasks: [], journalContent: null, mood: null };
@@ -87,19 +91,19 @@ export const processUserInput = async (input: string, model: string = 'gemini-3.
     const activeModel = routeModel(model, 'TODO');
     
     const responseSchema = {
-      type: Type.OBJECT,
+      type: "OBJECT",
       properties: {
         tasks: {
-          type: Type.ARRAY,
-          items: { type: Type.STRING },
+          type: "ARRAY",
+          items: { type: "STRING" },
           description: 'A list of actionable, concise tasks extracted from the input.'
         },
         journalContent: {
-          type: Type.STRING,
+          type: "STRING",
           description: 'The narrative, reflective, or emotional part of the input, cleaned of task-like syntax.'
         },
         mood: {
-          type: Type.STRING,
+          type: "STRING",
           description: 'A short, evocative phrase or word describing the emotional tone of the entry.'
         }
       },
@@ -132,22 +136,22 @@ export const processUserInput = async (input: string, model: string = 'gemini-3.
 
 export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite'): Promise<{ text: string, priority: Priority }[]> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
       return [];
     }
     const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
-      type: Type.OBJECT,
+      type: "OBJECT",
       properties: {
         tasks: {
-          type: Type.ARRAY,
+          type: "ARRAY",
           items: { 
-            type: Type.OBJECT,
+            type: "OBJECT",
             properties: {
-              text: { type: Type.STRING, description: 'The task description.' },
-              priority: { type: Type.STRING, description: 'Assigned priority: high, medium, or low.' }
+              text: { type: "STRING", description: 'The task description.' },
+              priority: { type: "STRING", description: 'Assigned priority: high, medium, or low.' }
             },
             required: ['text', 'priority']
           }
@@ -180,15 +184,15 @@ export const extractTasksFromJournal = async (journalText: string, model: string
 
 export const generateSubtasks = async (taskText: string, model: string = 'gemini-3.5-flash-lite'): Promise<string[]> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
       return [];
     }
     const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
+      type: "ARRAY",
+      items: { type: "STRING" },
     };
 
     const response = await ai.models.generateContent({
@@ -211,7 +215,7 @@ export const generateSubtasks = async (taskText: string, model: string = 'gemini
 
 export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3.6-flash'): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
       return "";
@@ -232,7 +236,7 @@ export const generateJournalInsight = async (entryText: string, model: string = 
 
 export const editJournalText = async (text: string, type: AiActionType, model: string = 'gemini-3.6-flash'): Promise<string> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
       return text;
@@ -260,7 +264,7 @@ export const editJournalText = async (text: string, type: AiActionType, model: s
 
 export const generateCoverImage = async (context: string): Promise<string | null> => {
   try {
-    const ai = getAiClient();
+    const ai = await getAiClient();
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
       return null;
@@ -318,9 +322,20 @@ export const PRESET_MOODS_LIST = [
   { emoji: '🛋️', label: 'Relaxed' }
 ];
 
+export const moodFromLabel = (label: string) => {
+  const found = PRESET_MOODS_LIST.find(m => m.label.toLowerCase() === label.toLowerCase()) || PRESET_MOODS_LIST[8]; // Reflective
+  return { emoji: found.emoji, label: found.label, fullMood: `${found.emoji} ${found.label}` };
+};
+
 export const detectMoodFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite', apiKeyOverride?: string): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
+  // Jev (System One) answers a classification in one tiny request and is cached per text —
+  // no LLM, no tokens, no streaming. Gemini below is only the fallback.
+  if (isJevAvailable()) {
+    const jev = await detectMoodWithJev(journalText);
+    if (jev && jev.confidence >= 0.35) return moodFromLabel(jev.label);
+  }
   try {
-    const ai = getAiClient(apiKeyOverride);
+    const ai = await getAiClient(apiKeyOverride);
     if (!ai) {
       console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences or environment.");
       return null;
@@ -333,10 +348,10 @@ export const detectMoodFromJournal = async (journalText: string, model: string =
     const allowedLabels = PRESET_MOODS_LIST.map(m => m.label);
 
     const responseSchema = {
-      type: Type.OBJECT,
+      type: "OBJECT",
       properties: {
         label: { 
-          type: Type.STRING, 
+          type: "STRING", 
           description: `You MUST select EXACTLY one mood label from this allowed list: ${allowedLabels.join(', ')}` 
         }
       },
@@ -434,7 +449,7 @@ export const generateAutoTitle = async (
 ): Promise<string> => {
   try {
     const fallbackTitle = extractAutoTitle(journalText);
-    const ai = getAiClient(apiKeyOverride);
+    const ai = await getAiClient(apiKeyOverride);
     if (!ai) {
       return fallbackTitle;
     }
