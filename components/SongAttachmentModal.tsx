@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Music, Check, Trash2, Search, Play, Pause, ExternalLink, 
   Disc, Mic, FileText, Loader2, Sparkles, Volume2 
-} from 'lucide-react';
+} from './Icons';
 import { AttachedSong } from '../types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog';
 import { Button } from './ui/button';

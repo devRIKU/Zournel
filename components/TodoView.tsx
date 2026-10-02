@@ -1,12 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { Plus, Check, Trash2, Bot, CheckCircle2, Sparkles } from 'lucide-react';
-import { Task, Priority, ModelType } from '../types';
+import { Plus, Check, Trash2, Bot, CheckCircle2, Sparkles, Feather } from './Icons';
+import { isJevAvailable, classifyQuickEntry } from '../services/jevService';
+import { Task, Priority } from '../types';
 import { generateSubtasks } from '../services/geminiService';
 import { AiGlitterPill } from './AiGlitterTypewriter';
 import { iosSpringSnappy, mechanicalSpring, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSegmentedToggle } from './ui/DraggableToggle';
+import { PageHeader } from './ui/PageHeader';
 
 interface TodoViewProps {
   tasks: Task[];
@@ -14,13 +16,14 @@ interface TodoViewProps {
   onDeleteTask: (id: string) => void;
   onUpdateTask: (task: Task) => void;
   onAddTask: (text: string) => void;
+  onSaveAsMemory?: (text: string) => void;
   focusInputSignal?: number;
   completionAnim?: string;
   deleteAnim?: string;
-  selectedModel?: ModelType;
+  selectedModel?: string;
 }
 
-const PriorityBadge: React.FC<{ priority: Priority; onClick: () => void }> = ({ priority, onClick }) => {
+const PriorityBadge: React.FC<{ priority: Priority; predicted?: boolean; onClick: () => void }> = ({ priority, predicted, onClick }) => {
   const colorStyles: Record<Priority, string> = {
     high: 'text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/20',
     medium: 'text-secondary bg-surface-highlight/50 border-surface-highlight',
@@ -35,10 +38,10 @@ const PriorityBadge: React.FC<{ priority: Priority; onClick: () => void }> = ({ 
         triggerHaptic(6); 
         onClick(); 
       }} 
-      title="Toggle priority (Low / Med / High)"
-      style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold border transition-transform active:scale-95 select-none ${colorStyles[priority]}`}
+      title={predicted ? 'Priority predicted by Jev — tap to change' : 'Toggle priority (Low / Med / High)'}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono uppercase tracking-wider font-semibold border transition-transform active:scale-95 select-none ${colorStyles[priority]}`}
     >
+      {predicted && <span className="w-1 h-1 rounded-full bg-accent" aria-hidden />}
       {priority}
     </button>
   );
@@ -50,11 +53,12 @@ const TaskItem: React.FC<{
   onDelete: () => void;
   onUpdate: (task: Task) => void;
   completionAnim?: string;
-  selectedModel?: ModelType;
+  selectedModel?: string;
 }> = ({ task, onToggle, onDelete, onUpdate, completionAnim, selectedModel }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [loadingSubtasks, setLoadingSubtasks] = useState(false);
   const [suggestedSubtasks, setSuggestedSubtasks] = useState<{ id: string; text: string }[]>([]);
+  const isCompound = (task.predicted?.isCompound ?? 0) >= 0.7;
 
   const handleToggle = () => {
     triggerHaptic(task.completed ? 10 : 22);
@@ -112,12 +116,8 @@ const TaskItem: React.FC<{
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.14 } }}
       transition={mechanicalSpring}
-      style={{ 
-        contain: 'content', 
-        transform: 'translateZ(0)',
-        willChange: 'transform, opacity'
-      }}
-      className={`group relative mb-2.5 rounded-2xl bg-surface/90 dark:bg-surface/60 border border-black/[0.06] dark:border-white/[0.08] p-3.5 sm:p-4 transition-colors ${
+      style={{ contain: 'content' }}
+      className={`group relative rounded-2xl bg-surface border border-surface-highlight p-4 transition-colors ${
         task.completed ? 'opacity-60 bg-surface/50' : 'hover:border-accent/30 shadow-[0_1px_2px_rgba(0,0,0,0.02)]'
       }`}
     >
@@ -127,7 +127,7 @@ const TaskItem: React.FC<{
           type="button"
           onClick={handleToggle} 
           title={task.completed ? "Mark incomplete" : "Mark complete"}
-          style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+         
           className="shrink-0 w-8 h-8 -ml-1 -mt-1 flex items-center justify-center rounded-lg active:scale-85 transition-transform select-none cursor-pointer"
         >
           <div className={`w-5 h-5 rounded-full border-[1.5px] flex items-center justify-center transition-all ${
@@ -141,7 +141,7 @@ const TaskItem: React.FC<{
                 animate={{ scale: 1 }}
                 transition={mechanicalSpring}
               >
-                <Check className="w-3 h-3 stroke-[3] text-accent-fg" />
+                <Check className="w-3 h-3 text-accent-fg" />
               </motion.div>
             )}
           </div>
@@ -158,9 +158,10 @@ const TaskItem: React.FC<{
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <PriorityBadge 
               priority={task.priority} 
+              predicted={Boolean(task.predicted)}
               onClick={() => {
                 const next: Record<Priority, Priority> = { 'high': 'medium', 'medium': 'low', 'low': 'high' };
-                onUpdate({ ...task, priority: next[task.priority] });
+                onUpdate({ ...task, priority: next[task.priority], predicted: undefined });
               }} 
             />
             {task.aiAnalysis && (
@@ -175,9 +176,12 @@ const TaskItem: React.FC<{
             type="button"
             onClick={handleGenerateSubtasks}
             disabled={loadingSubtasks} 
-            title="Subtask Assistant"
-            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-            className="w-8 h-8 flex items-center justify-center text-secondary hover:text-accent rounded-lg hover:bg-surface-highlight/50 transition-transform active:scale-90"
+            title={isCompound ? 'Looks like several steps — break it down' : 'Subtask Assistant'}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-transform active:scale-90 ${
+              isCompound && !task.completed && !(task.subtasks?.length)
+                ? 'text-accent bg-accent/10 !opacity-100'
+                : 'text-secondary hover:text-accent hover:bg-surface-highlight/50'
+            }`}
           >
             {loadingSubtasks ? <Bot className="w-4 h-4 animate-pulse text-accent" /> : <Bot className="w-4 h-4" />}
           </button>
@@ -185,7 +189,7 @@ const TaskItem: React.FC<{
             type="button"
             onClick={handleDelete} 
             title="Delete Task" 
-            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+           
             className="w-8 h-8 flex items-center justify-center text-secondary hover:text-rose-500 rounded-lg hover:bg-rose-500/10 transition-transform active:scale-90"
           >
             <Trash2 className="w-4 h-4" />
@@ -201,7 +205,7 @@ const TaskItem: React.FC<{
           exit={{ opacity: 0, y: -4 }}
           transition={iosSpringSnappy}
           style={{ willChange: 'transform, opacity' }}
-          className="mt-3 pt-3 border-t border-black/[0.04] dark:border-white/[0.06] pl-2 sm:pl-7 space-y-2.5"
+          className="mt-3 pt-3 border-t border-surface-highlight/60 pl-2 sm:pl-7 space-y-2.5"
         >
           {loadingSubtasks && (
             <div className="py-2 space-y-2 animate-pulse">
@@ -223,7 +227,7 @@ const TaskItem: React.FC<{
                     <button 
                       type="button"
                       onClick={() => handleAcceptSubtask(st)}
-                      style={{ touchAction: 'manipulation' }}
+                     
                       className="px-2 py-1 text-xs font-medium rounded-md bg-accent text-accent-fg hover:opacity-90 active:scale-95 transition-transform"
                     >
                       + Add
@@ -231,7 +235,7 @@ const TaskItem: React.FC<{
                     <button 
                       type="button"
                       onClick={() => handleDismissSubtask(st.id)}
-                      style={{ touchAction: 'manipulation' }}
+                     
                       className="px-2 py-1 text-xs font-medium rounded-md text-secondary hover:text-primary active:scale-95 transition-transform"
                     >
                       Dismiss
@@ -253,10 +257,10 @@ const TaskItem: React.FC<{
                     subtasks: task.subtasks?.map(s => s.id === st.id ? { ...s, completed: !s.completed } : s) 
                   });
                 }} 
-                style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+               
                 className="w-5 h-5 rounded border border-secondary/50 flex items-center justify-center transition active:scale-90"
               >
-                {st.completed && <Check className="w-3 h-3 stroke-[3] text-accent" />}
+                {st.completed && <Check className="w-3 h-3 text-accent" />}
               </button>
               <span className={`text-xs sm:text-sm transition-colors ${st.completed ? 'text-secondary line-through' : 'text-primary'}`}>
                 {st.text}
@@ -275,12 +279,27 @@ export const TodoView: React.FC<TodoViewProps> = ({
   onDeleteTask, 
   onUpdateTask, 
   onAddTask, 
+  onSaveAsMemory,
   focusInputSignal, 
   completionAnim, 
   selectedModel 
 }) => {
   const [inputText, setInputText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const [looksLikeReflection, setLooksLikeReflection] = useState(false);
+
+  // Predictive intent: if a long line reads like a diary thought, offer the journal instead.
+  useEffect(() => {
+    setLooksLikeReflection(false);
+    if (!isJevAvailable() || inputText.trim().split(/\s+/).length < 6) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      classifyQuickEntry(inputText, ctrl.signal).then(kind => {
+        if (!ctrl.signal.aborted) setLooksLikeReflection(kind === 'reflection');
+      });
+    }, 900);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [inputText]);
   
   useEffect(() => { 
     if (focusInputSignal && focusInputSignal > 0 && inputRef.current) {
@@ -308,34 +327,26 @@ export const TodoView: React.FC<TodoViewProps> = ({
   });
 
   return (
-    <div className="max-w-2xl mx-auto w-full pb-32">
-      {/* Editorial Header */}
-      <div className="mb-6 mt-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-black/[0.04] dark:border-white/[0.06] pb-3">
-        <div>
-          <h2 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight">
-            Today
-          </h2>
-          <p className="text-xs text-secondary/80 font-mono tracking-wider mt-0.5">
-            {activeTasks.length} PENDING &bull; {completedTasks.length} COMPLETED
-          </p>
-        </div>
-
-        {/* Smooth Draggable Filter Toggle */}
-        <DraggableSegmentedToggle
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'active', label: `Active (${activeTasks.length})` },
-            { value: 'completed', label: `Done (${completedTasks.length})` }
-          ]}
-          value={filter}
-          onChange={(val) => setFilter(val as 'all' | 'active' | 'completed')}
-          className="self-start sm:self-auto shrink-0"
-        />
-      </div>
+    <div className="max-w-3xl mx-auto w-full">
+      <PageHeader
+        title="Today"
+        subtitle={<>{activeTasks.length} pending &bull; {completedTasks.length} completed</>}
+        actions={
+          <DraggableSegmentedToggle
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'active', label: `Active (${activeTasks.length})` },
+              { value: 'completed', label: `Done (${completedTasks.length})` }
+            ]}
+            value={filter}
+            onChange={(val) => setFilter(val as 'all' | 'active' | 'completed')}
+          />
+        }
+      />
 
       {/* Mechanical Quick-Entry Input (Things 3 style) */}
       <div className="relative mb-6">
-        <div className="flex items-center rounded-xl bg-surface/80 dark:bg-surface/40 border border-black/[0.06] dark:border-white/[0.08] focus-within:border-accent/60 transition-colors px-3.5 py-2.5 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2 h-12 rounded-2xl bg-surface border border-surface-highlight focus-within:border-accent/60 transition-colors px-4">
           <input 
             ref={inputRef} 
             type="text" 
@@ -346,6 +357,16 @@ export const TodoView: React.FC<TodoViewProps> = ({
             title="Type task and press Enter"
             className="w-full bg-transparent outline-none text-sm sm:text-base text-primary placeholder:text-secondary/50"
           />
+          {looksLikeReflection && onSaveAsMemory && (
+            <button
+              type="button"
+              onClick={() => { triggerHaptic(10); onSaveAsMemory(inputText.trim()); setInputText(''); }}
+              title="This reads like a reflection — save it as a memory instead"
+              className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-[11px] font-medium text-accent bg-accent/10 hover:bg-accent/15 transition shrink-0 animate-fade-in"
+            >
+              <Feather className="w-3.5 h-3.5" /> Memory?
+            </button>
+          )}
           {inputText.trim().length > 0 && (
             <button
               type="button"
@@ -355,10 +376,10 @@ export const TodoView: React.FC<TodoViewProps> = ({
                 setInputText(''); 
               }}
               title="Add task"
-              style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-              className="p-1.5 bg-accent text-accent-fg rounded-lg active:scale-90 transition-transform shrink-0 cursor-pointer"
+             
+              className="w-8 h-8 bg-accent text-accent-fg rounded-full flex items-center justify-center active:scale-90 transition-transform shrink-0"
             >
-              <Plus className="w-4 h-4 stroke-[2.5]" />
+              <Plus className="w-4 h-4" weight="bold" />
             </button>
           )}
         </div>
@@ -366,7 +387,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
 
       {/* Task List */}
       {displayedTasks.length === 0 ? (
-        <div className="py-16 text-center flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-black/[0.06] dark:border-white/[0.08] p-6">
+        <div className="py-16 text-center flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-surface-highlight p-6">
           <CheckCircle2 className="w-6 h-6 text-secondary/40" />
           <p className="text-sm font-medium text-primary">
             {filter === 'all' ? 'No tasks in your queue' : filter === 'active' ? 'No pending tasks' : 'No completed tasks yet'}
@@ -376,7 +397,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
           </p>
         </div>
       ) : (
-        <div className="space-y-1">
+        <div className="space-y-2">
           {activeTasks.length === 0 && completedTasks.length > 0 && filter !== 'completed' && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.98 }}

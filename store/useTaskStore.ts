@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isJevAvailable, assessTaskWithJev } from '../services/jevService';
 import { Task, Priority, SubTask } from '../types';
 
 interface TaskState {
@@ -51,6 +52,21 @@ export const useTaskStore = create<TaskState>((set, get) => ({
       subtasks: []
     };
     get().setTasks((prev) => [newTask, ...prev]);
+
+    // Predictive priority: Jev scores urgency + "is this really several steps?" in one call.
+    // Fire-and-forget; the task is usable immediately and the badge updates when the answer lands.
+    if (priority === 'medium' && isJevAvailable()) {
+      assessTaskWithJev(newTask.text).then((res) => {
+        if (!res) return;
+        get().setTasks((prev) =>
+          prev.map((t) =>
+            t.id === newTask.id && t.priority === 'medium'
+              ? { ...t, priority: res.priorityConfidence >= 0.45 ? res.priority : t.priority, predicted: { priorityConfidence: res.priorityConfidence, isCompound: res.isCompound } }
+              : t
+          )
+        );
+      });
+    }
   },
 
   toggleTask: (id: string) => {

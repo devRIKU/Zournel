@@ -8,6 +8,7 @@ import {
   MessageSquare, Edit3, Shield, BookOpen, Layers, Zap, X, Upload, Download,
   CloudUpload, CloudDownload, LogOut, RefreshCw, CheckCircle2, AlertCircle
 } from './Icons';
+import { PageHeader } from './ui/PageHeader';
 import { 
   getLocalUserId, setLocalUserId, signInWithGoogleAccount, signOutGoogleAccount, 
   getSavedGoogleUser, listenToAuthChanges, GoogleAccountUser 
@@ -315,10 +316,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const totalWords = journalEntries.reduce((acc, curr) => acc + (curr.content ? curr.content.trim().split(/\s+/).length : 0), 0);
 
   return (
-    <div className="w-full max-w-3xl mx-auto pb-32 pt-6 px-4 sm:px-6">
-      
+    <div className="w-full max-w-3xl mx-auto">
+      <PageHeader title="Profile" subtitle="Your public page & data" />
+
       {/* Primary Creator Profile Card */}
-      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm relative overflow-hidden mb-8">
+      <div className="bg-surface border border-surface-highlight rounded-3xl p-6 sm:p-10 shadow-sm relative overflow-hidden mb-8">
         
         <div className="flex flex-col items-center mb-8 relative z-10 pt-8">
           
@@ -337,7 +339,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <img src={picture} alt="Profile avatar" className="w-full h-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center justify-center text-secondary opacity-60">
-                  <User className="w-10 h-10 stroke-[1.5]" />
+                  <User className="w-10 h-10" />
                 </div>
               )}
               
@@ -501,7 +503,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                           <div className={`w-5 h-5 rounded-full border flex items-center justify-center transition ${
                             isSharedOnProfile ? 'bg-accent border-accent text-accent-fg' : 'border-secondary/30 bg-bg'
                           }`}>
-                            {isSharedOnProfile && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                            {isSharedOnProfile && <Check className="w-3.5 h-3.5" />}
                           </div>
                           <span className="text-xs sm:text-sm font-bold text-primary truncate max-w-[220px]">
                             {entry.title || extractAutoTitle(entry.content)}
@@ -586,7 +588,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       {/* Google Account & Cloud Sync Card */}
-      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm space-y-6">
+      <div className="bg-surface border border-surface-highlight rounded-3xl p-6 sm:p-10 shadow-sm space-y-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-accent/10 rounded-2xl text-accent border border-accent/20">
@@ -681,7 +683,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       {/* Access & Device Recovery Card */}
-      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm">
+      <div className="bg-surface border border-surface-highlight rounded-3xl p-6 sm:p-10 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-bg rounded-2xl text-accent border border-surface-highlight">
             <Key className="w-5 h-5" />
@@ -700,7 +702,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 {showKey ? (
                   <span className="text-primary break-all select-all font-semibold">{currentKey}</span>
                 ) : (
-                  <span className="text-secondary/40 select-none tracking-widest">••••••••-••••-••••-••••-••••••••••••</span>
+                  <span className="text-secondary/40 select-none tracking-wider">••••••••-••••-••••-••••-••••••••••••</span>
                 )}
                 <button 
                   onClick={() => setShowKey(!showKey)} 
@@ -742,7 +744,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       {/* Memory Import & Backup Management Card */}
-      <div className="bg-surface border border-surface-highlight rounded-[2.5rem] p-6 sm:p-10 shadow-sm">
+      <div className="bg-surface border border-surface-highlight rounded-3xl p-6 sm:p-10 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-bg rounded-2xl text-accent border border-surface-highlight">
             <Upload className="w-5 h-5" />
@@ -777,7 +779,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       {/* Blog Post Modal Preview */}
       <AnimatePresence>
         {previewBlogEntry && (
-          <div className="fixed inset-0 z-50 flex flex-col items-center justify-start py-4 sm:py-10 px-2 sm:px-4 bg-black/75 backdrop-blur-md overflow-y-auto">
+          <div className="fixed inset-0 z-[200] flex flex-col items-center justify-start py-4 sm:py-10 px-2 sm:px-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -791,7 +793,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 </div>
                 <button
                   onClick={() => setPreviewBlogEntry(null)}
-                  className="p-2 rounded-full bg-[#E7E5E4] dark:bg-neutral-800 hover:bg-[#D6D3D1] dark:hover:bg-neutral-700 text-[#44403C] dark:text-slate-200 transition"
+                  className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
                   title="Close Preview"
                 >
                   <X className="w-5 h-5" />
@@ -852,9 +854,9 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
   // 2. ENTIRE USER PUBLIC PROFILE VIEW
   return (
     <div className="min-h-screen bg-bg text-primary font-sans flex items-center justify-center p-4 sm:p-6 transition duration-500 animate-fade-in relative overflow-hidden">
-      <div className="w-full max-w-xl bg-surface border border-surface-highlight rounded-[2.5rem] p-8 sm:p-12 shadow-lg relative flex flex-col items-center my-8 backdrop-blur-md">
+      <div className="w-full max-w-xl bg-surface border border-surface-highlight rounded-3xl p-8 sm:p-12 shadow-lg relative flex flex-col items-center my-8 backdrop-blur-md">
         
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-highlight border border-surface-highlight text-[10px] font-bold uppercase tracking-[0.2em] text-secondary mb-12">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-highlight border border-surface-highlight text-[10px] font-bold uppercase tracking-wider text-secondary mb-12">
           <Compass className="w-3.5 h-3.5 text-accent" />
           <span>Zournel Profile</span>
         </div>
@@ -868,7 +870,7 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
               <img src={profile.picture} alt={`${profile.name}'s avatar`} className="w-full h-full object-cover" />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-surface-highlight">
-                 <User className="w-12 h-12 text-secondary opacity-40 stroke-[1.5]" />
+                 <User className="w-12 h-12 text-secondary opacity-40" />
               </div>
             )}
           </div>
@@ -892,7 +894,7 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
           <div className="w-full text-left mt-4 pt-8 border-t border-surface-highlight/60">
             <div className="flex items-center justify-center gap-2 mb-6">
               <Calendar className="w-4 h-4 text-secondary/60" />
-              <h3 className="text-xs font-bold text-secondary tracking-widest uppercase text-center">Shared Blog Entries</h3>
+              <h3 className="text-xs font-bold text-secondary tracking-wider uppercase text-center">Shared Blog Entries</h3>
             </div>
             
             <div className="space-y-5">
@@ -900,7 +902,7 @@ export const PublicProfileView = ({ profile }: { profile: UserProfile }) => {
                 <div 
                   key={entry.id} 
                   onClick={() => setActiveBlogEntry(entry)}
-                  className="bg-bg/40 hover:bg-bg/80 p-6 rounded-[2rem] border border-surface-highlight hover:border-accent/40 shadow-xs hover:shadow-md transition duration-300 cursor-pointer group"
+                  className="bg-bg/40 hover:bg-bg/80 p-6 rounded-3xl border border-surface-highlight hover:border-accent/40 shadow-xs hover:shadow-md transition duration-300 cursor-pointer group"
                 >
                   <div className="flex justify-between items-center mb-3">
                     <span className="font-bold text-primary group-hover:text-accent transition-colors text-sm sm:text-base">

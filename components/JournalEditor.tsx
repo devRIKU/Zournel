@@ -11,7 +11,7 @@ import {
 import { ScribblePadModal } from './ScribblePadModal';
 import { SongAttachmentModal } from './SongAttachmentModal';
 import { AttachedSong } from '../types';
-import { Play as LucidePlay, Pause as LucidePause, Disc as LucideDisc, MoreVertical } from 'lucide-react';
+import { Play, Pause, MoreVertical } from './Icons';
 import { toggleAudioPreview, subscribeToAudio, stopAudioPreview } from '../services/songService';
 import { motion, AnimatePresence } from 'motion/react';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
@@ -33,7 +33,8 @@ import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle, moodFromLabel } from '../services/geminiService';
+import { isJevAvailable, detectMoodWithJev } from '../services/jevService';
 import { useJournalStore } from '../store/useJournalStore';
 import { AiGlitterTypewriter, AiGlitterPill } from './AiGlitterTypewriter';
 import { Button } from './ui/button';
@@ -181,6 +182,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const initialTitleRef = useRef<string>(initialTitle || '');
   const userHasEditedTitleRef = useRef<boolean>(Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || '')));
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
+  const handleRandomCover = () => setImage(getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
   const [scribble, setScribble] = useState<string | undefined>(() => initialScribble);
   const [song, setSong] = useState<AttachedSong | undefined>(() => initialSong);
@@ -231,6 +233,20 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
   const [isAutoDetectingMood, setIsAutoDetectingMood] = useState(false);
   const [autoMoodActive, setAutoMoodActive] = useState<boolean>(() => initialMood === '✨ Auto');
+
+  // Predictive mood: while the user writes (and hasn't picked a mood), Jev quietly scores the
+  // text. Debounced + cached in jevService, so a long session costs a handful of tiny requests.
+  const [predictedMood, setPredictedMood] = useState<{ emoji: string; label: string; fullMood: string } | null>(null);
+  useEffect(() => {
+    if ((mood && !autoMoodActive) || !isJevAvailable() || content.trim().length < 40) return;
+    const ctrl = new AbortController();
+    const t = setTimeout(() => {
+      detectMoodWithJev(content, ctrl.signal).then(res => {
+        if (!ctrl.signal.aborted && res && res.confidence >= 0.35) setPredictedMood(moodFromLabel(res.label));
+      });
+    }, 1500);
+    return () => { clearTimeout(t); ctrl.abort(); };
+  }, [content, mood, autoMoodActive]);
   const [imgLoading, setImgLoading] = useState(true);
   const [imgError, setImgError] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -807,7 +823,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
     let finalMood = mood;
     if (autoMoodActive || mood === '✨ Auto') {
-      if (content && content.trim().length >= 5) {
+      if (predictedMood) {
+        finalMood = predictedMood.fullMood;
+        setMood(finalMood);
+      } else if (content && content.trim().length >= 5) {
         setIsAutoDetectingMood(true);
         try {
           const autoRes = await detectMoodFromJournal(content, selectedModel);
@@ -864,7 +883,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               <div className="absolute inset-0 bg-gradient-to-br from-secondary/20 to-surface-highlight flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2 text-secondary/50">
                   <ImageOff className="w-8 h-8" />
-                  <span className="text-[10px] font-bold uppercase tracking-widest">Image unavailable</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">Image unavailable</span>
                 </div>
               </div>
             )}
@@ -879,7 +898,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           </>
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-accent/20 via-surface-highlight to-bg flex items-center justify-center opacity-60">
-            <span className="text-xs font-mono text-secondary uppercase tracking-widest">No Cover Selected</span>
+            <span className="text-xs font-mono text-secondary uppercase tracking-wider">No Cover Selected</span>
           </div>
         )}
         
@@ -933,7 +952,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 }`}
                 title="Add media (Scribbles, Song)"
               >
-                <Plus className="w-5 h-5 stroke-[2.4]" />
+                <Plus className="w-5 h-5" />
               </button>
 
               <AnimatePresence>
@@ -1002,7 +1021,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 }`}
                 title="Options (Save, Gallery, Delete)"
               >
-                <MoreVertical className="w-5 h-5 stroke-[2.2]" />
+                <MoreVertical className="w-5 h-5" />
               </button>
 
               <AnimatePresence>
@@ -1090,7 +1109,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             </div>
 
             {/* Direct Save Button */}
-            <Button onClick={handleExitAndSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-5 rounded-full font-grotesk text-[10px] md:text-xs font-bold uppercase tracking-widest shadow-lg">
+            <Button onClick={handleExitAndSave} size="sm" className="gap-1.5 md:gap-2 px-4 md:px-5 rounded-full font-mono text-[10px] md:text-xs font-bold uppercase tracking-wider shadow-lg">
               <Save className="w-3.5 h-3.5 md:w-4 h-4" />
               <span>Save</span>
             </Button>
@@ -1104,19 +1123,19 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+              className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
             >
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95, y: 15 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 240 }}
-                className="bg-surface rounded-[2rem] md:rounded-[3rem] w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden border border-white/10"
+                className="bg-surface rounded-3xl md:rounded-3xl w-full max-w-2xl shadow-2xl relative flex flex-col max-h-[85vh] overflow-hidden border border-white/10"
               >
                 <div className="flex justify-between items-center p-6 md:p-8 border-b border-surface-highlight sticky top-0 bg-surface z-10">
                   <div>
                      <h2 className="text-2xl font-display font-bold text-primary">Aesthetic Gallery</h2>
-                     <p className="text-secondary text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">Verified high-quality collection</p>
+                     <p className="text-secondary text-[9px] font-bold uppercase tracking-wider mt-1 opacity-60">Verified high-quality collection</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button 
@@ -1137,7 +1156,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <div className="overflow-y-auto p-6 md:p-8 space-y-12 no-scrollbar">
                   {Object.entries(AESTHETIC_CATEGORIES).map(([category, urls]) => (
                     <div key={category}>
-                      <h4 className="text-[10px] font-bold text-accent uppercase tracking-[0.2em] mb-4 pl-1 border-l-2 border-accent/20">{category}</h4>
+                      <h4 className="text-[10px] font-bold text-accent uppercase tracking-wider mb-4 pl-1 border-l-2 border-accent/20">{category}</h4>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {urls.map((url, idx) => (
                           <button 
@@ -1175,7 +1194,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50, transition: { duration: 0.15 } }}
-            className="fixed bottom-4 left-4 right-4 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-2xl z-[150] bg-surface/95 backdrop-blur-xl border border-accent/30 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] rounded-2xl md:rounded-[2rem] overflow-hidden flex flex-col"
+            className="fixed bottom-4 left-4 right-4 md:bottom-8 md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-2xl z-[150] bg-surface/95 backdrop-blur-xl border border-accent/30 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] rounded-2xl md:rounded-3xl overflow-hidden flex flex-col"
           >
             <div className="p-3 md:p-5 bg-accent/10 border-b border-surface-highlight flex justify-between items-center">
                <div className="flex items-center gap-2 md:gap-3">
@@ -1195,14 +1214,14 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
             <div className="p-3 md:p-5 bg-surface flex gap-2 md:gap-3 border-t border-surface-highlight">
                <button 
                   onClick={discardAiPreview}
-                  className="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl border border-surface-highlight text-secondary font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-surface-highlight transition active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="flex-1 py-3 md:py-4 rounded-xl md:rounded-2xl border border-surface-highlight text-secondary font-bold text-[10px] md:text-xs uppercase tracking-wider hover:bg-surface-highlight transition active:scale-[0.98] flex items-center justify-center gap-2"
                >
                   <XCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   Reject
                </button>
                <button 
                   onClick={applyAiPreview}
-                  className="flex-[2] py-3 md:py-4 rounded-xl md:rounded-2xl bg-accent text-accent-fg font-bold text-[10px] md:text-xs uppercase tracking-widest shadow-lg shadow-accent/20 hover:bg-accent/90 transition active:scale-[0.98] flex items-center justify-center gap-2"
+                  className="flex-[2] py-3 md:py-4 rounded-xl md:rounded-2xl bg-accent text-accent-fg font-bold text-[10px] md:text-xs uppercase tracking-wider shadow-lg shadow-accent/20 hover:bg-accent/90 transition active:scale-[0.98] flex items-center justify-center gap-2"
                >
                   <CheckCircle className="w-3.5 h-3.5 md:w-4 md:h-4" />
                   Accept
@@ -1262,9 +1281,9 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                     title={playingPreviewUrl === song.previewUrl ? "Pause preview snippet" : "Play 30s preview snippet"}
                   >
                     {playingPreviewUrl === song.previewUrl ? (
-                      <LucidePause className="w-2.5 h-2.5 fill-current" />
+                      <Pause className="w-2.5 h-2.5 fill-current" />
                     ) : (
-                      <LucidePlay className="w-2.5 h-2.5 ml-0.5 fill-current" />
+                      <Play className="w-2.5 h-2.5 ml-0.5 fill-current" />
                     )}
                   </button>
                 )}
@@ -1324,7 +1343,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         )}
 
         {/* Optimized Compact Toolbar */}
-        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-[1.5rem] p-1 flex items-center mb-2 md:mb-4 shrink-0 relative z-40">
+        <div className="bg-surface/90 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl md:rounded-2xl p-1 flex items-center mb-2 md:mb-4 shrink-0 relative z-40">
           
           <div className="flex-1 flex items-center pr-2">
             <div className="flex items-center gap-0.5 pr-2 border-r border-surface-highlight/50 mr-1 md:mr-2 shrink-0">
@@ -1390,15 +1409,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <Loader2 className="w-3.5 h-3.5 md:w-4 h-4 text-accent animate-spin" />
               ) : (
                 <span className="text-sm md:text-base leading-none select-none">
-                  {mood ? (mood.split(' ')[0] || '✨') : (autoMoodActive ? '✨' : '😊')}
+                  {mood && !autoMoodActive ? (mood.split(' ')[0] || '✨') : (predictedMood ? predictedMood.emoji : (autoMoodActive ? '✨' : '😊'))}
                 </span>
               )}
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline select-none">
+              <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wider hidden sm:inline select-none ${!mood && predictedMood ? 'opacity-60' : ''}`}>
                 {isAutoDetectingMood 
                   ? 'Detecting...' 
-                  : (mood 
+                  : (mood && !autoMoodActive
                       ? (mood.split(' ').slice(1).join(' ') || mood) 
-                      : (autoMoodActive ? 'Auto Mood' : 'Mood'))
+                      : predictedMood ? `${predictedMood.label}?` : (autoMoodActive ? 'Auto Mood' : 'Mood'))
                 }
               </span>
               <ChevronDown className={`w-3 h-3 md:w-3.5 h-3.5 transition-transform duration-300 ${showMoodMenu ? 'rotate-180' : ''}`} />
@@ -1415,7 +1434,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between pb-2 border-b border-surface-highlight/50">
-                    <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-secondary">Select Emotional State</span>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary">Select Emotional State</span>
                     {(mood || autoMoodActive) && (
                       <button 
                         onClick={() => {
@@ -1429,6 +1448,22 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       </button>
                     )}
                   </div>
+
+                  {predictedMood && (!mood || autoMoodActive) && (
+                    <button
+                      onClick={() => { setMood(predictedMood.fullMood); setAutoMoodActive(false); setShowMoodMenu(false); }}
+                      className="w-full flex items-center justify-between p-2.5 rounded-xl border border-accent/30 bg-accent/10 hover:bg-accent/15 transition text-left"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-lg leading-none">{predictedMood.emoji}</span>
+                        <div>
+                          <p className="text-xs font-bold text-primary">Feels {predictedMood.label.toLowerCase()}</p>
+                          <p className="text-[10px] text-secondary opacity-70">Predicted by Jev as you write</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Use</span>
+                    </button>
+                  )}
 
                   {/* Auto Mood Detector AI Button */}
                   <button 
@@ -1448,7 +1483,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                         <p className="text-xs font-bold flex items-center gap-1.5">
                           <span>✨ Auto Detect Mood</span>
                         </p>
-                        <p className="text-[10px] text-secondary opacity-70">Analyze text with Gemini AI</p>
+                        <p className="text-[10px] text-secondary opacity-70">Analyze the full entry</p>
                       </div>
                     </div>
                     {(autoMoodActive || mood === '✨ Auto') && <Check className="w-4 h-4 text-accent" />}
@@ -1631,7 +1666,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           ref={editorContainerRef} 
           onMouseMove={handleMouseMoveContainer}
           onMouseLeave={handleMouseLeaveContainer}
-          className={`flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-[2rem] p-4 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[350px] transition-all duration-700 ${isProcessing ? 'border-accent/50 shadow-[0_0_40px_rgba(198,156,109,0.15)] animate-pulse' : 'border-surface-highlight/60'}`}
+          className={`flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-3xl p-4 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[350px] transition-all duration-700 ${isProcessing ? 'border-accent/50 shadow-[0_0_40px_rgba(198,156,109,0.15)] animate-pulse' : 'border-surface-highlight/60'}`}
         >
           {/* Notion/BlockNote Style Block Handle (+ / ⋮⋮) */}
           <AnimatePresence>
@@ -1679,7 +1714,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                         transition={{ duration: 0.15 }}
                         className="absolute left-full top-0 ml-1.5 w-48 bg-surface/95 backdrop-blur-xl border border-accent/30 shadow-2xl rounded-2xl p-1.5 z-50 flex flex-col gap-0.5 text-xs font-sans"
                       >
-                        <div className="px-2 py-1 text-[9px] font-bold text-secondary uppercase tracking-widest border-b border-surface-highlight/60">
+                        <div className="px-2 py-1 text-[9px] font-bold text-secondary uppercase tracking-wider border-b border-surface-highlight/60">
                           Turn Into
                         </div>
                         <button onClick={() => modifyTargetBlock('turn', 'text')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
@@ -1706,7 +1741,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
                         <div className="h-px bg-surface-highlight/60 my-1"></div>
 
-                        <div className="px-2 py-0.5 text-[9px] font-bold text-secondary uppercase tracking-widest">
+                        <div className="px-2 py-0.5 text-[9px] font-bold text-secondary uppercase tracking-wider">
                           Block Actions
                         </div>
                         <button onClick={() => modifyTargetBlock('duplicate')} className="flex items-center gap-2 p-1.5 hover:bg-surface-highlight rounded-lg text-primary text-left font-medium">
@@ -1968,7 +2003,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           </MilkdownProvider>
         </div>
         
-        <div className="mt-1 md:mt-2 px-2 md:px-4 flex justify-between items-center text-[9px] font-mono text-secondary opacity-40 uppercase tracking-widest">
+        <div className="mt-1 md:mt-2 px-2 md:px-4 flex justify-between items-center text-[9px] font-mono text-secondary opacity-40 uppercase tracking-wider">
            <span>{content.length} characters</span>
            <span>{selectedModel?.replace('gemini-', '') || 'AI-Ready'}</span>
         </div>

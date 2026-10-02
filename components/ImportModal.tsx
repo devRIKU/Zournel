@@ -340,7 +340,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in overflow-y-auto">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.95, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -355,13 +355,13 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               <Upload className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-primary">Import Old Memories</h2>
+              <h2 className="text-xl font-display font-bold text-primary">Import Old Memories</h2>
               <p className="text-xs text-secondary">Restore from JSON file backup, raw text paste, device key, or sample set</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="p-2 rounded-full hover:bg-surface-highlight text-secondary hover:text-primary transition-colors"
+            className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
           >
             <X className="w-5 h-5" />
           </button>

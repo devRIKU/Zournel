@@ -5,6 +5,7 @@ import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coff
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSwitch } from './ui/DraggableToggle';
+import { ensureFontLoaded } from '../utils/fonts';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -39,6 +40,11 @@ const BODY_FONTS = [
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
+  // Font previews need every family; fetch them only once the picker is actually opened.
+  React.useEffect(() => {
+    if (isOpen) [...BODY_FONTS, ...HEADING_FONTS].forEach(f => ensureFontLoaded(f.id));
+  }, [isOpen]);
+
   const handleUpdate = (updated: AppSettings) => {
     triggerHaptic(6);
     onUpdateSettings(updated);
@@ -53,8 +59,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     <button 
       type="button"
       onClick={() => handleUpdate({ ...settings, theme })}
-      style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-      className={`flex flex-col items-center gap-2 p-3.5 rounded-[1.8rem] border-2 transition-transform duration-150 active:scale-95 w-full cursor-pointer ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-[1.02] font-semibold' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
+     
+      className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-transform duration-150 active:scale-95 w-full cursor-pointer ${settings.theme === theme ? 'border-accent bg-accent/5 text-primary scale-[1.02] font-semibold' : 'border-transparent bg-surface hover:bg-surface-highlight text-secondary'}`}
     >
       <div className={`w-9 h-9 rounded-xl ${colorClass} flex items-center justify-center shadow-md`}>
           <Icon className="w-4 h-4" />
@@ -70,8 +76,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          style={{ transform: 'translateZ(0)', willChange: 'opacity' }}
-          className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-md"
+          style={{ willChange: 'opacity' }}
+          className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={handleClose}
         >
           <motion.div 
@@ -88,8 +94,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               }
             }}
             onClick={(e) => e.stopPropagation()}
-            style={{ transform: 'translateZ(0)', willChange: 'transform, opacity' }}
-            className="bg-surface rounded-[2rem] sm:rounded-[3rem] w-full max-w-xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border border-white/10"
+            style={{ willChange: 'transform, opacity' }}
+            className="bg-surface rounded-3xl w-full max-w-xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border border-surface-highlight"
           >
             {/* Gesture Handle Bar */}
             <div className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none" style={{ touchAction: 'none' }}>
@@ -98,14 +104,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             
             <div className="flex justify-between items-center px-6 sm:px-8 py-4 sm:py-5 border-b border-surface-highlight shrink-0">
               <div>
-                <h2 className="text-3xl font-display font-bold text-primary">Preferences</h2>
-                <p className="text-secondary text-[10px] font-grotesk tracking-widest uppercase mt-0.5">Refine your environment</p>
+                <h2 className="text-xl font-display font-bold text-primary">Preferences</h2>
+                <p className="text-secondary text-xs mt-0.5">Refine your environment</p>
               </div>
               <button 
                 type="button"
                 onClick={handleClose} 
-                style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-                className="p-3 bg-surface-highlight hover:bg-accent hover:text-accent-fg rounded-2xl transition-transform duration-150 active:scale-95 cursor-pointer"
+               
+                className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -117,10 +123,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             >
               
               <section>
-                <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider mb-6 flex items-center gap-3">
                   <Key className="w-4 h-4" /> API Configuration
                 </h3>
-                <div className="p-5 bg-surface-highlight/50 rounded-[1.5rem] border border-surface-highlight">
+                <div className="p-5 bg-surface-highlight/50 rounded-2xl border border-surface-highlight">
                    <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2">Gemini API Key</label>
                    <input 
                      type="password" 
@@ -130,16 +136,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
                    />
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
-                     Your key is stored locally on this device. We use it to communicate directly with Google's Gemini API for task analysis and journaling insights.
+                     Stored only on this device. Used for writing help, chat and subtask generation.
+                   </p>
+
+                   <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2 mt-5">OpenCode Zen Key <span className="text-accent normal-case tracking-normal font-medium">· Jev</span></label>
+                   <input 
+                     type="password" 
+                     value={settings.opencodeApiKey || ''}
+                     onChange={(e) => handleUpdate({ ...settings, opencodeApiKey: e.target.value })}
+                     placeholder="Enter your OpenCode Zen key…"
+                     className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
+                   />
+                   <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
+                     Unlocks Jev 1.13 (free) — a tiny decision model that predicts mood while you write, task priority and when a to-do should be split. No text generation, near-instant, cached on device. Get a key at opencode.ai/auth.
                    </p>
                 </div>
               </section>
 
               <section>
-                <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider mb-6 flex items-center gap-3">
                   <ShieldCheck className="w-4 h-4" /> Cloud & Auto-Backup
                 </h3>
-                <div className="p-5 bg-surface-highlight/50 rounded-[1.5rem] border border-surface-highlight space-y-4">
+                <div className="p-5 bg-surface-highlight/50 rounded-2xl border border-surface-highlight space-y-4">
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <h4 className="text-sm font-bold text-primary">Automatic Background Backup</h4>
@@ -166,7 +184,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             key={freq.val}
                             type="button"
                             onClick={() => handleUpdate({ ...settings, autoBackupIntervalMinutes: freq.val })}
-                            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                           
                             className={`py-2 rounded-xl text-xs font-bold transition-transform duration-150 border active:scale-95 cursor-pointer ${
                               (settings.autoBackupIntervalMinutes ?? 5) === freq.val
                                 ? 'bg-surface text-accent border-accent/40 shadow-xs'
@@ -183,11 +201,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </section>
 
               <section>
-                <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider mb-6 flex items-center gap-3">
                   <Palette className="w-4 h-4" /> Aesthetics
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
+                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-3xl border border-surface-highlight/50">
                     <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Cozy (Warm Amber)</span>
                     <div className="flex gap-2">
                       <ThemeButton theme="cozy-light" icon={Coffee} label="Light" colorClass="bg-[#B86B1E] text-white" />
@@ -195,7 +213,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     </div>
                   </div>
                   
-                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
+                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-3xl border border-surface-highlight/50">
                     <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Evergreen (Emerald Forest)</span>
                     <div className="flex gap-2">
                       <ThemeButton theme="evergreen-light" icon={TreePine} label="Light" colorClass="bg-[#059669] text-white" />
@@ -203,7 +221,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     </div>
                   </div>
                   
-                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
+                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-3xl border border-surface-highlight/50">
                     <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Catppuccin (Vibrant Violet)</span>
                     <div className="flex gap-2">
                       <ThemeButton theme="catppuccin-light" icon={Cat} label="Light" colorClass="bg-[#7C3AED] text-white" />
@@ -211,7 +229,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     </div>
                   </div>
                   
-                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-[2rem] border border-surface-highlight/50">
+                  <div className="space-y-3 bg-surface-highlight/30 p-4 rounded-3xl border border-surface-highlight/50">
                     <span className="text-[10px] font-extrabold text-secondary uppercase tracking-[0.15em] block px-1">Gruvbox (Retro Flame)</span>
                     <div className="flex gap-2">
                       <ThemeButton theme="gruvbox-light" icon={Palette} label="Light" colorClass="bg-[#AF3A03] text-[#FFF9E0]" />
@@ -223,7 +241,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
               <section className="space-y-3">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
+                  <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider flex items-center gap-3">
                     <Type className="w-4 h-4" /> Typography &amp; Fonts
                   </h3>
                   <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-accent/10 text-accent font-semibold">
@@ -231,7 +249,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                   </span>
                 </div>
 
-                <div className="bg-surface-highlight/30 p-4 rounded-[1.8rem] border border-surface-highlight/50 space-y-4">
+                <div className="bg-surface-highlight/30 p-4 rounded-2xl border border-surface-highlight/50 space-y-4">
                   {/* Headings Font Compact Card */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
@@ -248,7 +266,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             key={f.id}
                             type="button"
                             onClick={() => handleUpdate({ ...settings, headingFontFamily: f.id })}
-                            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                           
                             className={`p-2.5 rounded-xl border text-left transition-transform duration-150 active:scale-95 cursor-pointer ${
                               active
                                 ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20 text-primary'
@@ -282,7 +300,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                             key={f.id}
                             type="button"
                             onClick={() => handleUpdate({ ...settings, fontFamily: f.id })}
-                            style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                           
                             className={`p-2.5 rounded-xl border text-left transition-transform duration-150 active:scale-95 cursor-pointer ${
                               active
                                 ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20 text-primary'
@@ -301,7 +319,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
 
               <section className="space-y-3">
                 <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] flex items-center gap-3">
+                  <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider flex items-center gap-3">
                     <Cpu className="w-4 h-4" /> AI Model Engine
                   </h3>
                   <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-surface-highlight text-accent">
@@ -310,7 +328,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                 </div>
 
                 {/* Compact Card for AI Models */}
-                <div className="bg-surface-highlight/30 p-3 sm:p-4 rounded-[1.8rem] border border-surface-highlight/50 space-y-2">
+                <div className="bg-surface-highlight/30 p-3 sm:p-4 rounded-2xl border border-surface-highlight/50 space-y-2">
                   {MODELS.map((m) => {
                     const isSelected = (settings.model || 'gemini-3.8-flash') === m.id;
                     return (
@@ -318,7 +336,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                         key={m.id}
                         type="button"
                         onClick={() => handleUpdate({ ...settings, model: m.id })}
-                        style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
+                       
                         className={`w-full text-left p-3 rounded-2xl border transition-transform duration-150 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer ${
                           isSelected
                             ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20'
@@ -350,7 +368,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </section>
 
               <section>
-                <h3 className="text-xs font-grotesk font-bold text-accent uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider mb-6 flex items-center gap-3">
                   <CheckCircle className="w-4 h-4" /> Completion
                 </h3>
                 <div className="flex gap-2 bg-surface-highlight p-2 rounded-2xl">
@@ -359,8 +377,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                       key={opt}
                       type="button"
                       onClick={() => handleUpdate({ ...settings, completionAnimation: opt as CompletionAnimation })}
-                      style={{ touchAction: 'manipulation', transform: 'translateZ(0)' }}
-                      className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-transform duration-150 active:scale-95 cursor-pointer ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
+                     
+                      className={`flex-1 py-3 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-transform duration-150 active:scale-95 cursor-pointer ${settings.completionAnimation === opt ? 'bg-surface text-accent shadow-sm' : 'text-secondary hover:text-primary'}`}
                      >
                        {opt}
                      </button>

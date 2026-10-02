@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Music, ExternalLink, Disc, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Play, Pause, Music, ExternalLink, Disc, FileText, ChevronDown, ChevronUp } from './Icons';
 import { AttachedSong } from '../types';
 import { toggleAudioPreview, subscribeToAudio, getCurrentPlayingUrl } from '../services/songService';
 import { triggerHaptic } from '../utils/uiSprings';
@@ -221,7 +221,7 @@ export const AudioSongPlayer: React.FC<AudioSongPlayerProps> = ({
             className="mt-3 pt-3 border-t border-surface-highlight/60 overflow-hidden"
           >
             <div className="p-3 sm:p-4 rounded-xl bg-surface-lowest/70 border border-surface-highlight/70 text-left">
-              <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-widest text-accent mb-2">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold tracking-wider text-accent mb-2">
                 <FileText className="w-3.5 h-3.5" />
                 <span>Lyrics</span>
               </div>

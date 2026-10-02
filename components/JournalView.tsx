@@ -9,6 +9,10 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { AudioSongPlayer } from './AudioSongPlayer';
 import { DraggableSegmentedToggle } from './ui/DraggableToggle';
+import { PageHeader } from './ui/PageHeader';
+
+// 40px round icon button matching the top bar's.
+const HEADER_BUTTON = 'w-10 h-10 rounded-full flex items-center justify-center bg-surface border border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60 transition shrink-0';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -106,7 +110,7 @@ const CustomTooltip = ({ active, payload }: any) => {
         <div className="flex items-center gap-2.5 mb-2">
           <span className="text-2xl leading-none select-none">{data.emoji}</span>
           <div>
-            <p className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-wider">{data.fullDate}</p>
+            <p className="text-[10px] font-mono font-bold text-secondary uppercase tracking-wider">{data.fullDate}</p>
             <p className="text-xs font-semibold text-primary">{data.label} Mood</p>
           </div>
         </div>
@@ -489,160 +493,114 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
   };
 
   return (
-    <div className="pb-40 px-4 sm:px-6 max-w-7xl mx-auto w-full animate-fade-in">
-      {/* Header with Switcher Tab Navigation & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 mt-4 sm:mt-8 border-b border-surface-highlight/30 pb-5">
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3 sm:gap-4">
-             <div className="p-2.5 sm:p-3 bg-accent/10 rounded-2xl">
-                {subTab === 'timeline' ? (
-                   <Library className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
-                ) : (
-                   <LineChart className="w-6 h-6 sm:w-8 sm:h-8 text-accent" />
-                )}
-             </div>
-             <div className="group/header relative inline-flex items-center">
-               {isEditingTitle && subTab === 'timeline' ? (
-                 <input
-                   ref={titleInputRef}
-                   value={pageTitle}
-                   onChange={(e) => setPageTitle(e.target.value)}
-                   onBlur={handleTitleBlur}
-                   onKeyDown={handleTitleKeyDown}
-                   className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-black text-primary tracking-tighter bg-transparent outline-none w-full border-b-2 border-accent/50 focus:border-accent p-0 m-0 leading-tight placeholder-primary/30"
-                   placeholder="Untitled"
-                   style={{ width: `${Math.max(pageTitle.length, 3)}ch` }}
-                 />
-               ) : (
-                 <>
-                   <h2 
-                     onClick={() => subTab === 'timeline' && setIsEditingTitle(true)}
-                     className={`text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-display font-black text-primary tracking-tighter break-words ${subTab === 'timeline' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-                   >
-                     {subTab === 'timeline' ? pageTitle : 'Reflections'}
-                   </h2>
-                   {subTab === 'timeline' && (
-                     <button 
-                       onClick={() => setIsEditingTitle(true)}
-                       className="opacity-0 group-hover/header:opacity-100 transition-all duration-300 ml-3 p-1.5 md:p-2 bg-surface-highlight/50 hover:bg-surface-highlight rounded-xl text-secondary hover:text-primary active:scale-95 flex items-center justify-center shadow-sm border border-surface-highlight"
-                       title="Edit Title"
-                     >
-                       <Edit3 className="w-4 h-4 md:w-5 md:h-5" />
-                     </button>
-                   )}
-                 </>
-               )}
-             </div>
-          </div>
-          <div className="flex items-center gap-3">
-              <div className="h-0.5 w-10 sm:w-12 bg-accent rounded-full"></div>
-              <p className="font-grotesk text-secondary text-[10px] uppercase tracking-[0.3em] sm:tracking-[0.4em] opacity-60">
-                {subTab === 'timeline' ? 'Visual Journal Timeline' : 'Mood Analytics & Trends'}
-              </p>
-          </div>
-        </div>
-
-        {/* Control Cluster: Search (Left) -> Draggable Toggle (Center) -> Import (Right) */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap self-start lg:self-auto">
-          {/* 1. Search button / expanding search input on LEFT of toggle */}
-          {subTab === 'timeline' && (
-            <AnimatePresence mode="wait">
-              {isSearchOpen ? (
-                <motion.div
-                  key="expanded-search-input"
-                  initial={{ width: 100, opacity: 0 }}
-                  animate={{ width: '100%', opacity: 1 }}
-                  exit={{ width: 100, opacity: 0 }}
-                  transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
-                  className="flex items-center gap-2 bg-surface border border-accent/50 rounded-2xl px-3 py-2 shadow-md w-full sm:w-60 md:w-64 overflow-hidden shrink-0"
-                >
-                  <Search className="w-4 h-4 text-accent shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search memories..."
-                    className="bg-transparent text-xs text-primary outline-none w-full font-medium placeholder:text-secondary/50"
-                    autoFocus
-                  />
-                  {searchQuery && (
+    <div className="w-full">
+      <PageHeader
+        title={
+          isEditingTitle && subTab === 'timeline' ? (
+            <input
+              ref={titleInputRef}
+              value={pageTitle}
+              onChange={(e) => setPageTitle(e.target.value)}
+              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKeyDown}
+              className="bg-transparent outline-none border-b-2 border-accent/50 focus:border-accent p-0 m-0 font-[inherit] text-[inherit] tracking-[inherit] leading-[inherit] placeholder:text-primary/30"
+              placeholder="Untitled"
+              style={{ width: `${Math.max(pageTitle.length, 3)}ch` }}
+            />
+          ) : subTab === 'timeline' ? (
+            <button
+              type="button"
+              onClick={() => setIsEditingTitle(true)}
+              title="Rename"
+              className="group/title inline-flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
+            >
+              {pageTitle}
+              <Edit3 className="w-4 h-4 text-secondary/50 opacity-0 group-hover/title:opacity-100 transition-opacity" />
+            </button>
+          ) : (
+            'Reflections'
+          )
+        }
+        subtitle={subTab === 'timeline' ? 'Visual journal timeline' : 'Mood analytics & trends'}
+        actions={
+          <>
+            {subTab === 'timeline' && (
+              <AnimatePresence mode="wait" initial={false}>
+                {isSearchOpen ? (
+                  <motion.div
+                    key="search-input"
+                    initial={{ width: 44, opacity: 0 }}
+                    animate={{ width: 240, opacity: 1 }}
+                    exit={{ width: 44, opacity: 0 }}
+                    transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+                    className="flex items-center gap-2 h-10 px-3 rounded-full bg-surface border border-accent/50 overflow-hidden shrink-0"
+                  >
+                    <Search className="w-4 h-4 text-accent shrink-0" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Escape' && setIsSearchOpen(false)}
+                      placeholder="Search memories…"
+                      className="bg-transparent text-sm text-primary outline-none w-full placeholder:text-secondary/50"
+                      autoFocus
+                    />
                     <button
                       type="button"
-                      onClick={() => setSearchQuery('')}
-                      className="p-1 text-secondary/70 hover:text-primary transition-colors shrink-0"
-                      title="Clear search text"
+                      onClick={() => { setSearchQuery(''); setIsSearchOpen(false); }}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 transition shrink-0"
+                      title="Close search"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
-                  )}
-                  <button
+                  </motion.div>
+                ) : (
+                  <motion.button
+                    key="search-button"
                     type="button"
-                    onClick={() => setIsSearchOpen(false)}
-                    className="p-1 rounded-xl bg-surface-highlight/60 text-secondary hover:text-primary transition-colors text-xs font-bold shrink-0"
-                    title="Close search input"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setIsSearchOpen(true)}
+                    className={`${HEADER_BUTTON} ${searchQuery ? 'text-accent border-accent/40 bg-accent/10' : ''}`}
+                    title="Search memories"
+                    aria-label="Search memories"
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </motion.div>
-              ) : (
-                <motion.button
-                  key="search-toggle-btn"
-                  type="button"
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setIsSearchOpen(true)}
-                  className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl text-xs font-bold transition flex items-center gap-2 border shadow-xs shrink-0 ${
-                    searchQuery
-                      ? 'bg-accent/15 border-accent/30 text-accent'
-                      : 'bg-surface-highlight/30 hover:bg-surface-highlight border-surface-highlight/40 text-secondary hover:text-primary'
-                  }`}
-                  title="Search memories"
-                >
-                  <Search className="w-4 h-4 text-accent shrink-0" />
-                  <span className="hidden sm:inline">Search</span>
-                  {searchQuery && (
-                    <span className="w-2 h-2 rounded-full bg-accent animate-ping" />
-                  )}
-                </motion.button>
-              )}
-            </AnimatePresence>
-          )}
+                    <Search className="w-4 h-4" />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            )}
 
-          {/* 2. Draggable Segmented Switcher (Timeline / Reflections) */}
-          <DraggableSegmentedToggle
-            options={[
-              { value: 'timeline', label: 'Timeline', icon: <Library className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> },
-              { value: 'reflections', label: 'Reflections', icon: <LineChart className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> }
-            ]}
-            value={subTab}
-            onChange={(val) => {
-              setSubTab(val as 'timeline' | 'reflections');
-              setIsSearchOpen(false);
-            }}
-          />
+            <DraggableSegmentedToggle
+              options={[
+                { value: 'timeline', label: 'Timeline' },
+                { value: 'reflections', label: 'Reflections' }
+              ]}
+              value={subTab}
+              onChange={(val) => {
+                setSubTab(val as 'timeline' | 'reflections');
+                setIsSearchOpen(false);
+              }}
+            />
 
-          {/* 3. Action Buttons (Import) */}
-          {subTab === 'timeline' && (
-            <div className="flex items-center gap-2 shrink-0">
-              {onImportClick && (
-                <motion.button
-                  type="button"
-                  whileTap={{ scale: 0.97 }}
-                  onClick={onImportClick}
-                  className="px-3 py-2 sm:px-3.5 sm:py-2.5 bg-surface-highlight/30 hover:bg-surface-highlight border border-surface-highlight/40 text-secondary hover:text-accent rounded-2xl text-xs font-bold transition shadow-xs flex items-center gap-2 shrink-0"
-                  title="Import old memories"
-                >
-                  <Upload className="w-4 h-4 text-accent shrink-0" />
-                  <span className="hidden sm:inline">Import</span>
-                </motion.button>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+            {subTab === 'timeline' && onImportClick && (
+              <motion.button
+                type="button"
+                whileTap={{ scale: 0.95 }}
+                onClick={onImportClick}
+                className={HEADER_BUTTON}
+                title="Import memories"
+                aria-label="Import memories"
+              >
+                <Upload className="w-4 h-4" />
+              </motion.button>
+            )}
+          </>
+        }
+      />
 
       {/* Active Search Filter Chip (when closed) */}
       {subTab === 'timeline' && searchQuery && !isSearchOpen && (
-        <div className="flex items-center justify-between bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2.5 mb-8 animate-fade-in">
+        <div className="flex items-center justify-between bg-accent/10 border border-accent/20 rounded-2xl px-4 py-2.5 mb-6 animate-fade-in">
           <div className="flex items-center gap-2 text-xs text-primary font-medium">
             <Search className="w-3.5 h-3.5 text-accent shrink-0" />
             <span>Active filter: <strong className="text-accent">"{searchQuery}"</strong></span>
@@ -667,7 +625,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           >
             {entries.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-center">
-                 <div className="w-24 h-24 bg-surface-highlight rounded-[2rem] flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
+                 <div className="w-24 h-24 bg-surface-highlight rounded-3xl flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
                    <Sparkles className="w-10 h-10 text-accent/20" />
                  </div>
                  <p className="font-display text-2xl sm:text-3xl md:text-4xl text-primary font-bold break-words">A Clean Page</p>
@@ -753,7 +711,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                         whileHover={{ y: -8, scale: 1.015 }}
                         whileTap={{ scale: 0.97 }}
                         transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-                        className={`group relative flex flex-col text-left rounded-[2rem] sm:rounded-[2.5rem] border shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] hover:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.3)] hover:border-accent/60 transition-all duration-500 overflow-hidden outline-none cursor-pointer backdrop-blur-2xl bg-white/15 dark:bg-[#121212]/50 border-white/20 dark:border-white/10 ${
+                        className={`group relative flex flex-col text-left rounded-3xl border shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] hover:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.3)] hover:border-accent/60 transition-all duration-500 overflow-hidden outline-none cursor-pointer backdrop-blur-2xl bg-white/15 dark:bg-[#121212]/50 border-white/20 dark:border-white/10 ${
                           isHero ? 'md:col-span-2' : ''
                         } ${
                           isBulkSelecting && isSelected
@@ -776,7 +734,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                                 : 'bg-black/50 hover:bg-black/70 text-white/50 border border-white/40'
                             }`}
                           >
-                            {isSelected && <Check className="w-4 h-4 stroke-[3]" />}
+                            {isSelected && <Check className="w-4 h-4" />}
                           </div>
                         )}
 
@@ -814,7 +772,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                             
                             <div className="absolute top-5 left-5 right-14 flex items-center justify-between gap-2 z-10 flex-wrap">
                                <div className="flex items-center gap-2">
-                                 <div className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full border border-white/20 text-white text-[10px] font-bold tracking-widest uppercase">
+                                 <div className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full border border-white/20 text-white text-[10px] font-bold tracking-wider uppercase">
                                    {timeString}
                                  </div>
                                  <div className="px-3 py-1 bg-black/40 backdrop-blur-md rounded-full border border-white/20 text-white/90 text-[10px] font-mono">
@@ -835,13 +793,13 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                                 <div className="p-1.5 bg-accent/10 rounded-lg text-accent">
                                   <BookOpen className="w-3.5 h-3.5" />
                                 </div>
-                                <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-secondary">
+                                <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-secondary">
                                   {timeString} • {readTime} min read
                                 </span>
                              </div>
 
                              {entry.mood && (
-                               <Badge variant="default" className="text-[10px] font-grotesk font-bold uppercase tracking-wider">
+                               <Badge variant="default" className="text-[10px] font-mono font-bold uppercase tracking-wider">
                                  {entry.mood}
                                </Badge>
                              )}
@@ -1033,7 +991,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           >
             {moodEntries.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center max-w-md mx-auto">
-             <div className="w-24 h-24 bg-surface-highlight rounded-[2rem] flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
+             <div className="w-24 h-24 bg-surface-highlight rounded-3xl flex items-center justify-center mb-8 border border-accent/5 animate-scale-in">
                <Smile className="w-10 h-10 text-accent/20" />
              </div>
              <p className="font-display text-3xl text-primary font-bold">No Mood Logs Yet</p>
@@ -1045,7 +1003,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
           <div className="space-y-8 animate-fade-in">
             {/* Recent Relevant Info (Mobile First & Highly Accessible) */}
             {latestMoodEntry && (
-              <div className="p-5 sm:p-7 bg-surface border border-surface-highlight rounded-3xl sm:rounded-[2.5rem] shadow-sm relative overflow-hidden">
+              <div className="p-5 sm:p-7 bg-surface border border-surface-highlight rounded-3xl shadow-sm relative overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-surface-highlight/50">
                   <div className="flex items-center gap-2.5">
                     <span className="p-2 rounded-xl bg-accent/10 text-accent">
@@ -1080,7 +1038,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                               <span className="text-base font-display font-bold text-primary">
                                 {getMoodData(latestMoodEntry.mood)?.label || 'Reflective'}
                               </span>
-                              <span className="text-[10px] font-grotesk font-semibold text-secondary px-2 py-0.5 rounded-md bg-surface-highlight/50">
+                              <span className="text-[10px] font-mono font-semibold text-secondary px-2 py-0.5 rounded-md bg-surface-highlight/50">
                                 Score: {getMoodData(latestMoodEntry.mood)?.score || 3}/5
                               </span>
                             </div>
@@ -1119,7 +1077,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
                   {/* Recent Check-ins Strip (Mobile-Optimized Touch Horizontal Scroll) */}
                   <div className="flex flex-col justify-between p-4 sm:p-5 rounded-2xl bg-surface-highlight/15 border border-surface-highlight/30">
-                    <span className="text-[11px] font-grotesk font-bold uppercase tracking-wider text-secondary mb-2.5 flex items-center justify-between">
+                    <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-secondary mb-2.5 flex items-center justify-between">
                       <span>Recent History ({recentMoodEntries.length})</span>
                       <span className="text-[10px] lowercase text-secondary/70">tap to open</span>
                     </span>
@@ -1138,7 +1096,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                             title={`Open entry from ${dateStr}: ${info?.label || 'Mood'}`}
                           >
                             <span className="text-2xl select-none leading-none mb-1">{info?.emoji || '😊'}</span>
-                            <span className="text-[10px] font-grotesk font-bold text-secondary truncate max-w-full">{dateStr}</span>
+                            <span className="text-[10px] font-mono font-bold text-secondary truncate max-w-full">{dateStr}</span>
                           </button>
                         );
                       })}
@@ -1157,9 +1115,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {/* Average Mood Card */}
               {averageMoodInfo && (
-                <div className="p-8 bg-surface border border-surface-highlight rounded-[2rem] flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+                <div className="p-8 bg-surface border border-surface-highlight rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
-                    <span className="font-grotesk text-[10px] uppercase tracking-wider text-secondary font-bold">Average Vibe</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-secondary font-bold">Average Vibe</span>
                     <span className="p-2 bg-accent/5 rounded-xl border border-accent/10 text-accent">
                       <Heart className="w-4 h-4" />
                     </span>
@@ -1179,9 +1137,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
               {/* Dominant Emotion Card */}
               {dominantMoodInfo && (
-                <div className="p-8 bg-surface border border-surface-highlight rounded-[2rem] flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+                <div className="p-8 bg-surface border border-surface-highlight rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
-                    <span className="font-grotesk text-[10px] uppercase tracking-wider text-secondary font-bold">Dominant State</span>
+                    <span className="font-mono text-[10px] uppercase tracking-wider text-secondary font-bold">Dominant State</span>
                     <span className="p-2 bg-accent/5 rounded-xl border border-accent/10 text-accent">
                       <Activity className="w-4 h-4" />
                     </span>
@@ -1200,9 +1158,9 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               )}
 
               {/* Log Rate Card */}
-              <div className="p-8 bg-surface border border-surface-highlight rounded-[2rem] flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
+              <div className="p-8 bg-surface border border-surface-highlight rounded-3xl flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow sm:col-span-2 lg:col-span-1">
                 <div className="flex items-center justify-between">
-                  <span className="font-grotesk text-[10px] uppercase tracking-wider text-secondary font-bold">Mindful Engagement</span>
+                  <span className="font-mono text-[10px] uppercase tracking-wider text-secondary font-bold">Mindful Engagement</span>
                   <span className="p-2 bg-accent/5 rounded-xl border border-accent/10 text-accent">
                     <TrendingUp className="w-4 h-4" />
                   </span>
@@ -1222,13 +1180,13 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
             {/* Main Trend Line Chart (7-Day Cover View) - Only upon expanding to the full view does it reveal the full content */}
             <div 
-              className="p-5 sm:p-8 bg-surface border border-surface-highlight rounded-3xl sm:rounded-[2.5rem] shadow-sm relative overflow-hidden"
+              className="p-5 sm:p-8 bg-surface border border-surface-highlight rounded-3xl shadow-sm relative overflow-hidden"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="text-lg sm:text-xl font-display font-bold text-primary">Emotional Journey</h3>
-                    <span className="text-[10px] font-grotesk font-bold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full border border-accent/20">
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-accent bg-accent/10 px-2.5 py-0.5 rounded-full border border-accent/20">
                       Last 7 Days
                     </span>
                   </div>
@@ -1251,7 +1209,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     className="p-2.5 sm:px-3.5 sm:py-2 rounded-xl bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg border border-accent/20 transition flex items-center gap-1.5 text-xs font-bold active:scale-95 shadow-xs min-h-[44px] min-w-[44px] justify-center touch-manipulation cursor-pointer"
                   >
                     <span className="hidden sm:inline">Full Graph</span>
-                    <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+                    <ArrowUpRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>
@@ -1337,7 +1295,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             {/* Bottom Section: Distribution Breakdown and Recent Insights */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Distribution Chart */}
-              <div className="p-8 bg-surface border border-surface-highlight rounded-[2.5rem] shadow-sm flex flex-col justify-between">
+              <div className="p-8 bg-surface border border-surface-highlight rounded-3xl shadow-sm flex flex-col justify-between">
                 <div>
                   <h3 className="text-xl font-display font-bold text-primary mb-1">Emotion Frequencies</h3>
                   <p className="text-xs text-secondary mb-6">Distribution of your logged emotional states</p>
@@ -1394,7 +1352,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
               </div>
 
               {/* Recent Growth Insights */}
-              <div className="p-8 bg-surface border border-surface-highlight rounded-[2.5rem] shadow-sm flex flex-col justify-between">
+              <div className="p-8 bg-surface border border-surface-highlight rounded-3xl shadow-sm flex flex-col justify-between">
                 <div>
                   <h3 className="text-xl font-display font-bold text-primary mb-1">Mindful Insights</h3>
                   <p className="text-xs text-secondary mb-6">Empathic feedback extracted from your logs</p>
@@ -1417,7 +1375,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                             <span className="text-lg select-none">{moodInfo?.emoji || '😌'}</span>
                             <span className="text-xs font-semibold text-primary">{moodInfo?.label || 'Reflective'}</span>
                           </div>
-                          <span className="text-[10px] font-grotesk font-bold text-secondary uppercase tracking-widest">{formattedDate}</span>
+                          <span className="text-[10px] font-mono font-bold text-secondary uppercase tracking-wider">{formattedDate}</span>
                         </div>
                         <p className="font-display text-sm text-primary/80 group-hover:text-primary italic leading-relaxed">
                           "{entry.aiInsight}"
@@ -1427,7 +1385,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                   })}
                 </div>
 
-                <div className="text-[10px] font-grotesk text-secondary uppercase tracking-[0.2em] pt-4 mt-4 border-t border-surface-highlight/50 flex items-center gap-1.5 opacity-60">
+                <div className="text-[10px] font-mono text-secondary uppercase tracking-wider pt-4 mt-4 border-t border-surface-highlight/50 flex items-center gap-1.5 opacity-60">
                   <Sparkles className="w-3.5 h-3.5 text-accent" /> Powered by Gemini
                 </div>
               </div>
@@ -1445,7 +1403,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-surface sm:bg-bg/90 sm:backdrop-blur-md p-0 sm:p-4 md:p-6 flex items-center justify-center overflow-hidden"
+            className="fixed inset-0 z-[200] bg-surface sm:bg-bg/90 sm:backdrop-blur-md p-0 sm:p-4 md:p-6 flex items-center justify-center overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-labelledby="full-graph-modal-title"
@@ -1489,7 +1447,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     type="button"
                     onClick={() => setShowFullBreakdownModal(false)}
                     aria-label="Close full graph view"
-                    className="p-2 sm:p-2.5 rounded-full bg-surface-highlight/40 text-secondary hover:text-primary hover:bg-surface-highlight transition active:scale-95 min-w-[40px] min-h-[40px] flex items-center justify-center cursor-pointer"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -1522,16 +1480,16 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
 
                 {/* Range Metrics Summary */}
                 <div className="flex items-center gap-2 text-xs text-secondary shrink-0 overflow-x-auto no-scrollbar">
-                  <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40 font-grotesk font-semibold text-primary">
+                  <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40 font-mono font-semibold text-primary">
                     {modalTrendData.length} point{modalTrendData.length !== 1 ? 's' : ''}
                   </span>
                   {modalTrendData.length > 0 && (
                     <>
                       <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40">
-                        First: <strong className="text-primary font-grotesk">{modalTrendData[0]?.date}</strong>
+                        First: <strong className="text-primary font-mono">{modalTrendData[0]?.date}</strong>
                       </span>
                       <span className="px-2.5 py-1 rounded-lg bg-surface border border-surface-highlight/40">
-                        Latest: <strong className="text-primary font-grotesk">{modalTrendData[modalTrendData.length - 1]?.date}</strong>
+                        Latest: <strong className="text-primary font-mono">{modalTrendData[modalTrendData.length - 1]?.date}</strong>
                       </span>
                     </>
                   )}
@@ -1551,7 +1509,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                     <div className="w-full h-64 sm:h-80 md:h-96 p-3 sm:p-4 bg-surface-highlight/10 rounded-2xl border border-surface-highlight/30 flex flex-col justify-between">
                       <div className="flex items-center justify-between text-[11px] text-secondary px-1 pb-1">
                         <span>Touch or click a point to inspect memory details below</span>
-                        <span className="font-grotesk font-semibold">Scale 1 (Low) - 5 (Joyful)</span>
+                        <span className="font-mono font-semibold">Scale 1 (Low) - 5 (Joyful)</span>
                       </div>
                       <div className="w-full h-56 sm:h-72 md:h-84">
                         <ResponsiveContainer width="100%" height="100%">
@@ -1616,11 +1574,11 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                                 <h4 className="text-base font-display font-bold text-primary">
                                   {selectedGraphPoint.label} Mood
                                 </h4>
-                                <span className="text-[10px] font-grotesk font-semibold text-secondary px-2 py-0.5 rounded-md bg-surface-highlight/50">
+                                <span className="text-[10px] font-mono font-semibold text-secondary px-2 py-0.5 rounded-md bg-surface-highlight/50">
                                   Score: {selectedGraphPoint.score}/5
                                 </span>
                               </div>
-                              <p className="text-xs text-secondary font-grotesk">
+                              <p className="text-xs text-secondary font-mono">
                                 {selectedGraphPoint.fullDate}
                               </p>
                             </div>
@@ -1663,7 +1621,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                   <div className="overflow-x-auto rounded-2xl border border-surface-highlight/40 bg-surface">
                     <table className="w-full text-left text-xs border-collapse" role="table" aria-label="Emotional logs table">
                       <thead>
-                        <tr className="bg-surface-highlight/25 border-b border-surface-highlight/40 text-secondary font-grotesk uppercase tracking-wider text-[10px]">
+                        <tr className="bg-surface-highlight/25 border-b border-surface-highlight/40 text-secondary font-mono uppercase tracking-wider text-[10px]">
                           <th className="py-3 px-4">Date</th>
                           <th className="py-3 px-3">Mood</th>
                           <th className="py-3 px-3 text-center">Score</th>
@@ -1674,14 +1632,14 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, onEdit, onDel
                       <tbody className="divide-y divide-surface-highlight/30">
                         {modalTrendData.slice().reverse().map(pt => (
                           <tr key={pt.rawEntry.id} className="hover:bg-surface-highlight/15 transition">
-                            <td className="py-3 px-4 font-grotesk whitespace-nowrap text-secondary">
+                            <td className="py-3 px-4 font-mono whitespace-nowrap text-secondary">
                               {pt.date}
                             </td>
                             <td className="py-3 px-3 whitespace-nowrap font-medium text-primary">
                               <span className="mr-1.5 text-base inline-block align-middle">{pt.emoji}</span>
                               {pt.label}
                             </td>
-                            <td className="py-3 px-3 text-center font-grotesk font-semibold text-secondary">
+                            <td className="py-3 px-3 text-center font-mono font-semibold text-secondary">
                               {pt.score}/5
                             </td>
                             <td className="py-3 px-4 text-secondary max-w-xs truncate italic">
