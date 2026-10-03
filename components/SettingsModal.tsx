@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
 import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw, ChevronRight } from './Icons';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 import { backdrop, sheet, springSheet, triggerHaptic } from '../utils/uiSprings';
@@ -38,6 +38,7 @@ const BODY_FONTS = [
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
   const [isModelPanelOpen, setIsModelPanelOpen] = React.useState(false);
+  const dragControls = useDragControls();
 
   // Font previews need every family; fetch them only once the picker is actually opened.
   React.useEffect(() => {
@@ -91,6 +92,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             animate="show"
             exit="hidden"
             drag="y"
+            dragListener={false}
+            dragControls={dragControls}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0.05, bottom: 0.5 }}
             onDragEnd={(_, info) => {
@@ -103,7 +106,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             className="bg-surface rounded-3xl w-full max-w-xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border border-surface-highlight"
           >
             {/* Gesture Handle Bar */}
-            <div className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none" style={{ touchAction: 'none' }}>
+            <div
+              onPointerDown={(e) => dragControls.start(e)}
+              className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none"
+              style={{ touchAction: 'none' }}
+            >
               <div className="w-10 h-1.5 rounded-full bg-surface-highlight/80" />
             </div>
             
@@ -122,9 +129,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </button>
             </div>
 
-            <div className="relative flex-1 min-h-0">
+            <div className="relative flex-1 min-h-0 flex flex-col">
             <div 
-              className="h-full overflow-y-auto p-6 sm:p-8 space-y-10 no-scrollbar overscroll-contain"
+              className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 space-y-10 no-scrollbar overscroll-contain"
               style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
             >
               

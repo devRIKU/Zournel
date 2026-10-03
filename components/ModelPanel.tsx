@@ -44,7 +44,7 @@ export const ModelPanel: React.FC<ModelPanelProps> = ({ settings, onUpdate, onBa
     setSlot(tier, { provider, model: modelsFor(provider)[0].id });
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="flex flex-col min-h-0 h-full">
+    <motion.div variants={container} initial="hidden" animate="show" className="relative flex flex-col min-h-0 flex-1">
       <div className="px-5 sm:px-7 py-3 border-b border-surface-highlight shrink-0">
         <motion.button
           type="button"
