@@ -3,7 +3,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw } from './Icons';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
-import { iosSpring, triggerHaptic } from '../utils/uiSprings';
+import { backdrop, sheet, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSwitch } from './ui/DraggableToggle';
 import { ensureFontLoaded } from '../utils/fonts';
 
@@ -73,18 +73,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     <AnimatePresence>
       {isOpen && (
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          variants={backdrop}
+          initial="hidden"
+          animate="show"
+          exit="hidden"
           style={{ willChange: 'opacity' }}
           className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={handleClose}
         >
           <motion.div 
-            initial={{ opacity: 0, scale: 0.94, y: 25 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 25 }}
-            transition={iosSpring}
+            variants={sheet}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
             drag="y"
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0.05, bottom: 0.5 }}

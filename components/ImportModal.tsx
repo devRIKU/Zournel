@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { backdrop, sheet } from '../utils/uiSprings';
 import { Upload, FileText, Check, AlertCircle, X, Sparkles, CloudDownload, FileJson, RefreshCw, Code } from './Icons';
 import { JournalEntry } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
@@ -340,12 +341,18 @@ export const ImportModal: React.FC<ImportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in overflow-y-auto">
+    <motion.div
+      variants={backdrop}
+      initial="hidden"
+      animate="show"
+      exit="hidden"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto"
+    >
       <motion.div 
-        initial={{ opacity: 0, scale: 0.95, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 12 }}
-        transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+        variants={sheet}
+        initial="hidden"
+        animate="show"
+        exit="hidden"
         className="bg-surface rounded-3xl border border-surface-highlight shadow-2xl p-6 sm:p-8 max-w-xl w-full relative overflow-hidden my-8"
       >
         {/* Header */}
@@ -590,6 +597,6 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           </button>
         </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 };

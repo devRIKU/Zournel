@@ -55,7 +55,14 @@ export default {
         'scale-in': 'scaleIn 0.2s cubic-bezier(0.23, 1, 0.32, 1)',
         'slide-up': 'slideUp 0.2s cubic-bezier(0.23, 1, 0.32, 1)',
       },
+      transitionDuration: {
+        // The `transition` utility picks both of these up, so every CSS
+        // transition in the app (all the `active:scale-*` presses) gets a
+        // springy overshoot instead of a linear 150ms fade.
+        DEFAULT: '220ms',
+      },
       transitionTimingFunction: {
+        DEFAULT: 'cubic-bezier(0.34, 1.42, 0.64, 1)',
         'out': 'cubic-bezier(0.23, 1, 0.32, 1)',
         'in-out': 'cubic-bezier(0.77, 0, 0.175, 1)',
       },

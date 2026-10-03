@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { CloudCheck, CloudUpload, RefreshCw, ShieldCheck, Clock, ArrowUpRight } from './Icons';
+import { press, springPlayful } from '../utils/uiSprings';
 
 interface AutoBackupPillProps {
   isBackingUp: boolean;
@@ -46,10 +47,9 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
     <div className="relative shrink-0" ref={dropdownRef}>
       <motion.button
         type="button"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.96 }}
+        {...press}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-full border text-xs font-medium transition-colors duration-200 ${
+        className={`flex items-center justify-center gap-1.5 h-11 w-11 lg:w-auto lg:px-3.5 rounded-full border text-xs font-medium transition-colors duration-200 ${
           isBackingUp
             ? 'bg-accent/10 border-accent/40 text-accent'
             : autoBackupEnabled
@@ -62,7 +62,7 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
         {isBackingUp ? (
           <>
             <RefreshCw className="w-3.5 h-3.5 text-accent animate-spin shrink-0" />
-            <span className="hidden md:inline text-xs font-medium text-accent">Syncing…</span>
+            <span className="hidden lg:inline text-xs font-medium text-accent">Syncing…</span>
           </>
         ) : autoBackupEnabled ? (
           <>
@@ -71,15 +71,15 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <CloudCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-            <span className="hidden md:inline text-xs font-medium">
+            <span className="hidden lg:inline text-xs font-medium">
               {formattedTime ? `Backed up ${formattedTime}` : 'Backup on'}
             </span>
           </>
         ) : (
           <>
             <span className="w-2 h-2 rounded-full bg-secondary/40 shrink-0"></span>
-            <CloudUpload className="w-3.5 h-3.5 text-secondary/60 shrink-0 md:hidden" />
-            <span className="hidden md:inline text-xs font-medium">
+            <CloudUpload className="w-4 h-4 text-secondary/60 shrink-0 lg:hidden" />
+            <span className="hidden lg:inline text-xs font-medium">
               Backup off
             </span>
           </>
@@ -90,11 +90,11 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.96 }}
+            initial={{ opacity: 0, y: -6, scale: 0.94 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.96 }}
-            transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-            className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-72 bg-surface/95 backdrop-blur-xl border border-surface-highlight shadow-2xl rounded-2xl p-4 z-[90]"
+            exit={{ opacity: 0, y: -6, scale: 0.94, transition: { duration: 0.14, ease: 'easeIn' } }}
+            transition={springPlayful}
+            className="absolute right-0 top-full mt-2.5 origin-top-right w-[calc(100vw-1.5rem)] max-w-72 bg-surface/95 backdrop-blur-xl border border-surface-highlight shadow-2xl rounded-2xl p-4 z-[90]"
           >
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-highlight/60">
               <div className="flex items-center gap-2">
