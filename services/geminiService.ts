@@ -5,7 +5,10 @@ const loadGenAI = () => import("@google/genai");
 import { AIProcessedInput, Priority } from "../types";
 import { isJevAvailable, detectMoodWithJev } from "./jevService";
 import { openRouterChat } from "./openrouter";
-import { DEFAULT_TIERS, getGeminiKey, getOpenRouterKey, readSettings, resolveSlot } from "./modelConfig";
+import {
+  DEFAULT_TIERS, ModelOption, getGeminiKey, getOpenRouterKey, presetsFor,
+  readModelCache, readSettings, resolveSlot, writeModelCache,
+} from "./modelConfig";
 
 // Modern standard model names
 const imageModelName = 'gemini-3.1-flash-lite-image';
@@ -227,6 +230,55 @@ export const editJournalText = async (text: string, type: AiActionType, tier: st
     handleAiError(error);
     return text;
   }
+};
+
+// --- model catalogue -------------------------------------------------------------------------
+// Plain REST rather than the SDK: this list is needed before any generation happens and it
+// shouldn't pull the 290 KB client in on its own.
+
+const CATALOG_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+let catalogRequest: Promise<ModelOption[]> | null = null;
+
+export const fetchGeminiModels = async (force = false): Promise<ModelOption[]> => {
+  if (!force) {
+    const cached = readModelCache('gemini');
+    if (cached) return cached;
+  }
+  if (catalogRequest) return catalogRequest;
+
+  catalogRequest = (async () => {
+    const apiKey = getGeminiKey();
+    if (!apiKey) return presetsFor('gemini');
+    try {
+      const res = await fetch(`${CATALOG_ENDPOINT}?key=${encodeURIComponent(apiKey)}&pageSize=1000`);
+      if (!res.ok) throw new Error(`Gemini models ${res.status}`);
+      const data = await res.json();
+      const strip = (name: string) => String(name || '').replace(/^models\//, '');
+      const models: ModelOption[] = (data?.models || [])
+        // only models that can actually answer a prompt
+        .filter((m: any) => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map((m: any) => {
+          const id = strip(m.name);
+          return { id, label: m.displayName || id };
+        })
+        .filter((m: ModelOption) => Boolean(m.id))
+        .sort((a, b) => {
+          const experimental = (id: string) => (/exp|preview|latest/i.test(id) ? 1 : 0);
+          return experimental(a.id) - experimental(b.id) || a.id.localeCompare(b.id);
+        });
+      if (!models.length) throw new Error('Gemini returned no text models');
+      writeModelCache('gemini', models);
+      return models;
+    } catch (err: any) {
+      console.warn('Could not load Gemini models:', err?.message || err);
+      return presetsFor('gemini');
+    } finally {
+      catalogRequest = null;
+    }
+  })();
+
+  return catalogRequest;
 };
 
 // JSON answers, on whichever provider the tier is mapped to.

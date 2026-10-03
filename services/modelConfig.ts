@@ -36,6 +36,37 @@ export const OPENROUTER_MODELS = [
 export const modelsFor = (provider: ModelSlot['provider']) =>
   provider === 'openrouter' ? OPENROUTER_MODELS : GEMINI_MODELS;
 
+/** A model the user can pick: fetched live from a provider, or a bundled preset. */
+export interface ModelOption {
+  id: string;
+  label: string;
+  /** OpenRouter only: every price is zero. */
+  free?: boolean;
+}
+
+export const presetsFor = (provider: ModelSlot['provider']): ModelOption[] =>
+  modelsFor(provider).map(m => ({ id: m.id, label: m.label }));
+
+// Model catalogues are big and change rarely — cache them locally for a while.
+export const MODEL_CACHE_TTL = 6 * 60 * 60 * 1000;
+const modelCacheKey = (kind: string) => `zournel_models_${kind}`;
+
+export const readModelCache = (kind: string): ModelOption[] | null => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(modelCacheKey(kind)) || 'null');
+    if (!raw || Date.now() - raw.t > MODEL_CACHE_TTL || !Array.isArray(raw.models)) return null;
+    return raw.models;
+  } catch {
+    return null;
+  }
+};
+
+export const writeModelCache = (kind: string, models: ModelOption[]) => {
+  try {
+    localStorage.setItem(modelCacheKey(kind), JSON.stringify({ t: Date.now(), models }));
+  } catch {}
+};
+
 export const DEFAULT_TIERS: Record<ModelTier, ModelSlot> = {
   ember: { provider: 'gemini', model: 'gemini-3.1-flash-lite' },
   lantern: { provider: 'gemini', model: 'gemini-3.8-flash' },
