@@ -1,15 +1,19 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Plus, Sparkles, BookOpen, User } from './components/Icons';
+import { motion, AnimatePresence, MotionConfig } from 'motion/react';
+import { Plus, Sparkles, BookOpen } from './components/Icons';
 import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
 import { ExpressiveDock } from './components/ExpressiveDock';
 import { TodoView } from './components/TodoView';
 import { getLocalUserId, getSavedGoogleUser } from './services/localIdentity';
 import { AutoBackupPill } from './components/AutoBackupPill';
+import { AccountMenu } from './components/AccountMenu';
 import { useTaskStore } from './store/useTaskStore';
 import { useJournalStore } from './store/useJournalStore';
 import { SpotlightGlow } from './components/ui/background-beams';
 import { ensureFontLoaded } from './utils/fonts';
+import { migrateModelSettings } from './services/modelConfig';
+import type { GoogleAccountUser } from './services/authService';
+import { DEFAULT_TRANSITION, press, springPlayful, springPress, springSoft } from './utils/uiSprings';
 
 // Only the Tasks tab is in the boot bundle. Everything else (Milkdown editor, recharts,
 // Firebase-heavy profile, AI chat) loads on first use so low-end devices paint fast.
@@ -38,10 +42,7 @@ const ALL_THEME_CLASSES = [
   'theme-catppuccin-light', 'theme-catppuccin-dark', 'theme-gruvbox-light', 'theme-gruvbox-dark'
 ];
 
-// Shared 40px round icon button used across the top bar.
-const ICON_BUTTON = 'w-10 h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary hover:bg-surface-highlight/60 active:scale-95 transition';
-
-export const App: React.FC = () => {
+const AppShell: React.FC = () => {
   const [hasEntered, setHasEntered] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>(Tab.TODO);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -72,19 +73,20 @@ export const App: React.FC = () => {
         return JSON.parse(saved);
       }
     } catch (e) {}
-    return {
+    return migrateModelSettings({
       theme: 'cozy-light',
       fontFamily: 'inter',
       headingFontFamily: 'outfit',
       completionAnimation: 'confetti',
       deleteAnimation: 'shrink',
-      model: 'gemini-3.5-flash-lite',
+      model: 'lantern',
       apiKey: ''
-    };
+    } as AppSettings);
   });
 
   const [loaded, setLoaded] = useState(false);
   const [publicProfile, setPublicProfile] = useState<UserProfile | null>(null);
+  const [googleUser, setGoogleUser] = useState<GoogleAccountUser | null>(null);
 
   const [isPublicRoute] = useState(() => {
     const path = window.location.pathname;
@@ -166,6 +168,7 @@ export const App: React.FC = () => {
     Promise.all([import('./services/authService'), import('./services/dbService')]).then(([{ listenToAuthChanges }, { fetchMemoriesFromCloud }]) => {
       if (cancelled) return;
       unsubscribe = listenToAuthChanges(async (googleUser) => {
+      setGoogleUser(googleUser);
       if (googleUser) {
         setSettings(prev => ({
           ...prev,
@@ -357,7 +360,7 @@ export const App: React.FC = () => {
     }
     
     if (journal) {
-       saveJournalEntryStore(journal, undefined, mood || undefined, false, undefined, settings.model);
+       saveJournalEntryStore(journal, undefined, mood || undefined, false, undefined, activeTier);
     }
   };
 
@@ -374,7 +377,7 @@ export const App: React.FC = () => {
     linkedEntryIds?: string[],
     linkedTaskIds?: string[]
   ) => {
-    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds);
+    saveJournalEntryStore(content, image, mood, isAutoSave, title, activeTier, scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds);
   };
 
   const handleReflectOnTask = (task: Task) => {
@@ -414,6 +417,18 @@ export const App: React.FC = () => {
     setIsEditorOpen(true);
   };
 
+  // Firebase stays out of the boot bundle — only load it when someone signs out.
+  const handleGoogleSignOut = () => {
+    import('./services/authService').then(({ signOutGoogleAccount }) => signOutGoogleAccount());
+  };
+
+  const activeTier = settings.activeTier || 'lantern';
+
+  const brandSubtitle =
+    activeTab === Tab.TODO ? 'Today' : activeTab === Tab.JOURNAL ? `${journalEntries.length} Memories` : 'Account';
+
+  const isFabVisible = activeTab !== Tab.PROFILE && !isEditorOpen;
+
   if (isRouteLoading) {
     return (
       <div className="min-h-screen bg-surface-lowest text-primary flex items-center justify-center font-sans">
@@ -451,34 +466,38 @@ export const App: React.FC = () => {
     <div className="h-[100dvh] overflow-y-auto overscroll-y-contain flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
       <SpotlightGlow className="opacity-40 pointer-events-none" />
       
-      {/* Sticky Mobile-First Top Navigation Bar */}
-      <header className="sticky top-0 z-30 w-full bg-surface-lowest/85 backdrop-blur-xl border-b border-surface-highlight/60 pt-[env(safe-area-inset-top,0px)]">
-        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 md:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
-          <button
+      {/* Zone 1: Sticky top bar. Scaled for thumbs: 64px tall, 44px targets,
+          one identity menu on the right and nothing else that repeats the dock. */}
+      <header className="sticky top-0 z-40 w-full bg-surface-lowest/85 backdrop-blur-xl border-b border-surface-highlight/60 pt-[env(safe-area-inset-top,0px)]">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 h-16 sm:h-[4.5rem] flex items-center justify-between gap-3">
+          <motion.button
             type="button"
+            whileTap={{ scale: 0.985, transition: springPress }}
             onClick={() => setActiveTab(Tab.TODO)}
-            className="flex items-center gap-2.5 text-left group active:scale-[0.98] transition-transform min-w-0"
+            className="flex items-center gap-3 text-left min-w-0 flex-1 rounded-2xl"
             title="Zournel — Go to Today"
           >
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-accent/12 border border-accent/25 text-accent flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-accent/18 transition-colors">
-              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" weight="fill" />
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-accent/12 border border-accent/25 text-accent flex items-center justify-center shrink-0 shadow-2xs transition-colors">
+              <BookOpen className="w-[22px] h-[22px] sm:w-6 sm:h-6" weight="fill" />
             </div>
-            <div className="leading-none min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-display font-bold text-primary tracking-tight truncate">Zournel</h1>
-                {settings.profile?.thought && (
-                  <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface border border-surface-highlight text-secondary truncate max-w-[160px]">
-                    {settings.profile.thought}
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 text-[10px] font-mono uppercase tracking-wider text-secondary/70 truncate">
-                {activeTab === Tab.TODO ? 'Reflect & Execute' : activeTab === Tab.JOURNAL ? `${journalEntries.length} Memories` : 'Account & Sanctuary'}
-              </p>
+            <div className="min-w-0 flex-1 leading-none">
+              <h1 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight truncate">Zournel</h1>
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.p
+                  key={brandSubtitle}
+                  initial={{ opacity: 0, y: 7 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -7 }}
+                  transition={springPlayful}
+                  className="mt-1.5 text-[11px] sm:text-xs font-mono uppercase tracking-wider text-secondary/70 truncate"
+                >
+                  {brandSubtitle}
+                </motion.p>
+              </AnimatePresence>
             </div>
-          </button>
+          </motion.button>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
             <AutoBackupPill
               isBackingUp={isAutoBackingUp}
               lastBackupTime={lastAutoBackupTime}
@@ -487,59 +506,39 @@ export const App: React.FC = () => {
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
-            <button
+            <motion.button
               type="button"
+              {...press}
               onClick={() => setIsAddModalOpen(true)}
               title="AI Companion"
               aria-label="AI Companion"
-              className="h-9 sm:h-10 px-3 sm:px-3.5 rounded-full bg-accent/12 hover:bg-accent/20 border border-accent/25 text-accent flex items-center gap-1.5 text-xs font-semibold active:scale-95 transition shrink-0"
+              className="w-11 h-11 lg:w-auto lg:px-4 rounded-full bg-accent/12 hover:bg-accent/20 border border-accent/25 text-accent flex items-center justify-center gap-1.5 shrink-0"
             >
-              <Sparkles className="w-4 h-4 shrink-0" weight="fill" />
-              <span className="text-[11px] sm:text-xs font-bold tracking-tight">AI</span>
-            </button>
+              <Sparkles className="w-5 h-5 shrink-0" weight="fill" />
+              <span className="hidden lg:inline text-xs font-bold tracking-tight">AI</span>
+            </motion.button>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab(Tab.PROFILE)}
-              title="Account & Profile"
-              aria-label="Account & Profile"
-              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border transition active:scale-95 overflow-hidden shrink-0 ${
-                activeTab === Tab.PROFILE
-                  ? 'border-accent ring-2 ring-accent/25 bg-accent/15 text-accent'
-                  : 'border-surface-highlight bg-surface/80 text-secondary hover:text-primary hover:bg-surface-highlight/60'
-              }`}
-            >
-              {settings.profile?.picture ? (
-                <img src={settings.profile.picture} alt={settings.profile.name || 'Account'} className="w-full h-full object-cover" />
-              ) : settings.profile?.name ? (
-                <span className="text-xs font-bold text-primary uppercase">{settings.profile.name.charAt(0)}</span>
-              ) : (
-                <User className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setIsSettingsOpen(true)}
-              title="Settings"
-              aria-label="Settings"
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary bg-surface/60 hover:bg-surface-highlight/60 border border-surface-highlight/70 active:scale-95 transition shrink-0"
-            >
-              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+            <AccountMenu
+              profile={settings.profile}
+              googleUser={googleUser}
+              isActive={activeTab === Tab.PROFILE}
+              onOpenAccount={() => setActiveTab(Tab.PROFILE)}
+              onOpenSettings={() => setIsSettingsOpen(true)}
+              onSignOut={handleGoogleSignOut}
+            />
           </div>
         </div>
       </header>
 
       {/* Zone 2: Flexible Content Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 md:px-8 pt-5 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
-        <AnimatePresence mode="wait">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-5 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeTab}
-            initial={{ opacity: 0, y: 8, scale: 0.99 }}
+            initial={{ opacity: 0, y: 14, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.99 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0, y: -10, scale: 0.985, transition: { duration: 0.14, ease: 'easeIn' } }}
+            transition={springSoft}
           >
             <Suspense fallback={<ViewFallback />}>
               {activeTab === Tab.TODO && (
@@ -551,11 +550,11 @@ export const App: React.FC = () => {
                   onUpdateTask={updateTask}
                   onAddTask={addTask} 
                   onReflectOnTask={handleReflectOnTask}
-                  onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, settings.model); setActiveTab(Tab.JOURNAL); }}
+                  onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, activeTier); setActiveTab(Tab.JOURNAL); }}
                   focusInputSignal={focusInputSignal}
                   completionAnim={settings.completionAnimation} 
                   deleteAnim={settings.deleteAnimation}
-                  selectedModel={settings.model}
+                  selectedModel={activeTier}
                 />
               )}
               {activeTab === Tab.JOURNAL && (
@@ -569,7 +568,7 @@ export const App: React.FC = () => {
                   onRenameEntry={renameJournalEntryStore}
                   onImportClick={() => setIsImportModalOpen(true)}
                   onImportEntries={handleImportEntriesStore}
-                  selectedModel={settings.model}
+                  selectedModel={activeTier}
                 />
               )}
               {activeTab === Tab.PROFILE && (
@@ -589,17 +588,26 @@ export const App: React.FC = () => {
       </main>
 
       {/* Floating action button — sits one step above the dock on both breakpoints */}
-      <div className={`fixed right-4 sm:right-6 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] sm:bottom-24 z-40 transition-all duration-200 ${activeTab === Tab.PROFILE || isEditorOpen ? 'opacity-0 pointer-events-none scale-90' : 'opacity-100 scale-100'}`}>
-        <button
+      <motion.div
+        animate={isFabVisible ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.85, y: 16 }}
+        transition={springPlayful}
+        className={`fixed right-4 sm:right-6 bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] sm:bottom-24 z-40 ${
+          isFabVisible ? '' : 'pointer-events-none'
+        }`}
+      >
+        <motion.button
           type="button"
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.9 }}
+          transition={springPlayful}
           onClick={handlePlusClick}
           title={activeTab === Tab.TODO ? 'Add task' : 'New memory'}
           aria-label={activeTab === Tab.TODO ? 'Add task' : 'New memory'}
-          className="w-14 h-14 rounded-full bg-accent text-accent-fg shadow-lg shadow-accent/25 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform"
+          className="w-14 h-14 rounded-full bg-accent text-accent-fg shadow-lg shadow-accent/25 flex items-center justify-center"
         >
           <Plus className="w-6 h-6" weight="bold" />
-        </button>
-      </div>
+        </motion.button>
+      </motion.div>
 
       {!isEditorOpen && <ExpressiveDock activeTab={activeTab} onTabChange={setActiveTab} />}
 
@@ -622,7 +630,7 @@ export const App: React.FC = () => {
         initialLyrics={editingEntry?.lyrics || editingEntry?.song?.lyrics}
         initialLinkedEntryIds={editingEntry?.linkedEntryIds}
         initialLinkedTaskIds={editingEntry?.linkedTaskIds}
-        selectedModel={settings.model} 
+        selectedModel={activeTier} 
       />
       </Suspense>
       )}
@@ -652,6 +660,7 @@ export const App: React.FC = () => {
       </Suspense>
       )}
 
+      <AnimatePresence>
       {isImportModalOpen && (
       <Suspense fallback={null}>
       <ImportModal
@@ -662,8 +671,16 @@ export const App: React.FC = () => {
       />
       </Suspense>
       )}
+      </AnimatePresence>
     </div>
   );
 };
+
+export const App: React.FC = () => (
+  // One default transition + OS reduced-motion opt-out for every motion element.
+  <MotionConfig reducedMotion="user" transition={DEFAULT_TRANSITION}>
+    <AppShell />
+  </MotionConfig>
+);
 
 export default App;

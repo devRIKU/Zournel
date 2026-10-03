@@ -110,7 +110,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     }));
   },
 
-  generateAiTitleForEntry: async (id, model = 'gemini-3.8-flash') => {
+  generateAiTitleForEntry: async (id, model = 'lantern') => {
     const entry = get().entries.find((e) => e.id === id);
     if (!entry || !entry.content?.trim()) return null;
     get().setGeneratingTitleId(id, true);
@@ -143,7 +143,7 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     });
   },
 
-  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.8-flash', scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds) => {
+  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'lantern', scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds) => {
     const { editingEntry, entries, setEntries } = get();
     let entryId = id || editingEntry?.id;
     const computedTitle = title?.trim() || extractAutoTitle(content);

@@ -6,8 +6,9 @@ import {
   RotateCw, MoreHorizontal, Mic, AudioLines, Plus, Check,
   PanelLeft, Brain, Trash2, Volume2, VolumeX, MessageSquare, Clock
 } from './Icons';
-import { GoogleGenAI } from '@google/genai';
-import { JournalEntry, ChatSession, ChatMessage } from '../types';
+import { JournalEntry, ChatSession, ChatMessage, ModelTier } from '../types';
+import { TIERS, tierName, readSettings } from '../services/modelConfig';
+import { generateJson } from '../services/geminiService';
 import { retrieveOptimizedContext, getStoredMemories } from '../services/memoryService';
 import { edgeTts, EDGE_VOICES, EdgeVoiceOption } from '../services/edgeTtsService';
 import { AiMemoriesModal } from './AiMemoriesModal';
@@ -22,42 +23,6 @@ interface AiChatbotModalProps {
   onUpdateApiKey?: (key: string) => void;
 }
 
-const AVAILABLE_MODELS = [
-  { id: 'gemini-3.6-flash', name: 'Gemini 3.6 Flash', desc: 'High performance & reasoning' },
-  { id: 'gemini-3.5-flash-lite', name: 'Gemini 3.5 Flash Lite', desc: 'Fast & responsive' },
-  { id: 'gemma-4-31b-it', name: 'Gemma 4-31B-it', desc: 'Open weights & deep reasoning' },
-];
-
-const resolveModelToApiName = (modelId: string): string => {
-  if (modelId === 'gemma-4-31b-it') return 'gemma-4-31b-it';
-  if (modelId === 'gemini-3.5-flash-lite') return 'gemini-3.5-flash-lite';
-  return 'gemini-3.6-flash';
-};
-
-const getAiClient = () => {
-  let apiKey = '';
-  try {
-    const settingsStr = localStorage.getItem('mf_settings');
-    if (settingsStr) {
-      const parsed = JSON.parse(settingsStr);
-      if (parsed.apiKey && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
-        apiKey = parsed.apiKey.trim();
-      }
-    }
-  } catch (e) {}
-
-  if (!apiKey) {
-    apiKey = 
-      (typeof process !== 'undefined' && process.env ? (process.env.GEMINI_API_KEY || process.env.API_KEY) : '') ||
-      (typeof import.meta !== 'undefined' && import.meta.env ? (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY) : '') ||
-      (typeof window !== 'undefined' && ((window as any).GEMINI_API_KEY || (window as any).API_KEY)) ||
-      '';
-  }
-
-  if (!apiKey) return null;
-  return new GoogleGenAI({ apiKey });
-};
-
 const SESSIONS_STORAGE_KEY = 'zournel_ai_chat_sessions';
 const ACTIVE_SESSION_STORAGE_KEY = 'zournel_active_chat_session_id';
 
@@ -70,7 +35,7 @@ export const AiChatbotModal: React.FC<AiChatbotModalProps> = ({
   apiKey = '', 
   onUpdateApiKey 
 }) => {
-  const [selectedModel, setSelectedModel] = useState<string>('gemini-3.6-flash');
+  const [selectedModel, setSelectedModel] = useState<ModelTier>(readSettings().activeTier || 'lantern');
   const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
   const [isThinkEnabled, setIsThinkEnabled] = useState(true);
   const [isAttachOpen, setIsAttachOpen] = useState(false);
@@ -251,21 +216,6 @@ export const AiChatbotModal: React.FC<AiChatbotModalProps> = ({
     saveCurrentSession(newMessages, titleHint);
 
     try {
-      const ai = getAiClient();
-      if (!ai) {
-        const botMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: 'bot',
-          text: "I am listening. (Note: A Gemini API key is required to generate responses. You can configure it in Settings.)",
-          timestamp: new Date(),
-        };
-        const nextList = [...newMessages, botMsg];
-        setMessages(nextList);
-        saveCurrentSession(nextList);
-        setIsTyping(false);
-        return;
-      }
-
       // OPTIMIZED MEMORY RETRIEVAL (RAG): Pull only relevant context
       const { formattedContext, referencedMemories, retrievedCount } = retrieveOptimizedContext({
         query: userText,
@@ -303,27 +253,9 @@ Output strictly a JSON object:
   "mood": "Detected mood string or null"
 }`;
 
-      const targetModel = resolveModelToApiName(selectedModel);
-      let response;
-      try {
-        response = await ai.models.generateContent({
-          model: targetModel,
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-          }
-        });
-      } catch (err: any) {
-        response = await ai.models.generateContent({
-          model: 'gemini-3.6-flash',
-          contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-          }
-        });
-      }
-
-      const responseText = response.text || '';
+      // One call on whichever provider this tier is mapped to; falls back to the
+      // next model the provider offers before giving up.
+      const responseText = await generateJson(prompt, selectedModel) || '';
       let parsed: any = {};
       try {
         const cleanJson = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
@@ -479,9 +411,7 @@ Output strictly a JSON object:
     return groups;
   }, [sessions]);
 
-  const currentModelObj = useMemo(() => {
-    return AVAILABLE_MODELS.find(m => m.id === selectedModel) || AVAILABLE_MODELS[0];
-  }, [selectedModel]);
+  const currentModelName = useMemo(() => tierName(selectedModel), [selectedModel]);
 
   return (
     <AnimatePresence>
@@ -798,15 +728,15 @@ Output strictly a JSON object:
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-highlight/50 hover:bg-surface-highlight text-primary text-xs font-semibold transition border border-surface-highlight"
                   >
                     <Cpu className="w-3.5 h-3.5 text-accent" />
-                    <span className="hidden sm:inline">{currentModelObj.name}</span>
-                    <span className="sm:hidden">{currentModelObj.name.split(' ')[0]}</span>
+                    <span className="hidden sm:inline">{currentModelName}</span>
+                    <span className="sm:hidden">{currentModelName}</span>
                     <ChevronDown className="w-3 h-3 opacity-60" />
                   </button>
 
                   {isModelDropdownOpen && (
                     <div className="absolute right-0 top-full mt-2 w-56 bg-surface rounded-2xl shadow-xl border border-surface-highlight p-1.5 z-50">
                       <div className="text-[10px] font-mono font-bold text-secondary/70 px-2.5 py-1 uppercase tracking-wider">Select Model</div>
-                      {AVAILABLE_MODELS.map(m => (
+                      {TIERS.map(m => (
                         <button
                           key={m.id}
                           onClick={() => {
@@ -821,7 +751,7 @@ Output strictly a JSON object:
                           }`}
                         >
                           <span className="font-semibold">{m.name}</span>
-                          <span className="text-[10px] text-secondary/70 font-light">{m.desc}</span>
+                          <span className="text-[10px] text-secondary/70 font-light">{m.tag} · {m.desc}</span>
                         </button>
                       ))}
                     </div>

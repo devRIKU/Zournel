@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { UserProfile, JournalEntry, AppSettings } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { triggerHaptic } from '../utils/uiSprings';
+import type { Variants } from 'motion/react';
+import { cardIn, press, springSoft, triggerHaptic } from '../utils/uiSprings';
 import { 
   Camera, Copy, Check, Share, User, Key, Eye, EyeOff, 
   Sparkles, Lock, Globe, Calendar, ArrowRight, Cloud, Compass,
@@ -27,6 +28,33 @@ interface ProfileViewProps {
   settings?: AppSettings;
   onUpdateSettings?: (settings: AppSettings) => void;
 }
+
+/** Sections swap with a spring and their cards settle in sequence. */
+const sectionContainer: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { ...springSoft, staggerChildren: 0.05, delayChildren: 0.03 } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.14, ease: 'easeIn' } }
+};
+
+/** The sections that don't own the Sanctuary Pass open with this compact bar. */
+const SectionHeading: React.FC<{ title: string; subtitle: string; onOpenIdentity: () => void }> = ({ title, subtitle, onOpenIdentity }) => (
+  <motion.div variants={cardIn} className="flex items-center justify-between gap-3 px-1">
+    <div className="min-w-0">
+      <h3 className="text-base sm:text-lg font-display font-bold text-primary truncate">{title}</h3>
+      <p className="text-xs text-secondary truncate">{subtitle}</p>
+    </div>
+    <motion.button
+      type="button"
+      {...press}
+      onClick={onOpenIdentity}
+      title="Open your Sanctuary Pass"
+      className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 rounded-full bg-surface/80 border border-surface-highlight text-[11px] font-mono uppercase tracking-wider text-secondary hover:text-primary hover:bg-surface-highlight/60 transition-colors"
+    >
+      <Compass className="w-3.5 h-3.5 text-accent" />
+      <span>Pass</span>
+    </motion.button>
+  </motion.div>
+);
 
 const QUICK_NOTE_PRESETS = [
   '☕ Quiet morning',
@@ -370,8 +398,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         }
       />
 
+      {/* Section Content Switcher — the Sanctuary Pass belongs to the first section
+          only, so Showcase and Sync open with a compact header instead. */}
+      <AnimatePresence mode="wait" initial={false}>
+        {activeSection === 'identity' && (
+          <motion.div
+            key="identity"
+            variants={sectionContainer}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+            className="space-y-4 sm:space-y-5"
+          >
+
       {/* Cohesive Hero Identity Card */}
-      <section className="bg-surface border border-surface-highlight rounded-3xl shadow-sm overflow-hidden relative">
+      <motion.section variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl shadow-sm overflow-hidden relative">
         {/* Atmospheric Banner */}
         <div className="h-24 sm:h-28 bg-gradient-to-br from-accent/20 via-surface-highlight/60 to-accent/5 border-b border-surface-highlight/50 relative px-4 sm:px-6 pt-3.5 flex items-start justify-between gap-2">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface/85 backdrop-blur-md border border-surface-highlight text-[10px] font-mono uppercase tracking-wider text-secondary">
@@ -552,21 +593,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
-      {/* Section Content Switcher */}
-      <AnimatePresence mode="wait">
-        {activeSection === 'identity' && (
-          <motion.div
-            key="identity"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-            className="space-y-4 sm:space-y-5"
-          >
             {/* Card 1: Name & Public Handle */}
-            <div className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+            <motion.div variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
               <div>
                 <h3 className="text-sm sm:text-base font-display font-bold text-primary">Identity &amp; Public Handle</h3>
                 <p className="text-xs text-secondary mt-0.5">Customize how your name and URL appear when sharing memories.</p>
@@ -609,10 +639,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   placeholder="A gentle narrative about who you are and what you write about…"
                 />
               </div>
-            </div>
+            </motion.div>
 
             {/* Card 2: Status Note / Thought Bubble */}
-            <div className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-4">
+            <motion.div variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-4">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-xl bg-accent/12 border border-accent/20 text-accent flex items-center justify-center shrink-0">
@@ -664,175 +694,182 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
 
         {activeSection === 'showcase' && (
           <motion.div
             key="showcase"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-            className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5"
+            variants={sectionContainer}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
+            className="space-y-4"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-surface-highlight/60">
-              <div>
-                <h3 className="text-base sm:text-lg font-display font-bold text-primary">Public Memories Showcase</h3>
-                <p className="text-xs text-secondary mt-0.5">Choose which journal entries appear on your public page or share direct links.</p>
-              </div>
+            <SectionHeading
+              title="Public Memories Showcase"
+              subtitle="Pick the entries that appear on your public page"
+              onOpenIdentity={() => setActiveSection('identity')}
+            />
 
-              <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                <button
-                  type="button"
-                  onClick={() => setShowcaseFilter('all')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                    showcaseFilter === 'all'
-                      ? 'bg-accent text-accent-fg'
-                      : 'bg-surface-highlight/50 text-secondary hover:text-primary'
-                  }`}
-                >
-                  All ({journalEntries.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowcaseFilter('shared')}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                    showcaseFilter === 'shared'
-                      ? 'bg-accent text-accent-fg'
-                      : 'bg-surface-highlight/50 text-secondary hover:text-primary'
-                  }`}
-                >
-                  Public ({sharedEntryIds.length})
-                </button>
-              </div>
-            </div>
-
-            {journalEntries.length === 0 ? (
-              <div className="py-12 text-center space-y-3 border border-dashed border-surface-highlight rounded-2xl p-6">
-                <BookOpen className="w-8 h-8 text-accent/40 mx-auto" />
-                <p className="text-sm font-semibold text-primary">No memories in your archive yet</p>
-                <p className="text-xs text-secondary max-w-xs mx-auto">Write a memory in the Journal tab or import a starter archive to curate your public showcase.</p>
-                {onOpenImportModal && (
+            <motion.div variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+              <div className="flex items-center gap-1.5 self-start sm:self-auto pb-4 border-b border-surface-highlight/60">
                   <button
                     type="button"
-                    onClick={onOpenImportModal}
-                    className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent text-accent-fg text-xs font-bold"
+                    onClick={() => setShowcaseFilter('all')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                      showcaseFilter === 'all'
+                        ? 'bg-accent text-accent-fg'
+                        : 'bg-surface-highlight/50 text-secondary hover:text-primary'
+                    }`}
                   >
-                    <Upload className="w-3.5 h-3.5" />
-                    <span>Import Memories</span>
+                    All ({journalEntries.length})
                   </button>
-                )}
-              </div>
-            ) : displayedShowcaseEntries.length === 0 ? (
-              <div className="py-10 text-center space-y-2 border border-dashed border-surface-highlight rounded-2xl p-6">
-                <Lock className="w-6 h-6 text-secondary/40 mx-auto" />
-                <p className="text-sm font-semibold text-primary">No public memories selected yet</p>
-                <p className="text-xs text-secondary">Switch to "All" and tap any memory to make it visible on your sanctuary page.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {displayedShowcaseEntries.map(entry => {
-                  const isSharedOnProfile = sharedEntryIds.includes(entry.id);
-                  const isCopied = copiedMemoryId === entry.id;
-                  const dateStr = entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+                  <button
+                    type="button"
+                    onClick={() => setShowcaseFilter('shared')}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                      showcaseFilter === 'shared'
+                        ? 'bg-accent text-accent-fg'
+                        : 'bg-surface-highlight/50 text-secondary hover:text-primary'
+                    }`}
+                  >
+                    Public ({sharedEntryIds.length})
+                  </button>
+                </div>
 
-                  return (
-                    <div 
-                      key={entry.id} 
-                      className={`p-4 rounded-2xl border transition duration-200 ${
-                        isSharedOnProfile ? 'bg-accent/[0.05] border-accent/35' : 'bg-bg/40 border-surface-highlight hover:border-surface-highlight/90'
-                      }`}
+              {journalEntries.length === 0 ? (
+                <div className="py-12 text-center space-y-3 border border-dashed border-surface-highlight rounded-2xl p-6">
+                  <BookOpen className="w-8 h-8 text-accent/40 mx-auto" />
+                  <p className="text-sm font-semibold text-primary">No memories in your archive yet</p>
+                  <p className="text-xs text-secondary max-w-xs mx-auto">Write a memory in the Journal tab or import a starter archive to curate your public showcase.</p>
+                  {onOpenImportModal && (
+                    <button
+                      type="button"
+                      onClick={onOpenImportModal}
+                      className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-accent text-accent-fg text-xs font-bold"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div
-                          className="flex items-start gap-3 cursor-pointer select-none min-w-0 flex-1"
-                          onClick={() => toggleShareEntry(entry.id)}
-                        >
-                          <div className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition ${
-                            isSharedOnProfile ? 'bg-accent border-accent text-accent-fg' : 'border-secondary/40 bg-surface'
-                          }`}>
-                            {isSharedOnProfile && <Check className="w-3 h-3" />}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-bold text-primary truncate">
-                                {entry.title || extractAutoTitle(entry.content)}
-                              </span>
-                              {dateStr && (
-                                <span className="text-[10px] font-mono text-secondary/60">{dateStr}</span>
-                              )}
-                              {entry.mood && (
-                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface border border-surface-highlight text-secondary">
-                                  {entry.mood}
-                                </span>
-                              )}
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Import Memories</span>
+                    </button>
+                  )}
+                </div>
+              ) : displayedShowcaseEntries.length === 0 ? (
+                <div className="py-10 text-center space-y-2 border border-dashed border-surface-highlight rounded-2xl p-6">
+                  <Lock className="w-6 h-6 text-secondary/40 mx-auto" />
+                  <p className="text-sm font-semibold text-primary">No public memories selected yet</p>
+                  <p className="text-xs text-secondary">Switch to "All" and tap any memory to make it visible on your sanctuary page.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {displayedShowcaseEntries.map(entry => {
+                    const isSharedOnProfile = sharedEntryIds.includes(entry.id);
+                    const isCopied = copiedMemoryId === entry.id;
+                    const dateStr = entry.createdAt ? new Date(entry.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
+
+                    return (
+                      <div 
+                        key={entry.id} 
+                        className={`p-4 rounded-2xl border transition duration-200 ${
+                          isSharedOnProfile ? 'bg-accent/[0.05] border-accent/35' : 'bg-bg/40 border-surface-highlight hover:border-surface-highlight/90'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div
+                            className="flex items-start gap-3 cursor-pointer select-none min-w-0 flex-1"
+                            onClick={() => toggleShareEntry(entry.id)}
+                          >
+                            <div className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center shrink-0 transition ${
+                              isSharedOnProfile ? 'bg-accent border-accent text-accent-fg' : 'border-secondary/40 bg-surface'
+                            }`}>
+                              {isSharedOnProfile && <Check className="w-3 h-3" />}
                             </div>
-                            <p className="text-xs text-secondary line-clamp-2 mt-1 leading-relaxed">
-                              {entry.content}
-                            </p>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-bold text-primary truncate">
+                                  {entry.title || extractAutoTitle(entry.content)}
+                                </span>
+                                {dateStr && (
+                                  <span className="text-[10px] font-mono text-secondary/60">{dateStr}</span>
+                                )}
+                                {entry.mood && (
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-surface border border-surface-highlight text-secondary">
+                                    {entry.mood}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-secondary line-clamp-2 mt-1 leading-relaxed">
+                                {entry.content}
+                              </p>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Mobile-friendly action bar */}
+                        <div className="flex items-center justify-end gap-2 mt-3 pt-2.5 border-t border-surface-highlight/40 flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => toggleShareEntry(entry.id)}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition flex items-center gap-1.5 ${
+                              isSharedOnProfile
+                                ? 'bg-accent/12 border-accent/30 text-accent'
+                                : 'bg-surface-highlight/60 border-transparent text-secondary hover:text-primary'
+                            }`}
+                          >
+                            {isSharedOnProfile ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                            <span>{isSharedOnProfile ? 'Public' : 'Private'}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setPreviewBlogEntry(entry)}
+                            className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-surface border border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60 transition flex items-center gap-1.5"
+                            title="Preview as Blog Article"
+                          >
+                            <BookOpen className="w-3 h-3 text-accent" />
+                            <span>Article View</span>
+                          </button>
+
+                          <button 
+                            type="button"
+                            onClick={() => copySingleMemoryLink(entry.id)}
+                            className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition flex items-center gap-1.5 ${
+                              isCopied
+                                ? 'bg-emerald-600 border-emerald-600 text-white'
+                                : 'bg-surface border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60'
+                            }`}
+                          >
+                            {isCopied ? <Check className="w-3 h-3" /> : <Share className="w-3 h-3" />}
+                            <span>{isCopied ? 'Copied!' : 'Share Link'}</span>
+                          </button>
+                        </div>
                       </div>
-
-                      {/* Mobile-friendly action bar */}
-                      <div className="flex items-center justify-end gap-2 mt-3 pt-2.5 border-t border-surface-highlight/40 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={() => toggleShareEntry(entry.id)}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition flex items-center gap-1.5 ${
-                            isSharedOnProfile
-                              ? 'bg-accent/12 border-accent/30 text-accent'
-                              : 'bg-surface-highlight/60 border-transparent text-secondary hover:text-primary'
-                          }`}
-                        >
-                          {isSharedOnProfile ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
-                          <span>{isSharedOnProfile ? 'Public' : 'Private'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPreviewBlogEntry(entry)}
-                          className="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-surface border border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60 transition flex items-center gap-1.5"
-                          title="Preview as Blog Article"
-                        >
-                          <BookOpen className="w-3 h-3 text-accent" />
-                          <span>Article View</span>
-                        </button>
-
-                        <button 
-                          type="button"
-                          onClick={() => copySingleMemoryLink(entry.id)}
-                          className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border transition flex items-center gap-1.5 ${
-                            isCopied
-                              ? 'bg-emerald-600 border-emerald-600 text-white'
-                              : 'bg-surface border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60'
-                          }`}
-                        >
-                          {isCopied ? <Check className="w-3 h-3" /> : <Share className="w-3 h-3" />}
-                          <span>{isCopied ? 'Copied!' : 'Share Link'}</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </motion.div>
           </motion.div>
         )}
 
         {activeSection === 'sync' && (
           <motion.div
             key="sync"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+            variants={sectionContainer}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
             className="space-y-4 sm:space-y-5"
           >
+            <SectionHeading
+              title="Sync & Data"
+              subtitle="Cloud backup, device key and portable archives"
+              onOpenIdentity={() => setActiveSection('identity')}
+            />
+
             {/* Card 1: Google Account & Cloud Sync */}
-            <div className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+            <motion.div variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-2xl bg-accent/12 border border-accent/20 text-accent flex items-center justify-center shrink-0">
@@ -940,10 +977,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <span>{syncStatusMsg}</span>
                 </p>
               )}
-            </div>
+            </motion.div>
 
             {/* Card 2: Anonymous Device Key & Recovery */}
-            <div className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
+            <motion.div variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-bg border border-surface-highlight text-accent flex items-center justify-center shrink-0">
                   <Key className="w-5 h-5" />
@@ -1003,10 +1040,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Card 3: Offline JSON Archive & Backup */}
-            <div className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-4">
+            <motion.div variants={cardIn} className="bg-surface border border-surface-highlight rounded-3xl p-5 sm:p-7 shadow-sm space-y-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-bg border border-surface-highlight text-accent flex items-center justify-center shrink-0">
                   <Upload className="w-5 h-5" />
@@ -1038,7 +1075,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   <span>Export JSON ({journalEntries.length})</span>
                 </button>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

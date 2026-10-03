@@ -1,11 +1,14 @@
 
 import React from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw } from './Icons';
+import { motion, AnimatePresence, useDragControls } from 'motion/react';
+import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw, ChevronRight } from './Icons';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
-import { iosSpring, triggerHaptic } from '../utils/uiSprings';
+import { backdrop, sheet, springSheet, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSwitch } from './ui/DraggableToggle';
+import { ModelPanel } from './ModelPanel';
 import { ensureFontLoaded } from '../utils/fonts';
+import { DEFAULT_TIERS, tierName } from '../services/modelConfig';
+import { getDecisionTarget } from '../services/jevService';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -13,12 +16,6 @@ interface SettingsModalProps {
   settings: AppSettings;
   onUpdateSettings: (s: AppSettings) => void;
 }
-
-const MODELS = [
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash', badge: 'Recommended', desc: 'Fast, multimodal intelligence for auto titles & insights' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash-Lite', badge: 'Fastest', desc: 'Ultra lightweight & instant response model' },
-  { id: 'gemma-4-31b-it', label: 'Gemma 4-31B-it', badge: 'Open Model', desc: 'Specialized 31B open weights for structured reflection' },
-];
 
 const HEADING_FONTS = [
   { id: 'syncopate', name: 'Syncopate', tag: 'Wide Display', sampleFont: "'Syncopate', sans-serif" },
@@ -40,10 +37,18 @@ const BODY_FONTS = [
 ];
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, settings, onUpdateSettings }) => {
+  const [isModelPanelOpen, setIsModelPanelOpen] = React.useState(false);
+  const dragControls = useDragControls();
+
   // Font previews need every family; fetch them only once the picker is actually opened.
   React.useEffect(() => {
     if (isOpen) [...BODY_FONTS, ...HEADING_FONTS].forEach(f => ensureFontLoaded(f.id));
+    if (!isOpen) setIsModelPanelOpen(false);
   }, [isOpen]);
+
+  const activeTier = settings.activeTier || 'lantern';
+  const activeSlot = (settings.modelTiers || DEFAULT_TIERS)[activeTier] || DEFAULT_TIERS.lantern;
+  const decision = getDecisionTarget(settings);
 
   const handleUpdate = (updated: AppSettings) => {
     triggerHaptic(6);
@@ -73,19 +78,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
     <AnimatePresence>
       {isOpen && (
         <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
+          variants={backdrop}
+          initial="hidden"
+          animate="show"
+          exit="hidden"
           style={{ willChange: 'opacity' }}
           className="fixed inset-0 z-[200] flex items-center justify-center p-2 sm:p-4 bg-black/50 backdrop-blur-sm"
           onClick={handleClose}
         >
           <motion.div 
-            initial={{ opacity: 0, scale: 0.94, y: 25 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.94, y: 25 }}
-            transition={iosSpring}
+            variants={sheet}
+            initial="hidden"
+            animate="show"
+            exit="hidden"
             drag="y"
+            dragListener={false}
+            dragControls={dragControls}
             dragConstraints={{ top: 0, bottom: 0 }}
             dragElastic={{ top: 0.05, bottom: 0.5 }}
             onDragEnd={(_, info) => {
@@ -98,14 +106,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
             className="bg-surface rounded-3xl w-full max-w-xl shadow-2xl relative flex flex-col max-h-[95vh] overflow-hidden border border-surface-highlight"
           >
             {/* Gesture Handle Bar */}
-            <div className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none" style={{ touchAction: 'none' }}>
+            <div
+              onPointerDown={(e) => dragControls.start(e)}
+              className="w-full flex justify-center pt-3 pb-1 cursor-grab active:cursor-grabbing shrink-0 select-none"
+              style={{ touchAction: 'none' }}
+            >
               <div className="w-10 h-1.5 rounded-full bg-surface-highlight/80" />
             </div>
             
             <div className="flex justify-between items-center px-6 sm:px-8 py-4 sm:py-5 border-b border-surface-highlight shrink-0">
               <div>
-                <h2 className="text-xl font-display font-bold text-primary">Preferences</h2>
-                <p className="text-secondary text-xs mt-0.5">Refine your environment</p>
+                <h2 className="text-xl font-display font-bold text-primary">{isModelPanelOpen ? 'Models' : 'Preferences'}</h2>
+                <p className="text-secondary text-xs mt-0.5">{isModelPanelOpen ? 'Ember · Lantern · Beacon' : 'Refine your environment'}</p>
               </div>
               <button 
                 type="button"
@@ -117,8 +129,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </button>
             </div>
 
+            <div className="relative flex-1 min-h-0 flex flex-col">
             <div 
-              className="overflow-y-auto p-6 sm:p-8 space-y-10 no-scrollbar overscroll-contain"
+              className="flex-1 min-h-0 overflow-y-auto p-6 sm:p-8 space-y-10 no-scrollbar overscroll-contain"
               style={{ WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain' }}
             >
               
@@ -137,6 +150,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                    />
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
                      Stored only on this device. Used for writing help, chat and subtask generation.
+                   </p>
+
+                   <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2 mt-5">OpenRouter API Key</label>
+                   <input 
+                     type="password" 
+                     value={settings.openrouterApiKey || ''}
+                     onChange={(e) => handleUpdate({ ...settings, openrouterApiKey: e.target.value })}
+                     placeholder="sk-or-v1-…"
+                     className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
+                   />
+                   <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
+                     Powers any tier set to OpenRouter (chat completions v1) and the decision model when its endpoint is OpenRouter (SystemOne).
                    </p>
 
                    <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2 mt-5">OpenCode Zen Key <span className="text-accent normal-case tracking-normal font-medium">· Jev</span></label>
@@ -318,53 +343,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
               </section>
 
               <section className="space-y-3">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider flex items-center gap-3">
-                    <Cpu className="w-4 h-4" /> AI Model Engine
-                  </h3>
-                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-surface-highlight text-accent">
-                    {MODELS.find(m => m.id === (settings.model || 'gemini-3.8-flash'))?.badge || 'Active'}
-                  </span>
-                </div>
+                <h3 className="text-xs font-mono font-bold text-accent uppercase tracking-wider flex items-center gap-3">
+                  <Cpu className="w-4 h-4" /> AI Models
+                </h3>
 
-                {/* Compact Card for AI Models */}
-                <div className="bg-surface-highlight/30 p-3 sm:p-4 rounded-2xl border border-surface-highlight/50 space-y-2">
-                  {MODELS.map((m) => {
-                    const isSelected = (settings.model || 'gemini-3.8-flash') === m.id;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => handleUpdate({ ...settings, model: m.id })}
-                       
-                        className={`w-full text-left p-3 rounded-2xl border transition-transform duration-150 flex items-center justify-between gap-3 active:scale-[0.98] cursor-pointer ${
-                          isSelected
-                            ? 'bg-surface border-accent/50 shadow-xs ring-1 ring-accent/20'
-                            : 'bg-surface/50 hover:bg-surface border-transparent text-secondary'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs sm:text-sm font-bold ${isSelected ? 'text-primary' : 'text-primary/90'}`}>
-                              {m.label}
-                            </span>
-                            <span className={`text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded-md ${
-                              isSelected ? 'bg-accent/15 text-accent' : 'bg-surface-highlight text-secondary'
-                            }`}>
-                              {m.badge}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-secondary/70 truncate mt-0.5">{m.desc}</p>
-                        </div>
-                        <div className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                          isSelected ? 'border-accent bg-accent text-white' : 'border-secondary/40'
-                        }`}>
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+                <motion.button
+                  type="button"
+                  onClick={() => { triggerHaptic(6); setIsModelPanelOpen(true); }}
+                  className="w-full flex items-center justify-between gap-3 p-4 rounded-2xl bg-surface-highlight/30 hover:bg-surface-highlight/50 border border-surface-highlight/50 text-left transition-colors active:scale-[0.99] cursor-pointer"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-primary">{tierName(activeTier)}</span>
+                      <span className="text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-accent/15 text-accent">
+                        {activeSlot.provider === 'openrouter' ? 'OpenRouter' : 'Gemini'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-mono text-secondary/70 truncate mt-0.5">{activeSlot.model}</p>
+                    <p className="text-[11px] text-secondary/70 truncate">
+                      Decisions: {decision.model} · {decision.provider === 'openrouter' ? 'OpenRouter' : 'OpenCode Zen'}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-secondary shrink-0" />
+                </motion.button>
               </section>
 
               <section>
@@ -385,6 +386,25 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                    ))}
                 </div>
               </section>
+            </div>
+
+            <AnimatePresence>
+              {isModelPanelOpen && (
+                <motion.div
+                  initial={{ x: '100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '100%' }}
+                  transition={springSheet}
+                  className="absolute inset-0 bg-surface flex flex-col"
+                >
+                  <ModelPanel
+                    settings={settings}
+                    onUpdate={onUpdateSettings}
+                    onBack={() => { triggerHaptic(6); setIsModelPanelOpen(false); }}
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
             </div>
           </motion.div>
         </motion.div>

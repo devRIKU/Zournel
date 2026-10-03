@@ -23,14 +23,32 @@ export interface UserProfile {
   isSingleEntry?: boolean;
 }
 
+export type ModelTier = 'ember' | 'lantern' | 'beacon';
+export type AiProvider = 'gemini' | 'openrouter';
+export type DecisionProvider = 'zen' | 'openrouter';
+
+/** One tier = a provider plus whatever model id that provider understands. */
+export interface ModelSlot {
+  provider: AiProvider;
+  model: string;
+}
+
 export interface AppSettings {
   theme: Theme;
   fontFamily?: string;
   headingFontFamily?: string;
   completionAnimation: CompletionAnimation;
   deleteAnimation: DeleteAnimation;
+  /** @deprecated — the active tier + `modelTiers` replaced this. Kept only to migrate existing devices. */
   model: string;
   apiKey: string;
+  /** Which tier the app uses by default. */
+  activeTier?: ModelTier;
+  modelTiers?: Record<ModelTier, ModelSlot>;
+  openrouterApiKey?: string;
+  decisionProvider?: DecisionProvider;
+  /** Decision (SystemOne) model id — e.g. `jev-1.13-free`. */
+  decisionModel?: string;
   /** OpenCode Zen key — enables Jev (fast structured decisions: mood, priority, intent). */
   opencodeApiKey?: string;
   profile?: UserProfile;

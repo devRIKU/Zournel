@@ -4,21 +4,16 @@ import type { GoogleGenAI } from "@google/genai";
 const loadGenAI = () => import("@google/genai");
 import { AIProcessedInput, Priority } from "../types";
 import { isJevAvailable, detectMoodWithJev } from "./jevService";
+import { openRouterChat } from "./openrouter";
+import {
+  DEFAULT_TIERS, ModelOption, getGeminiKey, getOpenRouterKey, presetsFor,
+  readModelCache, readSettings, resolveSlot, writeModelCache,
+} from "./modelConfig";
 
 // Modern standard model names
 const imageModelName = 'gemini-3.1-flash-lite-image';
 
 export type AiActionType = 'PROOFREAD' | 'REWRITE' | 'IMPROVE' | 'REPHRASE' | 'SUMMARIZE' | 'EXPAND';
-
-const routeModel = (model: string, type: 'TODO' | 'POLISH'): string => {
-  if (!model) {
-    return 'gemini-3.8-flash';
-  }
-  if (model === 'gemma-4-31b-it') return 'gemma-4-31b-it';
-  if (model === 'gemini-3.5-flash-lite' || model === 'gemini-3.1-flash-lite') return 'gemini-3.1-flash-lite';
-  if (model === 'gemini-3.8-flash') return 'gemini-3.8-flash';
-  return 'gemini-3.8-flash';
-};
 
 const handleAiError = (error: any) => {
   console.warn("AI Warning/Error:", error.message || error);
@@ -29,30 +24,65 @@ const cleanJsonString = (str: string) => {
   return str.replace(/```json/g, '').replace(/```/g, '').trim();
 };
 
-const getAiClient = async (apiKeyOverride?: string): Promise<GoogleGenAI | null> => {
-  let apiKey = apiKeyOverride || '';
+interface GenerateOptions {
+  system?: string;
+  json?: boolean;
+  temperature?: number;
+  /** Gemini structured output; OpenRouter is asked for JSON in the prompt instead. */
+  schema?: any;
+}
 
+/**
+ * Every text call in this file funnels through here. `tier` is an Ember / Lantern / Beacon id;
+ * the slot decides whether that means OpenRouter or Gemini today.
+ */
+const generate = async (prompt: string, tier: string, opts: GenerateOptions = {}): Promise<string | null> => {
+  const settings = readSettings();
+  const slot = resolveSlot(tier, settings);
+  const wantsJson = Boolean(opts.json || opts.schema);
+
+  if (slot.provider === 'openrouter' && getOpenRouterKey(settings)) {
+    const text = await openRouterChat({
+      model: slot.model,
+      prompt,
+      system: opts.system,
+      json: wantsJson,
+      temperature: opts.temperature,
+    });
+    if (text !== null) return text;
+    // OpenRouter is down or the key was rejected — fall back to Gemini rather than
+    // failing the feature, using a Gemini model name rather than the OpenRouter id.
+  }
+
+  const apiKey = getGeminiKey(settings);
   if (!apiKey) {
-    try {
-      const settingsStr = localStorage.getItem('mf_settings');
-      if (settingsStr) {
-        const parsed = JSON.parse(settingsStr);
-        if (parsed.apiKey && typeof parsed.apiKey === 'string' && parsed.apiKey.trim().length > 0) {
-          apiKey = parsed.apiKey.trim();
-        }
-      }
-    } catch (e) {
-      // Ignore JSON parse errors
+    console.warn("AI Warning: no Gemini or OpenRouter API key configured.");
+    return null;
+  }
+  const ai = await getAiClient(apiKey);
+  if (!ai) return null;
+
+  const config: any = {};
+  if (opts.schema) {
+    config.responseMimeType = "application/json";
+    config.responseSchema = opts.schema;
+  } else if (opts.json) {
+    config.responseMimeType = "application/json";
+  }
+
+  const response = await generateContentWithFallback(
+    ai,
+    slot.provider === 'openrouter' ? DEFAULT_TIERS.lantern.model : slot.model,
+    {
+      contents: prompt,
+      ...(Object.keys(config).length ? { config } : {}),
     }
-  }
+  );
+  return response?.text ?? null;
+};
 
-  if (!apiKey) {
-    apiKey = 
-      (typeof process !== 'undefined' && process.env ? (process.env.GEMINI_API_KEY || process.env.API_KEY) : '') ||
-      (typeof import.meta !== 'undefined' && import.meta.env ? (import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.GEMINI_API_KEY) : '') ||
-      (typeof window !== 'undefined' && ((window as any).GEMINI_API_KEY || (window as any).API_KEY)) ||
-      '';
-  }
+const getAiClient = async (apiKeyOverride?: string): Promise<GoogleGenAI | null> => {
+  const apiKey = (apiKeyOverride || '').trim() || getGeminiKey();
 
   if (!apiKey) {
     return null;
@@ -81,15 +111,8 @@ const generateContentWithFallback = async (ai: GoogleGenAI, primaryModel: string
   throw lastError;
 };
 
-export const processUserInput = async (input: string, model: string = 'gemini-3.5-flash-lite'): Promise<AIProcessedInput> => {
+export const processUserInput = async (input: string, tier: string = 'ember'): Promise<AIProcessedInput> => {
   try {
-    const ai = await getAiClient();
-    if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
-      return { tasks: [], journalContent: null, mood: null };
-    }
-    const activeModel = routeModel(model, 'TODO');
-    
     const responseSchema = {
       type: "OBJECT",
       properties: {
@@ -110,23 +133,16 @@ export const processUserInput = async (input: string, model: string = 'gemini-3.
       required: ['tasks', 'journalContent', 'mood']
     };
 
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `You are an intelligent assistant for a personal journal and task manager. I will provide you with a stream of consciousness input that might contain both things to do and personal reflections. 
+    const response = await generate(`You are an intelligent assistant for a personal journal and task manager. I will provide you with a stream of consciousness input that might contain both things to do and personal reflections. 
       Please carefully separate them. 
       - Extract any actionable items into the 'tasks' array.
       - Put the reflective, narrative, or emotional content into 'journalContent'.
       - Identify the overall 'mood'.
       
-      Input: "${input}"`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-      },
-    });
+      Input: "${input}"`, tier, { schema: responseSchema });
 
-    const text = response.text;
-    if (!text) return { tasks: [], journalContent: null, mood: null };
+    if (!response) return { tasks: [], journalContent: null, mood: null };
+    const text = response;
     return JSON.parse(cleanJsonString(text));
   } catch (error) {
     handleAiError(error);
@@ -134,14 +150,8 @@ export const processUserInput = async (input: string, model: string = 'gemini-3.
   }
 };
 
-export const extractTasksFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite'): Promise<{ text: string, priority: Priority }[]> => {
+export const extractTasksFromJournal = async (journalText: string, tier: string = 'ember'): Promise<{ text: string, priority: Priority }[]> => {
   try {
-    const ai = await getAiClient();
-    if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
-      return [];
-    }
-    const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
       type: "OBJECT",
       properties: {
@@ -159,22 +169,14 @@ export const extractTasksFromJournal = async (journalText: string, model: string
       }
     };
 
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `Act as a personal organizer. Read the following journal entry and identify any implicit or explicit tasks, errands, or future commitments mentioned by the user. 
+    const response = await generate(`Act as a personal organizer. Read the following journal entry and identify any implicit or explicit tasks, errands, or future commitments mentioned by the user. 
       Assign a priority ('high', 'medium', or 'low') to each task based on the urgency or importance suggested by the context. 
       Return an empty list if no tasks are found.
       
-      Entry: "${journalText}"`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema
-      },
-    });
+      Entry: "${journalText}"`, tier, { schema: responseSchema });
 
-    const text = response.text;
-    if (!text) return [];
-    const result = JSON.parse(cleanJsonString(text));
+    if (!response) return [];
+    const result = JSON.parse(cleanJsonString(response));
     return result.tasks || [];
   } catch (error) {
     handleAiError(error);
@@ -182,66 +184,37 @@ export const extractTasksFromJournal = async (journalText: string, model: string
   }
 };
 
-export const generateSubtasks = async (taskText: string, model: string = 'gemini-3.5-flash-lite'): Promise<string[]> => {
+export const generateSubtasks = async (taskText: string, tier: string = 'ember'): Promise<string[]> => {
   try {
-    const ai = await getAiClient();
-    if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
-      return [];
-    }
-    const activeModel = routeModel(model, 'TODO');
     const responseSchema = {
       type: "ARRAY",
       items: { type: "STRING" },
     };
 
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `Break down the following task into 3 to 5 logical, small, and actionable steps to help the user get started and maintain momentum: "${taskText}"`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-      },
-    });
+    const response = await generate(`Break down the following task into 3 to 5 logical, small, and actionable steps to help the user get started and maintain momentum: "${taskText}"`, tier, { schema: responseSchema });
 
-    const text = response.text;
-    if (!text) return [];
-    return JSON.parse(cleanJsonString(text));
+    if (!response) return [];
+    return JSON.parse(cleanJsonString(response));
   } catch (error) {
     handleAiError(error);
     return [];
   }
 };
 
-export const generateJournalInsight = async (entryText: string, model: string = 'gemini-3.6-flash'): Promise<string> => {
+export const generateJournalInsight = async (entryText: string, tier: string = 'lantern'): Promise<string> => {
   try {
-    const ai = await getAiClient();
-    if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
-      return "";
-    }
-    const activeModel = routeModel(model, 'POLISH');
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `You are a wise and empathetic companion. Read this journal entry: "${entryText}". 
+    const response = await generate(`You are a wise and empathetic companion. Read this journal entry: "${entryText}". 
       Provide exactly one single, deeply reflective, and encouraging sentence that captures the emotional essence, a key insight, or a positive growth moment from the user's thoughts. 
-      Keep it poetic but grounded. Do not use generic self-help clichés.`,
-    });
-    return response.text?.trim() || "";
+      Keep it poetic but grounded. Do not use generic self-help clichés.`, tier, {});
+    return response?.trim() || "";
   } catch (error) {
     handleAiError(error);
     return "";
   }
 };
 
-export const editJournalText = async (text: string, type: AiActionType, model: string = 'gemini-3.6-flash'): Promise<string> => {
+export const editJournalText = async (text: string, type: AiActionType, tier: string = 'lantern'): Promise<string> => {
   try {
-    const ai = await getAiClient();
-    if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences.");
-      return text;
-    }
-    const activeModel = routeModel(model, 'POLISH');
     const prompts: Record<AiActionType, string> = { 
       PROOFREAD: "You are a meticulous copy editor. Proofread the following journal entry. Correct any spelling, punctuation, and grammar mistakes without altering the author's voice, phrasing, or core message. Return ONLY the proofread text. NO headers, NO conversational filler, NO quotes around the text.",
       REWRITE: "You are an expert writing consultant. Rewrite the following journal entry to improve sentence structure, rhythm, and clarity while keeping the original meaning and emotion intact. Return ONLY the rewritten text. NO headers, NO conversational filler, NO quotes around the text.",
@@ -251,17 +224,68 @@ export const editJournalText = async (text: string, type: AiActionType, model: s
       EXPAND: "You are a thoughtful writing partner. Expand the following journal entry by deepening the reflections, adding sensory details, and encouraging further self-inquiry while staying true to the author's original experience. Return ONLY the expanded text. NO headers, NO conversational filler, NO quotes around the text."
     };
     
-    const response = await ai.models.generateContent({
-      model: activeModel,
-      contents: `${prompts[type]}\n\nInput Text:\n"${text}"`,
-    });
-    return response.text?.trim() || text;
+    const response = await generate(`${prompts[type]}\n\nInput Text:\n"${text}"`, tier, {});
+    return response?.trim() || text;
   } catch (error) {
     handleAiError(error);
     return text;
   }
 };
 
+// --- model catalogue -------------------------------------------------------------------------
+// Plain REST rather than the SDK: this list is needed before any generation happens and it
+// shouldn't pull the 290 KB client in on its own.
+
+const CATALOG_ENDPOINT = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+let catalogRequest: Promise<ModelOption[]> | null = null;
+
+export const fetchGeminiModels = async (force = false): Promise<ModelOption[]> => {
+  if (!force) {
+    const cached = readModelCache('gemini');
+    if (cached) return cached;
+  }
+  if (catalogRequest) return catalogRequest;
+
+  catalogRequest = (async () => {
+    const apiKey = getGeminiKey();
+    if (!apiKey) return presetsFor('gemini');
+    try {
+      const res = await fetch(`${CATALOG_ENDPOINT}?key=${encodeURIComponent(apiKey)}&pageSize=1000`);
+      if (!res.ok) throw new Error(`Gemini models ${res.status}`);
+      const data = await res.json();
+      const strip = (name: string) => String(name || '').replace(/^models\//, '');
+      const models: ModelOption[] = (data?.models || [])
+        // only models that can actually answer a prompt
+        .filter((m: any) => (m.supportedGenerationMethods || []).includes('generateContent'))
+        .map((m: any) => {
+          const id = strip(m.name);
+          return { id, label: m.displayName || id };
+        })
+        .filter((m: ModelOption) => Boolean(m.id))
+        .sort((a, b) => {
+          const experimental = (id: string) => (/exp|preview|latest/i.test(id) ? 1 : 0);
+          return experimental(a.id) - experimental(b.id) || a.id.localeCompare(b.id);
+        });
+      if (!models.length) throw new Error('Gemini returned no text models');
+      writeModelCache('gemini', models);
+      return models;
+    } catch (err: any) {
+      console.warn('Could not load Gemini models:', err?.message || err);
+      return presetsFor('gemini');
+    } finally {
+      catalogRequest = null;
+    }
+  })();
+
+  return catalogRequest;
+};
+
+// JSON answers, on whichever provider the tier is mapped to.
+export const generateJson = async (prompt: string, tier: string, schema?: any): Promise<string | null> =>
+  generate(prompt, tier, schema ? { schema } : { json: true });
+
+// Gemini only: this needs the image model's inline-data response, which OpenRouter doesn't serve.
 export const generateCoverImage = async (context: string): Promise<string | null> => {
   try {
     const ai = await getAiClient();
@@ -327,7 +351,7 @@ export const moodFromLabel = (label: string) => {
   return { emoji: found.emoji, label: found.label, fullMood: `${found.emoji} ${found.label}` };
 };
 
-export const detectMoodFromJournal = async (journalText: string, model: string = 'gemini-3.5-flash-lite', apiKeyOverride?: string): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
+export const detectMoodFromJournal = async (journalText: string, tier: string = 'ember'): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
   // Jev (System One) answers a classification in one tiny request and is cached per text —
   // no LLM, no tokens, no streaming. Gemini below is only the fallback.
   if (isJevAvailable()) {
@@ -335,13 +359,6 @@ export const detectMoodFromJournal = async (journalText: string, model: string =
     if (jev && jev.confidence >= 0.35) return moodFromLabel(jev.label);
   }
   try {
-    const ai = await getAiClient(apiKeyOverride);
-    if (!ai) {
-      console.warn("AI Warning: Gemini API Key is missing. Please configure it in Preferences or environment.");
-      return null;
-    }
-    const activeModel = routeModel(model, 'TODO');
-    
     const cleanText = journalText.replace(/[#*`_~[\]()]/g, '').trim();
     if (!cleanText || cleanText.length < 5) return null;
 
@@ -358,23 +375,23 @@ export const detectMoodFromJournal = async (journalText: string, model: string =
       required: ['label']
     };
 
-    let response: any = null;
+    let text: string | null = null;
     try {
-      response = await generateContentWithFallback(ai, activeModel, {
-        contents: `Analyze the emotional tone of this journal entry and choose the single best matching mood label from this exact allowed list: ${allowedLabels.join(', ')}. Return ONLY the label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: responseSchema,
-        },
-      });
+      text = await generate(
+        `Analyze the emotional tone of this journal entry and choose the single best matching mood label from this exact allowed list: ${allowedLabels.join(', ')}. Return ONLY the label.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+        tier,
+        { schema: responseSchema }
+      );
     } catch (err) {
       console.warn("Structured mood detection failed, trying fallback...", err);
-      response = await generateContentWithFallback(ai, activeModel, {
-        contents: `Analyze the emotional tone of this journal entry and return EXACTLY one mood label from this list: ${allowedLabels.join(', ')}.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
-      });
     }
-
-    const text = response?.text;
+    if (!text) {
+      text = await generate(
+        `Analyze the emotional tone of this journal entry and return EXACTLY one mood label from this list: ${allowedLabels.join(', ')}.\nJournal entry:\n"${cleanText.slice(0, 1000)}"`,
+        tier,
+        { json: true }
+      );
+    }
     if (!text) return null;
 
     let matchedLabel = 'Reflective';
@@ -443,35 +460,29 @@ export const extractAutoTitle = (journalText: string): string => {
 };
 
 export const generateAutoTitle = async (
-  journalText: string, 
-  model: string = 'gemini-3.8-flash', 
-  apiKeyOverride?: string
+  journalText: string,
+  tier: string = 'lantern'
 ): Promise<string> => {
   try {
     const fallbackTitle = extractAutoTitle(journalText);
-    const ai = await getAiClient(apiKeyOverride);
-    if (!ai) {
-      return fallbackTitle;
-    }
 
     const cleanText = journalText.replace(/[#*`_~[\]()]/g, '').trim();
     if (!cleanText || cleanText.length < 10) {
       return fallbackTitle;
     }
 
-    const activeModel = routeModel(model, 'TODO');
-
-    const response = await generateContentWithFallback(ai, activeModel, {
-      contents: `You are an expert editor for a personal journal. Craft a short, meaningful, poetic, or reflective title (between 2 and 6 words) that captures the core essence or main theme of this entry.
+    const response = await generate(
+      `You are an expert editor for a personal journal. Craft a short, meaningful, poetic, or reflective title (between 2 and 6 words) that captures the core essence or main theme of this entry.
 Rules:
 - DO NOT use generic titles like "Journal Entry", "Daily Thoughts", or "My Reflection".
 - Return ONLY the title text. No quotes, no markdown, no leading labels.
 
 Journal Entry:
 "${cleanText.slice(0, 1500)}"`,
-    });
+      tier
+    );
 
-    const rawText = response.text?.trim() || '';
+    const rawText = response?.trim() || '';
     const titleText = rawText
       .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
       .replace(/^title:\s*/i, '')

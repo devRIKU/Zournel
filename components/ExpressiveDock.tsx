@@ -1,16 +1,16 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BookOpen, CheckSquare, User } from './Icons';
+import { BookOpen, CheckSquare } from './Icons';
 import { Tab } from '../types';
-import { triggerHaptic } from '../utils/uiSprings';
+import { springPlayful, springPress, triggerHaptic } from '../utils/uiSprings';
 
 const ITEMS: { tab: Tab; label: string; Icon: typeof BookOpen }[] = [
   { tab: Tab.TODO, label: 'Tasks', Icon: CheckSquare },
   { tab: Tab.JOURNAL, label: 'Journal', Icon: BookOpen },
-  { tab: Tab.PROFILE, label: 'Account', Icon: User },
 ];
 
 // One dock for every breakpoint: same pill, same item, same active state.
+// Account lives in the top-bar avatar menu so there is only ever one door into it.
 export const ExpressiveDock: React.FC<{ activeTab: Tab; onTabChange: (tab: Tab) => void }> = ({ activeTab, onTabChange }) => (
   <nav
     aria-label="Primary"
@@ -20,12 +20,13 @@ export const ExpressiveDock: React.FC<{ activeTab: Tab; onTabChange: (tab: Tab) 
       {ITEMS.map(({ tab, label, Icon }) => {
         const active = activeTab === tab;
         return (
-          <button
+          <motion.button
             key={tab}
             type="button"
             aria-current={active ? 'page' : undefined}
+            whileTap={{ scale: 0.92, transition: springPress }}
             onClick={() => { triggerHaptic(8); onTabChange(tab); }}
-            className={`relative flex items-center gap-2 h-11 px-4 sm:px-5 rounded-full text-sm font-medium transition-colors duration-200 active:scale-95 select-none ${
+            className={`relative flex items-center gap-2 h-12 px-5 sm:px-6 rounded-full text-sm font-medium transition-colors duration-200 select-none ${
               active ? 'text-accent' : 'text-secondary hover:text-primary'
             }`}
           >
@@ -33,12 +34,18 @@ export const ExpressiveDock: React.FC<{ activeTab: Tab; onTabChange: (tab: Tab) 
               <motion.span
                 layoutId="dock-active"
                 className="absolute inset-0 rounded-full bg-accent/12 border border-accent/20"
-                transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                transition={springPlayful}
               />
             )}
-            <Icon className="relative w-5 h-5" weight={active ? 'fill' : 'regular'} />
+            <motion.span
+              animate={{ scale: active ? 1.15 : 1, y: active ? -1 : 0 }}
+              transition={springPlayful}
+              className="relative flex"
+            >
+              <Icon className="w-5 h-5" weight={active ? 'fill' : 'regular'} />
+            </motion.span>
             <span className="relative">{label}</span>
-          </button>
+          </motion.button>
         );
       })}
     </div>

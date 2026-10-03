@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { motion, useMotionValue, useTransform, animate } from 'motion/react';
+import { motion, useMotionValue, animate } from 'motion/react';
+import { springPlayful, springPress } from '../../utils/uiSprings';
 
 interface DraggableSwitchProps {
   checked: boolean;
@@ -128,7 +129,7 @@ export const DraggableSegmentedToggle = <T extends string = string>({
       ref={containerRef}
       className={`relative inline-flex items-center h-10 p-1 rounded-full bg-surface-highlight/40 border border-surface-highlight select-none ${className}`}
     >
-      {options.map((option, idx) => {
+      {options.map((option) => {
         const isSelected = option.value === value;
         return (
           <button
@@ -154,11 +155,13 @@ export const DraggableSegmentedToggle = <T extends string = string>({
                   }
                 }}
                 className="absolute inset-0 bg-surface rounded-full shadow-sm border border-surface-highlight -z-10 cursor-grab active:cursor-grabbing"
-                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                transition={springPlayful}
               />
             )}
             {option.icon}
-            <span>{option.label}</span>
+            <motion.span animate={{ scale: isSelected ? 1.04 : 1 }} transition={springPress}>
+              {option.label}
+            </motion.span>
           </button>
         );
       })}

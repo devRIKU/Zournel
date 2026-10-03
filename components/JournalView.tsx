@@ -4,7 +4,7 @@ import { Sparkles, Feather, Image as ImageIcon, Library, LineChart, TrendingUp, 
 import { JournalEntry, Task } from '../types';
 import { extractAutoTitle } from '../services/geminiService';
 import { useJournalStore } from '../store/useJournalStore';
-import { iosSpring, triggerHaptic } from '../utils/uiSprings';
+import { iosSpring, springSoft, triggerHaptic } from '../utils/uiSprings';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { AudioSongPlayer } from './AudioSongPlayer';
@@ -800,8 +800,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
             key="timeline"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+            exit={{ opacity: 0, y: -15, transition: { duration: 0.14, ease: 'easeIn' } }}
+            transition={springSoft}
           >
             {entries.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-32 text-center">
@@ -1214,8 +1214,8 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
             key="reflections"
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -15 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 220 }}
+            exit={{ opacity: 0, y: -15, transition: { duration: 0.14, ease: 'easeIn' } }}
+            transition={springSoft}
             className="w-full"
           >
             {moodEntries.length === 0 ? (
