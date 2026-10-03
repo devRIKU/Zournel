@@ -10,10 +10,11 @@
 //   • in-flight de-duplication, AbortController, 6 s timeout
 //   • every helper returns null on any failure so callers fall back silently
 
-import { Priority } from '../types';
+import { DecisionProvider, Priority } from '../types';
+import { DEFAULT_DECISION_MODEL, getOpenRouterKey, getZenKey, readSettings } from './modelConfig';
+import { SYSTEMONE_ENDPOINT } from './openrouter';
 
-const ENDPOINT = 'https://opencode.ai/zen/v1/systemone';
-const MODEL = 'jev-1.13-free';
+export const ZEN_ENDPOINT = 'https://opencode.ai/zen/v1/systemone';
 const CACHE_KEY = 'mf_jev_cache';
 const CACHE_MAX = 200;
 const TIMEOUT_MS = 6000;
@@ -32,15 +33,25 @@ export const noul = (instructions: string): NoulQ => ({ type: 'noul', instructio
 export const choice = (instructions: string, criteria: Record<string, string>): ChoiceQ => ({ type: 'choice', instructions, criteria });
 export const score = (instructions: string, criteria: string[]): ScoreQ => ({ type: 'score', instructions, criteria });
 
-export const getJevApiKey = (): string => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem('mf_settings') || '{}');
-    if (typeof parsed.opencodeApiKey === 'string' && parsed.opencodeApiKey.trim()) return parsed.opencodeApiKey.trim();
-  } catch {}
-  return (import.meta as any).env?.VITE_OPENCODE_API_KEY || '';
+/** Where a decision is answered right now — OpenCode Zen by default, OpenRouter SystemOne if chosen. */
+export interface SystemOneTarget {
+  provider: DecisionProvider;
+  endpoint: string;
+  apiKey: string;
+  model: string;
+}
+
+export const getJevApiKey = (s = readSettings()): string => getZenKey(s);
+
+export const getDecisionTarget = (s = readSettings()): SystemOneTarget => {
+  const model = (s.decisionModel || DEFAULT_DECISION_MODEL).trim() || DEFAULT_DECISION_MODEL;
+  return s.decisionProvider === 'openrouter'
+    ? { provider: 'openrouter', endpoint: SYSTEMONE_ENDPOINT, apiKey: getOpenRouterKey(s), model }
+    : { provider: 'zen', endpoint: ZEN_ENDPOINT, apiKey: getZenKey(s), model };
 };
 
-export const isJevAvailable = () => Boolean(getJevApiKey()) && navigator.onLine !== false;
+export const isJevAvailable = (): boolean =>
+  Boolean(getDecisionTarget().apiKey) && navigator.onLine !== false;
 
 // --- tiny FNV-1a hash; good enough for a cache key, no crypto needed -----------------------
 const hash = (s: string) => {
@@ -68,15 +79,17 @@ const writeCache = (key: string, a: Record<string, JevAnswer>) => {
 
 const inflight = new Map<string, Promise<Record<string, JevAnswer> | null>>();
 
-export const askJev = async (
+export const askSystemOne = async (
   state: string | Record<string, unknown>,
   questions: Record<string, JevQuestion>,
+  target: SystemOneTarget = getDecisionTarget(),
   signal?: AbortSignal
 ): Promise<Record<string, JevAnswer> | null> => {
-  const apiKey = getJevApiKey();
+  const { apiKey, endpoint, model } = target;
   if (!apiKey) return null;
 
-  const key = hash(JSON.stringify([questions, state]));
+  // Endpoint + model are part of the key: two providers can answer differently.
+  const key = hash(JSON.stringify([questions, state, endpoint, model]));
   const cached = readCache()[key];
   if (cached) return cached.a;
   if (inflight.has(key)) return inflight.get(key)!;
@@ -86,10 +99,10 @@ export const askJev = async (
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
     signal?.addEventListener('abort', () => ctrl.abort(), { once: true });
     try {
-      const res = await fetch(ENDPOINT, {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: MODEL, state, questions }),
+        body: JSON.stringify({ model, state, questions }),
         signal: ctrl.signal,
       });
       if (!res.ok) return null;
@@ -108,6 +121,12 @@ export const askJev = async (
   inflight.set(key, run);
   return run;
 };
+
+export const askJev = async (
+  state: string | Record<string, unknown>,
+  questions: Record<string, JevQuestion>,
+  signal?: AbortSignal
+): Promise<Record<string, JevAnswer> | null> => askSystemOne(state, questions, getDecisionTarget(), signal);
 
 // ---------------------------------------------------------------------------------------------
 // App-level decisions

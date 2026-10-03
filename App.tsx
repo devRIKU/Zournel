@@ -11,6 +11,7 @@ import { useTaskStore } from './store/useTaskStore';
 import { useJournalStore } from './store/useJournalStore';
 import { SpotlightGlow } from './components/ui/background-beams';
 import { ensureFontLoaded } from './utils/fonts';
+import { migrateModelSettings } from './services/modelConfig';
 import type { GoogleAccountUser } from './services/authService';
 import { DEFAULT_TRANSITION, press, springPlayful, springPress, springSoft } from './utils/uiSprings';
 
@@ -72,15 +73,15 @@ const AppShell: React.FC = () => {
         return JSON.parse(saved);
       }
     } catch (e) {}
-    return {
+    return migrateModelSettings({
       theme: 'cozy-light',
       fontFamily: 'inter',
       headingFontFamily: 'outfit',
       completionAnimation: 'confetti',
       deleteAnimation: 'shrink',
-      model: 'gemini-3.5-flash-lite',
+      model: 'lantern',
       apiKey: ''
-    };
+    } as AppSettings);
   });
 
   const [loaded, setLoaded] = useState(false);
@@ -359,7 +360,7 @@ const AppShell: React.FC = () => {
     }
     
     if (journal) {
-       saveJournalEntryStore(journal, undefined, mood || undefined, false, undefined, settings.model);
+       saveJournalEntryStore(journal, undefined, mood || undefined, false, undefined, activeTier);
     }
   };
 
@@ -376,7 +377,7 @@ const AppShell: React.FC = () => {
     linkedEntryIds?: string[],
     linkedTaskIds?: string[]
   ) => {
-    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds);
+    saveJournalEntryStore(content, image, mood, isAutoSave, title, activeTier, scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds);
   };
 
   const handleReflectOnTask = (task: Task) => {
@@ -420,6 +421,8 @@ const AppShell: React.FC = () => {
   const handleGoogleSignOut = () => {
     import('./services/authService').then(({ signOutGoogleAccount }) => signOutGoogleAccount());
   };
+
+  const activeTier = settings.activeTier || 'lantern';
 
   const brandSubtitle =
     activeTab === Tab.TODO ? 'Today' : activeTab === Tab.JOURNAL ? `${journalEntries.length} Memories` : 'Account';
@@ -547,11 +550,11 @@ const AppShell: React.FC = () => {
                   onUpdateTask={updateTask}
                   onAddTask={addTask} 
                   onReflectOnTask={handleReflectOnTask}
-                  onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, settings.model); setActiveTab(Tab.JOURNAL); }}
+                  onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, activeTier); setActiveTab(Tab.JOURNAL); }}
                   focusInputSignal={focusInputSignal}
                   completionAnim={settings.completionAnimation} 
                   deleteAnim={settings.deleteAnimation}
-                  selectedModel={settings.model}
+                  selectedModel={activeTier}
                 />
               )}
               {activeTab === Tab.JOURNAL && (
@@ -565,7 +568,7 @@ const AppShell: React.FC = () => {
                   onRenameEntry={renameJournalEntryStore}
                   onImportClick={() => setIsImportModalOpen(true)}
                   onImportEntries={handleImportEntriesStore}
-                  selectedModel={settings.model}
+                  selectedModel={activeTier}
                 />
               )}
               {activeTab === Tab.PROFILE && (
@@ -627,7 +630,7 @@ const AppShell: React.FC = () => {
         initialLyrics={editingEntry?.lyrics || editingEntry?.song?.lyrics}
         initialLinkedEntryIds={editingEntry?.linkedEntryIds}
         initialLinkedTaskIds={editingEntry?.linkedTaskIds}
-        selectedModel={settings.model} 
+        selectedModel={activeTier} 
       />
       </Suspense>
       )}
