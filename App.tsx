@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Settings, Plus, Sparkles, BookOpen } from './components/Icons';
+import { Settings, Plus, Sparkles, BookOpen, User } from './components/Icons';
 import { Tab, Task, JournalEntry, AppSettings, UserProfile } from './types';
 import { ExpressiveDock } from './components/ExpressiveDock';
 import { TodoView } from './components/TodoView';
@@ -370,9 +370,48 @@ export const App: React.FC = () => {
     scribble?: string, 
     song?: JournalEntry['song'],
     lyrics?: string,
-    id?: string
+    id?: string,
+    linkedEntryIds?: string[],
+    linkedTaskIds?: string[]
   ) => {
-    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics, id);
+    saveJournalEntryStore(content, image, mood, isAutoSave, title, settings.model, scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds);
+  };
+
+  const handleReflectOnTask = (task: Task) => {
+    const existing = journalEntries.find(
+      (e) => e.id === task.linkedEntryId || e.linkedTaskIds?.includes(task.id)
+    );
+    if (existing) {
+      setEditingEntry(existing);
+      setIsEditorOpen(true);
+    } else {
+      const draftId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      setEditingEntry({
+        id: draftId,
+        title: task.text,
+        content: '',
+        createdAt: Date.now(),
+        linkedTaskIds: [task.id],
+      });
+      setIsEditorOpen(true);
+    }
+  };
+
+  const handleReflectOnMemory = (sourceEntry: JournalEntry) => {
+    const draftId = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const sourceTitle = sourceEntry.title || 'Past Reflection';
+    setEditingEntry({
+      id: draftId,
+      title: `Reflecting on: ${sourceTitle}`,
+      content: '',
+      createdAt: Date.now(),
+      linkedEntryIds: [sourceEntry.id],
+    });
+    setIsEditorOpen(true);
   };
 
   if (isRouteLoading) {
@@ -412,19 +451,34 @@ export const App: React.FC = () => {
     <div className="h-[100dvh] overflow-y-auto overscroll-y-contain flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
       <SpotlightGlow className="opacity-40 pointer-events-none" />
       
-      {/* Top bar */}
-      <header className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 h-16 sm:h-20 flex items-center justify-between border-b border-surface-highlight/60">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-accent/12 border border-accent/20 text-accent flex items-center justify-center shrink-0">
-            <BookOpen className="w-5 h-5" weight="fill" />
-          </div>
-          <div className="leading-none">
-            <h1 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight">Zournel</h1>
-            <p className="mt-1 text-[11px] font-mono uppercase tracking-wider text-secondary/70">Reflect &amp; Execute</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 sm:gap-2">
-          <div className="hidden md:block mr-1">
+      {/* Sticky Mobile-First Top Navigation Bar */}
+      <header className="sticky top-0 z-30 w-full bg-surface-lowest/85 backdrop-blur-xl border-b border-surface-highlight/60 pt-[env(safe-area-inset-top,0px)]">
+        <div className="w-full max-w-7xl mx-auto px-3.5 sm:px-6 md:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab(Tab.TODO)}
+            className="flex items-center gap-2.5 text-left group active:scale-[0.98] transition-transform min-w-0"
+            title="Zournel — Go to Today"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-accent/12 border border-accent/25 text-accent flex items-center justify-center shrink-0 shadow-2xs group-hover:bg-accent/18 transition-colors">
+              <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" weight="fill" />
+            </div>
+            <div className="leading-none min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-display font-bold text-primary tracking-tight truncate">Zournel</h1>
+                {settings.profile?.thought && (
+                  <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-surface border border-surface-highlight text-secondary truncate max-w-[160px]">
+                    {settings.profile.thought}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[10px] font-mono uppercase tracking-wider text-secondary/70 truncate">
+                {activeTab === Tab.TODO ? 'Reflect & Execute' : activeTab === Tab.JOURNAL ? `${journalEntries.length} Memories` : 'Account & Sanctuary'}
+              </p>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <AutoBackupPill
               isBackingUp={isAutoBackingUp}
               lastBackupTime={lastAutoBackupTime}
@@ -432,18 +486,53 @@ export const App: React.FC = () => {
               onManualBackup={performAutoBackup}
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
+
+            <button
+              type="button"
+              onClick={() => setIsAddModalOpen(true)}
+              title="AI Companion"
+              aria-label="AI Companion"
+              className="h-9 sm:h-10 px-3 sm:px-3.5 rounded-full bg-accent/12 hover:bg-accent/20 border border-accent/25 text-accent flex items-center gap-1.5 text-xs font-semibold active:scale-95 transition shrink-0"
+            >
+              <Sparkles className="w-4 h-4 shrink-0" weight="fill" />
+              <span className="text-[11px] sm:text-xs font-bold tracking-tight">AI</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab(Tab.PROFILE)}
+              title="Account & Profile"
+              aria-label="Account & Profile"
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center border transition active:scale-95 overflow-hidden shrink-0 ${
+                activeTab === Tab.PROFILE
+                  ? 'border-accent ring-2 ring-accent/25 bg-accent/15 text-accent'
+                  : 'border-surface-highlight bg-surface/80 text-secondary hover:text-primary hover:bg-surface-highlight/60'
+              }`}
+            >
+              {settings.profile?.picture ? (
+                <img src={settings.profile.picture} alt={settings.profile.name || 'Account'} className="w-full h-full object-cover" />
+              ) : settings.profile?.name ? (
+                <span className="text-xs font-bold text-primary uppercase">{settings.profile.name.charAt(0)}</span>
+              ) : (
+                <User className="w-4 h-4 sm:w-5 sm:h-5" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              title="Settings"
+              aria-label="Settings"
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-secondary hover:text-primary bg-surface/60 hover:bg-surface-highlight/60 border border-surface-highlight/70 active:scale-95 transition shrink-0"
+            >
+              <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
-          <button type="button" onClick={() => setIsAddModalOpen(true)} title="AI Companion" aria-label="AI Companion" className={ICON_BUTTON}>
-            <Sparkles className="w-5 h-5" />
-          </button>
-          <button type="button" onClick={() => setIsSettingsOpen(true)} title="Settings" aria-label="Settings" className={ICON_BUTTON}>
-            <Settings className="w-5 h-5" />
-          </button>
         </div>
       </header>
 
       {/* Zone 2: Flexible Content Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-6 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-3.5 sm:px-6 md:px-8 pt-5 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}
@@ -456,10 +545,12 @@ export const App: React.FC = () => {
               {activeTab === Tab.TODO && (
                 <TodoView 
                   tasks={tasks} 
+                  journalEntries={journalEntries}
                   onToggleTask={toggleTask} 
                   onDeleteTask={deleteTask} 
                   onUpdateTask={updateTask}
                   onAddTask={addTask} 
+                  onReflectOnTask={handleReflectOnTask}
                   onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, settings.model); setActiveTab(Tab.JOURNAL); }}
                   focusInputSignal={focusInputSignal}
                   completionAnim={settings.completionAnimation} 
@@ -470,7 +561,9 @@ export const App: React.FC = () => {
               {activeTab === Tab.JOURNAL && (
                 <JournalView 
                   entries={journalEntries} 
+                  tasks={tasks}
                   onEdit={e => { setEditingEntry(e); setIsEditorOpen(true); }} 
+                  onReflectOnMemory={handleReflectOnMemory}
                   onDeleteEntry={deleteJournalEntryStore} 
                   onDeleteEntries={deleteJournalEntriesStore}
                   onRenameEntry={renameJournalEntryStore}
@@ -518,6 +611,7 @@ export const App: React.FC = () => {
         onClose={() => { setIsEditorOpen(false); setEditingEntry(null); }} 
         onSave={saveJournalEntry} 
         onDelete={deleteJournalEntryStore}
+        onSwitchEntry={(target) => { setEditingEntry(target); setIsEditorOpen(true); }}
         initialId={editingEntry?.id}
         initialTitle={editingEntry?.title}
         initialContent={editingEntry?.content} 
@@ -526,6 +620,8 @@ export const App: React.FC = () => {
         initialScribble={editingEntry?.scribble}
         initialSong={editingEntry?.song}
         initialLyrics={editingEntry?.lyrics || editingEntry?.song?.lyrics}
+        initialLinkedEntryIds={editingEntry?.linkedEntryIds}
+        initialLinkedTaskIds={editingEntry?.linkedTaskIds}
         selectedModel={settings.model} 
       />
       </Suspense>
@@ -562,7 +658,7 @@ export const App: React.FC = () => {
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
         onImportEntries={handleImportEntriesStore}
-        currentDeviceKey={getLocalUserId()}
+        currentEntriesCount={journalEntries.length}
       />
       </Suspense>
       )}

@@ -199,16 +199,23 @@ button, a, input, select, textarea, [role="button"] {
   box-shadow: none !important;
   color: var(--color-primary) !important;
   border: none !important;
+  min-height: 260px;
 }
 .milkdown .editor {
   font-family: var(--font-body), sans-serif !important;
-  font-size: 1.25rem !important;
-  line-height: 1.8 !important;
+  font-size: clamp(1rem, 0.96rem + 0.3vw, 1.15rem) !important;
+  line-height: 1.75 !important;
   color: var(--color-primary) !important;
   padding: 0 !important;
   outline: none !important;
   border: none !important;
   box-shadow: none !important;
+  min-height: 260px;
+}
+
+.ProseMirror {
+  min-height: 260px !important;
+  padding-bottom: 3.5rem !important;
 }
 
 /* Explicit Typography & Headings Styling for Milkdown */

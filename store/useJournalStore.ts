@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { JournalEntry } from '../types';
 import { extractAutoTitle, generateAutoTitle, generateJournalInsight } from '../services/geminiService';
+import { useTaskStore } from './useTaskStore';
 
 interface JournalState {
   entries: JournalEntry[];
@@ -22,7 +23,9 @@ interface JournalState {
     scribble?: string,
     song?: JournalEntry['song'],
     lyrics?: string,
-    id?: string
+    id?: string,
+    linkedEntryIds?: string[],
+    linkedTaskIds?: string[]
   ) => string;
   deleteEntry: (id: string) => void;
   deleteEntries: (ids: string[]) => void;
@@ -140,57 +143,100 @@ export const useJournalStore = create<JournalState>((set, get) => ({
     });
   },
 
-  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.8-flash', scribble, song, lyrics, id) => {
+  saveEntry: (content, image, mood, isAutoSave = false, title, model = 'gemini-3.8-flash', scribble, song, lyrics, id, linkedEntryIds, linkedTaskIds) => {
     const { editingEntry, entries, setEntries } = get();
     let entryId = id || editingEntry?.id;
-    let isNew = false;
     const computedTitle = title?.trim() || extractAutoTitle(content);
     const resolvedLyrics = lyrics !== undefined ? lyrics : (song?.lyrics || undefined);
 
-    const exists = Boolean(entryId && entries.some((e) => e.id === entryId));
+    if (!entryId) {
+      entryId = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    }
 
-    if (exists && entryId) {
-      setEntries((prev) =>
-        prev.map((e) =>
-          e.id === entryId
-            ? {
-                ...e,
-                content,
-                image: image !== undefined ? image : e.image,
-                title: computedTitle,
-                mood: mood !== undefined ? mood : e.mood,
-                scribble: scribble !== undefined ? scribble : e.scribble,
-                song: song !== undefined ? song : e.song,
-                lyrics: resolvedLyrics !== undefined ? resolvedLyrics : e.lyrics,
-              }
-            : e
-        )
-      );
-    } else {
-      isNew = true;
-      if (!entryId) {
-        entryId = typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const currentEntryId = entryId;
+    const exists = Boolean(entries.some((e) => e.id === currentEntryId));
+    const existingEntry = entries.find((e) => e.id === currentEntryId);
+    const nextLinkedEntries = linkedEntryIds !== undefined ? Array.from(new Set(linkedEntryIds.filter(lid => lid !== currentEntryId))) : (existingEntry?.linkedEntryIds || editingEntry?.linkedEntryIds || []);
+    const nextLinkedTasks = linkedTaskIds !== undefined ? Array.from(new Set(linkedTaskIds)) : (existingEntry?.linkedTaskIds || editingEntry?.linkedTaskIds || []);
+
+    setEntries((prev) => {
+      let baseList = exists
+        ? prev.map((e) =>
+            e.id === currentEntryId
+              ? {
+                  ...e,
+                  content,
+                  image: image !== undefined ? image : e.image,
+                  title: computedTitle,
+                  mood: mood !== undefined ? mood : e.mood,
+                  scribble: scribble !== undefined ? scribble : e.scribble,
+                  song: song !== undefined ? song : e.song,
+                  lyrics: resolvedLyrics !== undefined ? resolvedLyrics : e.lyrics,
+                  linkedEntryIds: nextLinkedEntries,
+                  linkedTaskIds: nextLinkedTasks,
+                }
+              : e
+          )
+        : [
+            {
+              id: currentEntryId,
+              content,
+              title: computedTitle,
+              image,
+              mood,
+              scribble,
+              song,
+              lyrics: resolvedLyrics,
+              linkedEntryIds: nextLinkedEntries,
+              linkedTaskIds: nextLinkedTasks,
+              createdAt: Date.now(),
+            },
+            ...prev,
+          ];
+
+      // Synchronize bidirectional Memory <-> Memory backlinks automatically
+      if (linkedEntryIds !== undefined) {
+        const linkedSet = new Set(nextLinkedEntries);
+        baseList = baseList.map((other) => {
+          if (other.id === currentEntryId) return other;
+          const otherLinks = new Set(other.linkedEntryIds || []);
+          if (linkedSet.has(other.id)) {
+            if (!otherLinks.has(currentEntryId)) {
+              otherLinks.add(currentEntryId);
+              return { ...other, linkedEntryIds: Array.from(otherLinks) };
+            }
+          } else if (otherLinks.has(currentEntryId)) {
+            otherLinks.delete(currentEntryId);
+            return { ...other, linkedEntryIds: Array.from(otherLinks) };
+          }
+          return other;
+        });
       }
-      const newEntry: JournalEntry = {
-        id: entryId,
-        content,
-        title: computedTitle,
-        image,
-        mood,
-        scribble,
-        song,
-        lyrics: resolvedLyrics,
-        createdAt: Date.now(),
-      };
-      setEntries((prev) => [newEntry, ...prev]);
+
+      return baseList;
+    });
+
+    // Synchronize bidirectional Task <-> Memory links
+    if (linkedTaskIds !== undefined) {
+      const taskSet = new Set(nextLinkedTasks);
+      const taskStore = useTaskStore.getState();
+      taskStore.setTasks((prevTasks) =>
+        prevTasks.map((t) => {
+          if (taskSet.has(t.id)) {
+            return t.linkedEntryId === currentEntryId ? t : { ...t, linkedEntryId: currentEntryId };
+          } else if (t.linkedEntryId === currentEntryId) {
+            return { ...t, linkedEntryId: undefined };
+          }
+          return t;
+        })
+      );
     }
 
     if (!isAutoSave) {
       set({ isEditorOpen: false, editingEntry: null });
     } else if (get().editingEntry) {
-      // Keep store's existing editingEntry synced without converting null to non-null
       set((state) => ({
         editingEntry: state.editingEntry ? {
           ...state.editingEntry,
@@ -201,12 +247,14 @@ export const useJournalStore = create<JournalState>((set, get) => ({
           scribble: scribble !== undefined ? scribble : state.editingEntry.scribble,
           song: song !== undefined ? song : state.editingEntry.song,
           lyrics: resolvedLyrics !== undefined ? resolvedLyrics : state.editingEntry.lyrics,
+          linkedEntryIds: nextLinkedEntries,
+          linkedTaskIds: nextLinkedTasks,
         } : null
       }));
     }
 
     // Background Insights generation on deliberate save
-    const currentId = entryId!;
+    const currentId = currentEntryId;
     if (!isAutoSave && content.trim().length >= 25) {
       generateJournalInsight(content, model).then((insight) => {
         if (insight) {

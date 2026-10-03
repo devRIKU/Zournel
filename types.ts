@@ -81,6 +81,10 @@ export interface JournalEntry {
   scribble?: string;
   song?: AttachedSong;
   lyrics?: string;
+  /** Bidirectional links to other JournalEntry IDs. */
+  linkedEntryIds?: string[];
+  /** Bidirectional links to Task IDs. */
+  linkedTaskIds?: string[];
 }
 
 export interface AIProcessedInput {

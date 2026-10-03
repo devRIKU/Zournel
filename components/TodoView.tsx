@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import confetti from 'canvas-confetti';
-import { Plus, Check, Trash2, Bot, CheckCircle2, Sparkles, Feather } from './Icons';
+import { Plus, Check, Trash2, Bot, CheckCircle2, Sparkles, Feather, BookOpen } from './Icons';
 import { isJevAvailable, classifyQuickEntry } from '../services/jevService';
-import { Task, Priority } from '../types';
-import { generateSubtasks } from '../services/geminiService';
+import { Task, Priority, JournalEntry } from '../types';
+import { generateSubtasks, extractAutoTitle } from '../services/geminiService';
 import { AiGlitterPill } from './AiGlitterTypewriter';
 import { iosSpringSnappy, mechanicalSpring, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSegmentedToggle } from './ui/DraggableToggle';
@@ -12,10 +12,12 @@ import { PageHeader } from './ui/PageHeader';
 
 interface TodoViewProps {
   tasks: Task[];
+  journalEntries?: JournalEntry[];
   onToggleTask: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onUpdateTask: (task: Task) => void;
   onAddTask: (text: string) => void;
+  onReflectOnTask?: (task: Task) => void;
   onSaveAsMemory?: (text: string) => void;
   focusInputSignal?: number;
   completionAnim?: string;
@@ -49,12 +51,14 @@ const PriorityBadge: React.FC<{ priority: Priority; predicted?: boolean; onClick
 
 const TaskItem: React.FC<{
   task: Task;
+  linkedEntry?: JournalEntry;
   onToggle: () => void;
   onDelete: () => void;
   onUpdate: (task: Task) => void;
+  onReflect?: () => void;
   completionAnim?: string;
   selectedModel?: string;
-}> = ({ task, onToggle, onDelete, onUpdate, completionAnim, selectedModel }) => {
+}> = ({ task, linkedEntry, onToggle, onDelete, onUpdate, onReflect, completionAnim, selectedModel }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [loadingSubtasks, setLoadingSubtasks] = useState(false);
   const [suggestedSubtasks, setSuggestedSubtasks] = useState<{ id: string; text: string }[]>([]);
@@ -164,6 +168,21 @@ const TaskItem: React.FC<{
                 onUpdate({ ...task, priority: next[task.priority], predicted: undefined });
               }} 
             />
+            {linkedEntry && onReflect && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerHaptic(8);
+                  onReflect();
+                }}
+                title="Open linked journal memory"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold bg-accent/10 hover:bg-accent/20 text-accent border border-accent/25 transition active:scale-95 max-w-[190px] truncate"
+              >
+                <BookOpen className="w-3 h-3 shrink-0" />
+                <span className="truncate">{linkedEntry.title || extractAutoTitle(linkedEntry.content)}</span>
+              </button>
+            )}
             {task.aiAnalysis && (
               <AiGlitterPill label={task.aiAnalysis} />
             )}
@@ -172,6 +191,24 @@ const TaskItem: React.FC<{
 
         {/* Action Buttons */}
         <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+          {onReflect && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerHaptic(8);
+                onReflect();
+              }}
+              title={linkedEntry ? 'Open linked memory' : 'Reflect on this task in Journal'}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg transition-transform active:scale-90 ${
+                linkedEntry
+                  ? 'text-accent bg-accent/10 !opacity-100'
+                  : 'text-secondary hover:text-accent hover:bg-surface-highlight/50'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+          )}
           <button 
             type="button"
             onClick={handleGenerateSubtasks}
@@ -275,10 +312,12 @@ const TaskItem: React.FC<{
 
 export const TodoView: React.FC<TodoViewProps> = ({ 
   tasks, 
+  journalEntries = [],
   onToggleTask, 
   onDeleteTask, 
   onUpdateTask, 
   onAddTask, 
+  onReflectOnTask,
   onSaveAsMemory,
   focusInputSignal, 
   completionAnim, 
@@ -362,7 +401,7 @@ export const TodoView: React.FC<TodoViewProps> = ({
               type="button"
               onClick={() => { triggerHaptic(10); onSaveAsMemory(inputText.trim()); setInputText(''); }}
               title="This reads like a reflection — save it as a memory instead"
-              className="hidden sm:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-[11px] font-medium text-accent bg-accent/10 hover:bg-accent/15 transition shrink-0 animate-fade-in"
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-full text-[11px] font-medium text-accent bg-accent/10 hover:bg-accent/15 transition shrink-0 animate-fade-in"
             >
               <Feather className="w-3.5 h-3.5" /> Memory?
             </button>
@@ -411,17 +450,24 @@ export const TodoView: React.FC<TodoViewProps> = ({
           )}
           
           <AnimatePresence mode="popLayout">
-            {displayedTasks.map(task => (
-              <TaskItem 
-                key={task.id} 
-                task={task} 
-                onToggle={() => onToggleTask(task.id)} 
-                onDelete={() => onDeleteTask(task.id)} 
-                onUpdate={onUpdateTask} 
-                completionAnim={completionAnim} 
-                selectedModel={selectedModel} 
-              />
-            ))}
+            {displayedTasks.map(task => {
+              const linkedEntry = journalEntries.find(
+                (e) => e.id === task.linkedEntryId || e.linkedTaskIds?.includes(task.id)
+              );
+              return (
+                <TaskItem 
+                  key={task.id} 
+                  task={task} 
+                  linkedEntry={linkedEntry}
+                  onToggle={() => onToggleTask(task.id)} 
+                  onDelete={() => onDeleteTask(task.id)} 
+                  onUpdate={onUpdateTask} 
+                  onReflect={onReflectOnTask ? () => onReflectOnTask(task) : undefined}
+                  completionAnim={completionAnim} 
+                  selectedModel={selectedModel} 
+                />
+              );
+            })}
           </AnimatePresence>
         </div>
       )}

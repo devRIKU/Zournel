@@ -7,7 +7,7 @@ import { triggerHaptic } from '../utils/uiSprings';
 const ITEMS: { tab: Tab; label: string; Icon: typeof BookOpen }[] = [
   { tab: Tab.TODO, label: 'Tasks', Icon: CheckSquare },
   { tab: Tab.JOURNAL, label: 'Journal', Icon: BookOpen },
-  { tab: Tab.PROFILE, label: 'Profile', Icon: User },
+  { tab: Tab.PROFILE, label: 'Account', Icon: User },
 ];
 
 // One dock for every breakpoint: same pill, same item, same active state.

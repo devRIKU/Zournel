@@ -6,7 +6,7 @@ export const PageHeader: React.FC<{
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
 }> = ({ title, subtitle, actions }) => (
-  <div className="mb-6 pb-4 border-b border-surface-highlight/60 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+  <div className="mb-5 sm:mb-6 pb-3.5 sm:pb-4 border-b border-surface-highlight/60 flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
     <div className="min-w-0">
       <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight leading-tight">
         {title}
@@ -15,6 +15,7 @@ export const PageHeader: React.FC<{
         <p className="mt-1 text-[11px] font-mono uppercase tracking-wider text-secondary/70">{subtitle}</p>
       )}
     </div>
-    {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+    {actions && <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">{actions}</div>}
   </div>
 );
+

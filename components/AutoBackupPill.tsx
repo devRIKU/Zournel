@@ -23,13 +23,13 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
 
   // Close popover when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
   }, []);
 
   const handleManualClick = async () => {
@@ -45,17 +45,19 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
   return (
     <div className="relative shrink-0" ref={dropdownRef}>
       <motion.button
+        type="button"
         whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.97 }}
+        whileTap={{ scale: 0.96 }}
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 h-10 px-3.5 rounded-full border text-xs font-medium transition-colors duration-200 ${
+        className={`flex items-center justify-center gap-1.5 h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-full border text-xs font-medium transition-colors duration-200 ${
           isBackingUp
             ? 'bg-accent/10 border-accent/40 text-accent'
             : autoBackupEnabled
-            ? 'bg-surface border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60'
-            : 'bg-surface border-surface-highlight text-secondary/60'
+            ? 'bg-surface/80 border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60'
+            : 'bg-surface/60 border-surface-highlight text-secondary/60'
         }`}
         title="Cloud Auto-Backup Status"
+        aria-label="Cloud Auto-Backup Status"
       >
         {isBackingUp ? (
           <>
@@ -76,6 +78,7 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
         ) : (
           <>
             <span className="w-2 h-2 rounded-full bg-secondary/40 shrink-0"></span>
+            <CloudUpload className="w-3.5 h-3.5 text-secondary/60 shrink-0 md:hidden" />
             <span className="hidden md:inline text-xs font-medium">
               Backup off
             </span>
@@ -91,7 +94,7 @@ export const AutoBackupPill: React.FC<AutoBackupPillProps> = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
-            className="absolute right-0 top-full mt-2 w-72 bg-surface border border-surface-highlight shadow-xl rounded-2xl p-4 z-50"
+            className="fixed sm:absolute right-3 sm:right-0 top-16 sm:top-full sm:mt-2 w-[calc(100vw-1.5rem)] max-w-72 bg-surface/95 backdrop-blur-xl border border-surface-highlight shadow-2xl rounded-2xl p-4 z-[90]"
           >
             <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-highlight/60">
               <div className="flex items-center gap-2">
