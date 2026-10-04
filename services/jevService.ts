@@ -1,8 +1,6 @@
-// Jev 1.13 (TypeSafe "System One") via OpenCode Zen — https://opencode.ai/zen/v1/systemone
-//
-// Jev does not generate text. It evaluates a `state` against typed questions and returns
-// probabilities. That makes it the right tool for every "classify / score / yes-no" moment in
-// the app (mood, priority, intent), where a chat LLM is 10–50× slower and heavier.
+// Fast structured decisions for mood, priority and intent. OpenCode Zen serves Jev 1.13;
+// OpenRouter serves Mercury Decide (free). Both use the System One state + typed-questions schema.
+// These models return probabilities rather than generated prose, keeping decision calls lightweight.
 //
 // Design for low-end devices:
 //   • one tiny JSON POST, no streaming, no SDK
@@ -11,8 +9,15 @@
 //   • every helper returns null on any failure so callers fall back silently
 
 import { DecisionProvider, Priority } from '../types';
-import { DEFAULT_DECISION_MODEL, getOpenRouterKey, getZenKey, readSettings } from './modelConfig';
-import { SYSTEMONE_ENDPOINT } from './openrouter';
+import {
+  DEFAULT_DECISION_MODEL,
+  DEFAULT_ZEN_DECISION_MODEL,
+  defaultDecisionModelFor,
+  getOpenRouterKey,
+  getZenKey,
+  readSettings,
+} from './modelConfig';
+import { DECISIONS_ENDPOINT } from './openrouter';
 
 export const ZEN_ENDPOINT = 'https://opencode.ai/zen/v1/systemone';
 const CACHE_KEY = 'mf_jev_cache';
@@ -33,7 +38,7 @@ export const noul = (instructions: string): NoulQ => ({ type: 'noul', instructio
 export const choice = (instructions: string, criteria: Record<string, string>): ChoiceQ => ({ type: 'choice', instructions, criteria });
 export const score = (instructions: string, criteria: string[]): ScoreQ => ({ type: 'score', instructions, criteria });
 
-/** Where a decision is answered right now — OpenCode Zen by default, OpenRouter SystemOne if chosen. */
+/** Where a decision is answered right now — OpenCode Zen by default, or OpenRouter when chosen. */
 export interface SystemOneTarget {
   provider: DecisionProvider;
   endpoint: string;
@@ -44,10 +49,18 @@ export interface SystemOneTarget {
 export const getJevApiKey = (s = readSettings()): string => getZenKey(s);
 
 export const getDecisionTarget = (s = readSettings()): SystemOneTarget => {
-  const model = (s.decisionModel || DEFAULT_DECISION_MODEL).trim() || DEFAULT_DECISION_MODEL;
-  return s.decisionProvider === 'openrouter'
-    ? { provider: 'openrouter', endpoint: SYSTEMONE_ENDPOINT, apiKey: getOpenRouterKey(s), model }
-    : { provider: 'zen', endpoint: ZEN_ENDPOINT, apiKey: getZenKey(s), model };
+  const provider: DecisionProvider = s.decisionProvider === 'openrouter' ? 'openrouter' : 'zen';
+  const configuredModel = (s.decisionModel || '').trim();
+  // Existing OpenRouter settings inherited Jev's old shared default; move those to Mercury Decide.
+  const model = configuredModel
+    ? provider === 'openrouter' && configuredModel === DEFAULT_ZEN_DECISION_MODEL
+      ? DEFAULT_DECISION_MODEL
+      : configuredModel
+    : defaultDecisionModelFor(provider);
+
+  return provider === 'openrouter'
+    ? { provider, endpoint: DECISIONS_ENDPOINT, apiKey: getOpenRouterKey(s), model }
+    : { provider, endpoint: ZEN_ENDPOINT, apiKey: getZenKey(s), model };
 };
 
 export const isJevAvailable = (): boolean =>

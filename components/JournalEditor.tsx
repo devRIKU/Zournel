@@ -15,11 +15,12 @@ import { Play, Pause, MoreVertical } from './Icons';
 import { toggleAudioPreview, subscribeToAudio, stopAudioPreview } from '../services/songService';
 import { motion, AnimatePresence } from 'motion/react';
 import { iosSpring, triggerHaptic } from '../utils/uiSprings';
-import { Editor, rootCtx, defaultValueCtx, commandsCtx } from '@milkdown/core';
+import { Editor, rootCtx, defaultValueCtx, commandsCtx, editorViewCtx, serializerCtx } from '@milkdown/core';
 import { nord } from '@milkdown/theme-nord';
 import { 
   commonmark, 
   wrapInHeadingCommand, 
+  createCodeBlockCommand,
   insertHrCommand, 
   wrapInBlockquoteCommand,
   toggleStrongCommand, 
@@ -28,12 +29,12 @@ import {
   wrapInBulletListCommand, 
   wrapInOrderedListCommand
 } from '@milkdown/preset-commonmark';
-import { gfm, toggleStrikethroughCommand } from '@milkdown/preset-gfm';
+import { gfm, toggleStrikethroughCommand, insertTableCommand } from '@milkdown/preset-gfm';
 import { history, undoCommand, redoCommand } from '@milkdown/plugin-history';
 import { Milkdown, useEditor, MilkdownProvider } from '@milkdown/react';
 import { listener, listenerCtx } from '@milkdown/plugin-listener';
 import { replaceAll } from '@milkdown/utils';
-import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle, generateAutoTitle, extractTasksFromJournal, moodFromLabel } from '../services/geminiService';
+import { editJournalText, detectMoodFromJournal, AiActionType, extractAutoTitle, extractTasksFromJournal, moodFromLabel } from '../services/geminiService';
 import { isJevAvailable, detectMoodWithJev } from '../services/jevService';
 import { useJournalStore } from '../store/useJournalStore';
 import { useTaskStore } from '../store/useTaskStore';
@@ -185,10 +186,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const allEntries = useJournalStore((s) => s.entries);
   const { tasks: allTasks, addTask, toggleTask } = useTaskStore();
   const [content, setContent] = useState(() => initialContent);
-  const [title, setTitle] = useState<string>(() => initialTitle || '');
   const initialContentRef = useRef<string>(initialContent || '');
-  const initialTitleRef = useRef<string>(initialTitle || '');
-  const userHasEditedTitleRef = useRef<boolean>(Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || '')));
+  // Titles are inferred from the writing. Keep a pre-existing custom title stable,
+  // but do not make the editor itself another place to manage it.
+  const initialTitleIsCustomRef = useRef<boolean>(Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || '')));
   const [image, setImage] = useState<string>(() => initialImage || getRandomCover());
   const handleRandomCover = () => setImage(getRandomCover());
   const [mood, setMood] = useState<string | undefined>(() => initialMood);
@@ -277,6 +278,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const editorRef = useRef<Editor | null>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
   const [slashMenuPos, setSlashMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const slashTriggerRef = useRef<{ from: number | null; to: number | null; query: string } | null>(null);
 
   // Auto-Save state & refs
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | null>(null);
@@ -292,7 +294,6 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   // Top header & toolbar menus
   const [showPlusDropdown, setShowPlusDropdown] = useState(false);
   const [showKebabDropdown, setShowKebabDropdown] = useState(false);
-  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const plusMenuRef = useRef<HTMLDivElement>(null);
   const kebabMenuRef = useRef<HTMLDivElement>(null);
   const moodMenuRef = useRef<HTMLDivElement>(null);
@@ -403,39 +404,94 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     }
   }, [showBlockMenu]);
 
+  const getCurrentSlashTrigger = useCallback((markdown: string) => {
+    let trigger: { from: number | null; to: number | null; query: string } | null = null;
+    let selectionIsInEditor = false;
+
+    try {
+      editorRef.current?.action((ctx) => {
+        const view = ctx.get(editorViewCtx);
+        const domSelection = window.getSelection();
+        const anchorNode = domSelection?.anchorNode;
+        selectionIsInEditor = Boolean((anchorNode && view.dom.contains(anchorNode)) || view.hasFocus());
+        const { selection } = view.state;
+        if (!selectionIsInEditor || !selection.empty) return;
+
+        const blockStart = selection.$from.start();
+        const beforeCursor = view.state.doc.textBetween(blockStart, selection.from, '\n');
+        const match = beforeCursor.match(/(?:^|\s)\/([a-zA-Z0-9_-]{0,18})$/);
+        if (!match) return;
+
+        trigger = {
+          from: blockStart + beforeCursor.lastIndexOf('/'),
+          to: selection.from,
+          query: match[1],
+        };
+      });
+    } catch {
+      // The editor view may still be mounting; fall back to the serialized final line.
+    }
+
+    if (selectionIsInEditor) return trigger;
+
+    const normalized = markdown.replace(/(?:\r?\n)+$/, '');
+    const currentLine = normalized.slice(normalized.lastIndexOf('\n') + 1);
+    const fallbackMatch = currentLine.match(/(?:^|\s)\/([a-zA-Z0-9_-]{0,18})$/);
+    return fallbackMatch ? { from: null, to: null, query: fallbackMatch[1] } : null;
+  }, []);
+
   const updateSlashMenuPosition = useCallback(() => {
-    if (!editorContainerRef.current) return;
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0).cloneRange();
-      const rect = range.getBoundingClientRect();
-      const containerRect = editorContainerRef.current.getBoundingClientRect();
+    let caret: { top: number; bottom: number; left: number } | null = null;
 
-      if (rect && (rect.top !== 0 || rect.left !== 0)) {
-        let left = rect.left - containerRect.left + editorContainerRef.current.scrollLeft;
-        let top = rect.bottom - containerRect.top + editorContainerRef.current.scrollTop + 6;
+    try {
+      if (editorRef.current) {
+        caret = editorRef.current.action((ctx) => {
+          const view = ctx.get(editorViewCtx);
+          const coords = view.coordsAtPos(view.state.selection.from);
+          return { top: coords.top, bottom: coords.bottom, left: coords.left };
+        });
+      }
+    } catch {
+      // Use the browser selection below if ProseMirror cannot provide caret coordinates yet.
+    }
 
-        // Ensure menu fits within container boundaries
-        const menuWidth = 310;
-        const menuHeight = 310;
-
-        if (left + menuWidth > containerRect.width - 16) {
-          left = Math.max(8, containerRect.width - menuWidth - 16);
+    if (!caret) {
+      const selection = window.getSelection();
+      if (selection?.rangeCount) {
+        const rect = selection.getRangeAt(0).getBoundingClientRect();
+        if (rect.top || rect.bottom || rect.left) {
+          caret = { top: rect.top, bottom: rect.bottom || rect.top + 20, left: rect.left };
         }
-        if (left < 8) left = 8;
-
-        if (top + menuHeight > containerRect.height + editorContainerRef.current.scrollTop - 16) {
-          const aboveTop = (rect.top - containerRect.top + editorContainerRef.current.scrollTop) - menuHeight - 6;
-          if (aboveTop >= 8) {
-            top = aboveTop;
-          }
-        }
-        if (top < 8) top = 8;
-
-        setSlashMenuPos({ top, left });
       }
     }
+    if (!caret) return;
+
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const menuWidth = Math.min(310, Math.max(260, viewportWidth - 24));
+    const menuHeight = Math.min(320, Math.max(180, viewportHeight - 24));
+    let left = caret.left;
+    let top = caret.bottom + 8;
+
+    if (left + menuWidth > viewportWidth - 12) left = viewportWidth - menuWidth - 12;
+    if (top + menuHeight > viewportHeight - 12) top = caret.top - menuHeight - 8;
+    left = Math.max(12, left);
+    top = Math.max(12, Math.min(top, viewportHeight - menuHeight - 12));
+
+    setSlashMenuPos({ top, left });
   }, []);
+
+  useEffect(() => {
+    if (!showSlashMenu) return;
+    const reposition = () => updateSlashMenuPosition();
+    const container = editorContainerRef.current;
+    window.addEventListener('resize', reposition);
+    container?.addEventListener('scroll', reposition, { passive: true });
+    return () => {
+      window.removeEventListener('resize', reposition);
+      container?.removeEventListener('scroll', reposition);
+    };
+  }, [showSlashMenu, updateSlashMenuPosition]);
 
   useEffect(() => {
     if (isOpen) {
@@ -445,10 +501,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         : `entry_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
       setSaveStatus(null);
       setContent(initialContent || '');
-      setTitle(initialTitle || '');
       initialContentRef.current = initialContent || '';
-      initialTitleRef.current = initialTitle || '';
-      userHasEditedTitleRef.current = Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || ''));
+      initialTitleIsCustomRef.current = Boolean(initialTitle && initialTitle.trim() !== extractAutoTitle(initialContent || ''));
       setImage(initialImage || getRandomCover());
       setMood(initialMood);
       setScribble(initialScribble);
@@ -498,7 +552,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
     autoSaveTimerRef.current = setTimeout(() => {
       setSaveStatus('saving');
-      const activeTitle = title.trim() || extractAutoTitle(content);
+      const activeTitle = initialTitle?.trim() || extractAutoTitle(content);
       onSave(content, image, mood, true, activeTitle, scribble, song, lyrics || song?.lyrics, currentIdRef.current, linkedEntryIds, linkedTaskIds);
       setTimeout(() => {
         setSaveStatus('saved');
@@ -509,7 +563,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     return () => {
       if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     };
-  }, [content, image, mood, title, scribble, song, linkedEntryIds, linkedTaskIds, isOpen, onSave]);
+  }, [content, image, mood, initialTitle, scribble, song, linkedEntryIds, linkedTaskIds, isOpen, onSave]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     editorRef.current = editor;
@@ -517,24 +571,24 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
 
   const handleMarkdownUpdate = useCallback((md: string) => {
     setContent(md);
-    
-    // Detect slash command at current input or line end (without spaces so normal writing won't re-trigger)
-    const match = md.match(/(?:^|\n|\s)\/([a-zA-Z0-9_-]{0,18})$/);
-    if (match) {
+
+    // Read the active ProseMirror text block and caret, rather than assuming the
+    // command is at the end of serialized Markdown (which may have trailing newlines).
+    const trigger = getCurrentSlashTrigger(md);
+    slashTriggerRef.current = trigger;
+    if (trigger) {
       setShowSlashMenu(true);
       setShowPlusDropdown(false);
       setShowKebabDropdown(false);
       setShowMoodMenu(false);
       setShowAiMenu(false);
-      setSlashQuery(match[1].toLowerCase());
-      requestAnimationFrame(() => {
-        updateSlashMenuPosition();
-      });
+      setSlashQuery(trigger.query.toLowerCase());
+      requestAnimationFrame(() => updateSlashMenuPosition());
     } else {
       setShowSlashMenu(false);
       setSlashQuery('');
     }
-  }, [updateSlashMenuPosition]);
+  }, [getCurrentSlashTrigger, updateSlashMenuPosition]);
 
   const updateActiveStates = useCallback((editor: Editor) => {
   }, []);
@@ -546,12 +600,38 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   };
 
   const getCleanedContent = (raw: string) => {
-    const match = raw.match(/(?:\n|^|\s)\/([a-zA-Z0-9]*)$/);
+    const trailingLineBreaks = raw.match(/(?:\r?\n)*$/)?.[0] || '';
+    const body = trailingLineBreaks ? raw.slice(0, -trailingLineBreaks.length) : raw;
+    const match = body.match(/(?:^|\n|\s)\/([a-zA-Z0-9_-]*)$/);
     if (!match) return raw;
     const matchIdx = match.index!;
     const leadingChar = match[0].charAt(0);
-    const keepLeading = (leadingChar === '\n' || leadingChar === ' ');
-    return raw.slice(0, matchIdx + (keepLeading ? 1 : 0));
+    const keepLeading = leadingChar === '\n' || leadingChar === ' ';
+    return body.slice(0, matchIdx + (keepLeading ? 1 : 0)) + trailingLineBreaks;
+  };
+
+  const removeSlashTriggerFromEditor = (trigger: { from: number | null; to: number | null; query: string } | null) => {
+    if (!editorRef.current) {
+      const cleaned = getCleanedContent(content);
+      setContent(cleaned);
+      return cleaned;
+    }
+
+    const markdown = editorRef.current.action((ctx) => {
+      const view = ctx.get(editorViewCtx);
+      if (trigger?.from !== null && trigger?.from !== undefined && trigger.to !== null) {
+        const docEnd = view.state.doc.content.size;
+        const from = Math.max(0, Math.min(trigger.from, docEnd));
+        const to = Math.max(from, Math.min(trigger.to, docEnd));
+        if (to > from) view.dispatch(view.state.tr.delete(from, to));
+      }
+      return ctx.get(serializerCtx)(view.state.doc);
+    });
+
+    const cleaned = trigger?.from === null ? getCleanedContent(markdown) : markdown;
+    if (cleaned !== markdown) editorRef.current.action(replaceAll(cleaned));
+    setContent(cleaned);
+    return cleaned;
   };
 
   const handleAiAction = async (type: AiActionType, explicitText?: string) => {
@@ -628,13 +708,62 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
     setShowSlashMenu(false);
     setSlashQuery('');
 
-    // Clean slash query from content
-    const clean = content.replace(/(?:^|\n|\s)\/([a-zA-Z0-9\s_-]*)$/, (match) => {
-      const leadingChar = match.charAt(0);
-      return (leadingChar === '\n' || leadingChar === ' ') ? leadingChar : '';
-    });
+    const trigger = slashTriggerRef.current;
+    slashTriggerRef.current = null;
+    const clean = removeSlashTriggerFromEditor(trigger);
 
-    const stylingIds = ['h1', 'h2', 'h3', 'h4', 'bullet', 'number', 'todo', 'quote', 'callout', 'code', 'table', 'hr'];
+    const nativeStyleCommands: Record<string, { key: any; payload?: any }> = {
+      h1: { key: wrapInHeadingCommand.key, payload: 1 },
+      h2: { key: wrapInHeadingCommand.key, payload: 2 },
+      h3: { key: wrapInHeadingCommand.key, payload: 3 },
+      h4: { key: wrapInHeadingCommand.key, payload: 4 },
+      bullet: { key: wrapInBulletListCommand.key },
+      number: { key: wrapInOrderedListCommand.key },
+      quote: { key: wrapInBlockquoteCommand.key },
+      code: { key: createCodeBlockCommand.key },
+      table: { key: insertTableCommand.key, payload: { row: 3, col: 2 } },
+      hr: { key: insertHrCommand.key },
+    };
+    const nativeCommand = nativeStyleCommands[cmdId];
+
+    // Apply block transforms against Milkdown's live selection. This keeps commands
+    // working at the caret instead of replacing the whole document and losing context.
+    if (nativeCommand && trigger?.from !== null && trigger?.from !== undefined && editorRef.current) {
+      const updatedMarkdown = editorRef.current.action((ctx) => {
+        ctx.get(commandsCtx).call(nativeCommand.key, nativeCommand.payload);
+        const view = ctx.get(editorViewCtx);
+        return ctx.get(serializerCtx)(view.state.doc);
+      });
+      setContent(updatedMarkdown);
+      return;
+    }
+
+    if ((cmdId === 'todo' || cmdId === 'callout') && trigger?.from !== null && trigger?.from !== undefined && editorRef.current) {
+      const updatedMarkdown = editorRef.current.action((ctx) => {
+        let view = ctx.get(editorViewCtx);
+        if (cmdId === 'callout') {
+          const blockStart = view.state.selection.$from.start();
+          view.dispatch(view.state.tr.insertText('💡 Note: ', blockStart));
+          ctx.get(commandsCtx).call(wrapInBlockquoteCommand.key);
+        } else {
+          ctx.get(commandsCtx).call(wrapInBulletListCommand.key);
+          view = ctx.get(editorViewCtx);
+          const { $from } = view.state.selection;
+          for (let depth = $from.depth; depth > 0; depth -= 1) {
+            const node = $from.node(depth);
+            if (node.type.name === 'list_item') {
+              const itemPosition = $from.before(depth);
+              view.dispatch(view.state.tr.setNodeMarkup(itemPosition, undefined, { ...node.attrs, checked: false }));
+              break;
+            }
+          }
+        }
+        return ctx.get(serializerCtx)(view.state.doc);
+      });
+      setContent(updatedMarkdown);
+      return;
+    }
+
     const aiCommandMap: Record<string, AiActionType> = {
       proofread: 'PROOFREAD',
       rewrite: 'REWRITE',
@@ -644,73 +773,41 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
       expand: 'EXPAND',
     };
 
-    if (stylingIds.includes(cmdId)) {
+    const customStylingIds = ['todo', 'callout'];
+    if (customStylingIds.includes(cmdId)) {
       const lines = clean.split('\n');
       let targetIdx = lines.length - 1;
-      
-      // Target the line where the command was typed (last line or last non-empty line)
-      if (lines[targetIdx].trim() === '' && targetIdx > 0 && lines[targetIdx - 1].trim() !== '') {
-        targetIdx = targetIdx - 1;
-      }
-
+      while (targetIdx > 0 && !lines[targetIdx].trim()) targetIdx -= 1;
       const originalText = lines[targetIdx] || '';
       const strippedText = originalText.replace(/^[#*>\-\d.\s]+/, '').trim();
 
-      if (cmdId === 'h1') {
-        lines[targetIdx] = `# ${strippedText}`;
-      } else if (cmdId === 'h2') {
-        lines[targetIdx] = `## ${strippedText}`;
-      } else if (cmdId === 'h3') {
-        lines[targetIdx] = `### ${strippedText}`;
-      } else if (cmdId === 'h4') {
-        lines[targetIdx] = `#### ${strippedText}`;
-      } else if (cmdId === 'bullet') {
-        lines[targetIdx] = `- ${strippedText}`;
-      } else if (cmdId === 'number') {
-        lines[targetIdx] = `1. ${strippedText}`;
-      } else if (cmdId === 'todo') {
+      if (cmdId === 'todo') {
         lines[targetIdx] = `- [ ] ${strippedText || 'New task'}`;
-      } else if (cmdId === 'quote') {
-        lines[targetIdx] = `> ${strippedText}`;
-      } else if (cmdId === 'callout') {
+      } else {
         lines[targetIdx] = `> 💡 **Note:** ${strippedText || 'Important highlight'}`;
-      } else if (cmdId === 'code') {
-        lines[targetIdx] = strippedText ? `\`\`\`\n${strippedText}\n\`\`\`` : '```\n\n```';
-      } else if (cmdId === 'table') {
-        lines[targetIdx] = `| Topic | Details |\n| --- | --- |\n| ${strippedText || 'Item 1'} | Value 1 |\n| Item 2 | Value 2 |`;
-      } else if (cmdId === 'hr') {
-        lines[targetIdx] = strippedText ? `${strippedText}\n\n---` : '---';
       }
 
-      const updatedMd = lines.join('\n');
+      const updatedMarkdown = lines.join('\n');
+      if (editorRef.current) editorRef.current.action(replaceAll(updatedMarkdown));
+      setContent(updatedMarkdown);
+      return;
+    }
 
-      if (editorRef.current) {
-        editorRef.current.action(replaceAll(updatedMd));
-        setContent(updatedMd);
-      }
-    } else if (cmdId in aiCommandMap) {
-      if (editorRef.current) {
-        editorRef.current.action(replaceAll(clean));
-        setContent(clean);
-      }
+    if (cmdId in aiCommandMap) {
+      if (editorRef.current) editorRef.current.action(replaceAll(clean));
+      setContent(clean);
       handleAiAction(aiCommandMap[cmdId], clean);
     } else if (cmdId === 'random') {
-      if (editorRef.current) {
-        editorRef.current.action(replaceAll(clean));
-        setContent(clean);
-      }
+      if (editorRef.current) editorRef.current.action(replaceAll(clean));
+      setContent(clean);
       handleRandomCover();
     } else if (cmdId === 'music') {
-      if (editorRef.current) {
-        editorRef.current.action(replaceAll(clean));
-        setContent(clean);
-      }
+      if (editorRef.current) editorRef.current.action(replaceAll(clean));
+      setContent(clean);
       setShowSongModal(true);
     } else if (cmdId === 'scribble') {
-      if (editorRef.current) {
-        editorRef.current.action(replaceAll(clean));
-        setContent(clean);
-      }
+      if (editorRef.current) editorRef.current.action(replaceAll(clean));
+      setContent(clean);
       setShowScribbleModal(true);
     }
   };
@@ -891,18 +988,17 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         }
       }
     }
-    const finalTitle = title.trim() || extractAutoTitle(content);
+    const finalTitle = initialTitle?.trim() || extractAutoTitle(content);
     const currentId = currentIdRef.current;
     const meaningfulChange = isMeaningfulContentChange(initialContentRef.current, content);
-    const userEditedTitle = userHasEditedTitleRef.current;
+    const hasCustomTitle = initialTitleIsCustomRef.current;
 
     onSave(content, image, finalMood, false, finalTitle, scribble, song, lyrics || song?.lyrics, currentId, linkedEntryIds, linkedTaskIds);
     onClose();
 
-    // Only generate the title once a Journal is exited to the memories view,
-    // and only change the Title if meaningful content is added or removed,
-    // and the user didn't write a custom title.
-    if (meaningfulChange && !userEditedTitle && content.trim().length >= 10) {
+    // Let the writing supply its title. Existing custom titles stay intact;
+    // new or auto-titled memories can receive a more thoughtful title on exit.
+    if (meaningfulChange && !hasCustomTitle && content.trim().length >= 10) {
       setTimeout(() => {
         useJournalStore.getState().generateAiTitleForEntry(currentId, selectedModel);
       }, 50);
@@ -964,7 +1060,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
   const handleNavigateToLinkedEntry = (targetEntry: JournalEntry) => {
     if (!onSwitchEntry) return;
     triggerHaptic(12);
-    const activeTitle = title.trim() || extractAutoTitle(content);
+    const activeTitle = initialTitle?.trim() || extractAutoTitle(content);
     onSave(
       content,
       image,
@@ -1005,7 +1101,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 35, scale: 0.99 }}
           transition={{ type: 'spring', damping: 26, stiffness: 220 }}
-          className="fixed inset-0 z-[100] bg-bg flex flex-col overflow-hidden"
+          className="journal-editor-shell fixed inset-0 z-[100] bg-bg flex flex-col overflow-hidden"
         >
           {/* Cover Image Header — outer wrapper has z-[60] and NO overflow-hidden so Plus & Kebab menus never clip or fall behind the editor toolbar */}
           <div className={`relative ${image ? 'h-32 sm:h-44 md:h-56' : 'h-20 sm:h-24'} w-full shrink-0 group bg-surface-highlight z-[60] transition-all duration-300`}>
@@ -1047,7 +1143,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 <button
                   type="button"
                   onClick={handleExitAndSave}
-                  className="w-10 h-10 bg-black/35 hover:bg-black/55 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition active:scale-95 shrink-0"
+                  className="editor-touch-target w-11 h-11 bg-black/35 hover:bg-black/55 border border-white/15 backdrop-blur-md rounded-full flex items-center justify-center transition active:scale-95 shrink-0"
                   title="Save & Back"
                   aria-label="Save & Back"
                 >
@@ -1055,7 +1151,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 </button>
                 {/* Auto-Save Status Indicator — visible on both mobile and desktop */}
                 {saveStatus && (
-                  <div className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 bg-black/45 backdrop-blur-md border border-white/15 rounded-full text-[10px] sm:text-[11px] font-mono tracking-wide truncate">
+                  <div className="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1 sm:py-1.5 bg-black/45 backdrop-blur-md border border-white/15 rounded-full text-[10px] sm:text-[11px] font-mono tracking-wide truncate">
                     {saveStatus === 'saving' && (
                       <>
                         <Loader2 className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-accent animate-spin shrink-0" />
@@ -1096,7 +1192,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       setShowAiMenu(false);
                       setShowSlashMenu(false);
                     }}
-                    className={`h-10 px-3 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center gap-1.5 text-xs font-mono font-bold ${
+                    className={`editor-touch-target h-11 px-3 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center gap-1.5 text-xs font-mono font-bold ${
                       showMentionDropdown
                         ? 'bg-accent text-accent-fg border-accent shadow-lg ring-2 ring-accent/30'
                         : linkedEntryIds.length + linkedTaskIds.length > 0
@@ -1346,7 +1442,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       setShowAiMenu(false);
                       setShowSlashMenu(false);
                     }}
-                    className={`w-10 h-10 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center ${
+                    className={`editor-touch-target w-11 h-11 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center ${
                       showPlusDropdown
                         ? 'bg-accent text-accent-fg border-accent shadow-lg ring-2 ring-accent/30'
                         : (scribble || song)
@@ -1444,7 +1540,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                       setShowAiMenu(false);
                       setShowSlashMenu(false);
                     }}
-                    className={`w-10 h-10 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center ${
+                    className={`editor-touch-target w-11 h-11 backdrop-blur-md rounded-full transition active:scale-95 border flex items-center justify-center ${
                       showKebabDropdown
                         ? 'bg-accent text-accent-fg border-accent shadow-lg ring-2 ring-accent/30'
                         : 'bg-black/35 hover:bg-black/55 text-white border-white/15'
@@ -1561,7 +1657,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 </div>
 
                 {/* Direct Save Button */}
-                <Button onClick={handleExitAndSave} size="sm" className="h-10 gap-1.5 px-4 sm:px-5 rounded-full font-mono text-xs font-bold uppercase tracking-wider shadow-lg">
+                <Button onClick={handleExitAndSave} size="sm" className="editor-touch-target h-11 gap-1.5 px-4 sm:px-5 rounded-full text-sm font-semibold shadow-lg">
                   <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>Done</span>
                 </Button>
@@ -1683,7 +1779,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         )}
       </AnimatePresence>
 
-      <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full overflow-hidden">
+      <div className="flex-grow flex flex-col max-w-4xl mx-auto w-full -mt-6 md:-mt-12 z-20 px-3 md:px-6 pb-3 md:pb-6 h-full min-h-0 overflow-hidden">
         {/* Attached Media & Bidirectional Mention Micro-Chips (Non-intrusive, Mobile-First) */}
         {(scribble || song || linkedEntryIds.length > 0 || linkedTaskIds.length > 0) && (
           <div className="flex items-center gap-1.5 mb-2 px-1 overflow-x-auto no-scrollbar shrink-0">
@@ -1868,29 +1964,32 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
         )}
 
         {/* Mobile-First Formatting & Context Toolbar */}
-        <div className="bg-surface/95 backdrop-blur-xl border border-surface-highlight shadow-xl rounded-2xl p-1 flex items-center mb-2 md:mb-3 shrink-0 relative z-40">
+        <div className="editor-format-toolbar bg-surface/95 backdrop-blur-xl border border-surface-highlight shadow-md rounded-2xl p-1 flex items-center mb-2 md:mb-3 shrink-0 relative z-40">
           
-          {/* Horizontally scrollable formatting tools strip (keeps keyboard open via onMouseDown preventDefault) */}
-          <div className="flex-1 flex items-center gap-0.5 overflow-x-auto no-scrollbar pr-1">
-            <div className="flex items-center gap-0.5 pr-1.5 border-r border-surface-highlight/60 mr-1 shrink-0">
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(undoCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Undo"><Undo className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(redoCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Redo"><Redo className="w-4 h-4" /></button>
+          {/* Keep the two most-used marks pinned; the rest of the tools can scroll on narrow screens. */}
+          <div className="flex min-w-0 flex-1 items-center gap-1">
+            <div className="editor-format-essential flex shrink-0 items-center gap-0.5 border-r border-surface-highlight/60 pr-1">
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleStrongCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bold" aria-label="Bold"><Bold className="w-4 h-4" /></button>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Italic" aria-label="Italic"><Italic className="w-4 h-4" /></button>
             </div>
 
-            <div className="flex items-center gap-0.5 shrink-0">
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Heading 1"><Heading1 className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Heading 2"><Heading2 className="w-4 h-4" /></button>
-              
-              <div className="w-px h-4 bg-surface-highlight/60 mx-0.5 shrink-0" />
-              
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleStrongCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Bold"><Bold className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleEmphasisCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Italic"><Italic className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Bullet List"><List className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Ordered List"><ListOrdered className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Quote"><Quote className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Code"><Code className="w-4 h-4" /></button>
-              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(insertHrCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors active:scale-95" title="Divider"><Minus className="w-4 h-4" /></button>
+            <div className="min-w-0 flex-1 flex items-center gap-0.5 overflow-x-auto no-scrollbar pr-1">
+              <div className="flex items-center gap-0.5 pr-1.5 border-r border-surface-highlight/60 mr-1 shrink-0">
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(undoCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Undo" aria-label="Undo"><Undo className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(redoCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Redo" aria-label="Redo"><Redo className="w-4 h-4" /></button>
+              </div>
+
+              <div className="flex items-center gap-0.5 shrink-0">
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInHeadingCommand.key, 1)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 1" aria-label="Heading 1"><Heading1 className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInHeadingCommand.key, 2)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Heading 2" aria-label="Heading 2"><Heading2 className="w-4 h-4" /></button>
+                <div className="w-px h-4 bg-surface-highlight/60 mx-0.5 shrink-0" />
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInBulletListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Bullet List" aria-label="Bullet list"><List className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInOrderedListCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Ordered List" aria-label="Ordered list"><ListOrdered className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(wrapInBlockquoteCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Quote" aria-label="Quote"><Quote className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleStrikethroughCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Strikethrough" aria-label="Strikethrough"><Strikethrough className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(toggleInlineCodeCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Code" aria-label="Inline code"><Code className="w-4 h-4" /></button>
+                <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => callCommand(insertHrCommand.key)} className="p-2 text-secondary hover:text-primary hover:bg-surface-highlight rounded-xl transition-colors" title="Divider" aria-label="Insert divider"><Minus className="w-4 h-4" /></button>
+              </div>
             </div>
           </div>
 
@@ -1904,7 +2003,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 setShowPlusDropdown(false);
                 setShowKebabDropdown(false);
               }}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              className={`min-h-11 flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition border ${showMoodMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
               title="Add current emotional state or mood"
             >
               {isAutoDetectingMood ? (
@@ -1960,7 +2059,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                         <span className="text-lg leading-none">{predictedMood.emoji}</span>
                         <div>
                           <p className="text-xs font-bold text-primary">Feels {predictedMood.label.toLowerCase()}</p>
-                          <p className="text-[10px] text-secondary opacity-70">Predicted by Jev as you write</p>
+                          <p className="text-[10px] text-secondary opacity-70">Predicted by your decision model as you write</p>
                         </div>
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Use</span>
@@ -2095,7 +2194,7 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 setShowKebabDropdown(false);
               }}
               disabled={isProcessing}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
+              className={`min-h-11 flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl transition border ${showAiMenu ? 'bg-accent/10 border-accent text-accent' : 'bg-surface hover:bg-surface-highlight border-transparent text-secondary hover:text-primary'}`}
               title="AI Writing Assistant"
             >
               {isProcessing ? (
@@ -2184,45 +2283,8 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               if (pm) pm.focus();
             }
           }}
-          className={`flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[300px] transition-all duration-500 ${isProcessing ? 'border-accent/50 shadow-[0_0_40px_rgba(198,156,109,0.15)] animate-pulse' : 'border-surface-highlight/60'}`}
+          className={`editor-container flex-grow overflow-y-auto no-scrollbar bg-surface rounded-2xl md:rounded-3xl p-4 sm:p-6 md:p-8 border shadow-[0_8px_32px_-4px_rgba(0,0,0,0.04)] relative min-h-[300px] transition-all duration-500 ${isProcessing ? 'ai-processing border-accent/50 animate-pulse' : 'border-surface-highlight/60'}`}
         >
-          {/* Editorial Title Input + Optional AI Auto-Title Button */}
-          <div className="flex items-center gap-2 pb-3 mb-4 border-b border-surface-highlight/50">
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                userHasEditedTitleRef.current = Boolean(e.target.value.trim());
-              }}
-              placeholder={content.trim() ? extractAutoTitle(content) : 'Untitled Memory…'}
-              className="flex-1 min-w-0 bg-transparent font-display text-lg sm:text-2xl font-bold text-primary placeholder:text-secondary/35 outline-none border-none p-0 tracking-tight"
-            />
-            {content.trim().length >= 10 && (
-              <button
-                type="button"
-                disabled={isGeneratingTitle}
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setIsGeneratingTitle(true);
-                  try {
-                    const generated = await generateAutoTitle(content, selectedModel);
-                    if (generated) {
-                      setTitle(generated);
-                      userHasEditedTitleRef.current = true;
-                    }
-                  } finally {
-                    setIsGeneratingTitle(false);
-                  }
-                }}
-                className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/10 hover:bg-accent/20 border border-accent/20 text-accent text-[10px] font-mono font-bold uppercase tracking-wider transition active:scale-95 disabled:opacity-40"
-                title="Generate a poetic title with AI"
-              >
-                <Sparkles className={`w-3 h-3 ${isGeneratingTitle ? 'animate-spin' : ''}`} />
-                <span className="hidden xs:inline">{isGeneratingTitle ? 'Crafting…' : 'AI Title'}</span>
-              </button>
-            )}
-          </div>
           {/* Notion/BlockNote Style Block Handle (+ / ⋮⋮) */}
           <AnimatePresence>
             {blockHandlePos && (
@@ -2241,8 +2303,15 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
               >
                 <button
                   onClick={() => {
+                    const container = editorContainerRef.current;
+                    const containerRect = container?.getBoundingClientRect();
+                    slashTriggerRef.current = null;
+                    setSlashQuery('');
                     setShowSlashMenu(true);
-                    setSlashMenuPos({ top: blockHandlePos.top + 28, left: 16 });
+                    setSlashMenuPos({
+                      top: containerRect ? containerRect.top + blockHandlePos.top - (container?.scrollTop || 0) + 28 : 16,
+                      left: containerRect ? containerRect.left + 16 : 16,
+                    });
                   }}
                   className="p-0.5 sm:p-1 hover:bg-accent/15 text-secondary hover:text-accent rounded-md sm:rounded-lg transition-colors"
                   title="Add Block (/)"
@@ -2434,10 +2503,10 @@ export const JournalEditor: React.FC<JournalEditorProps> = ({
                 exit={{ opacity: 0, scale: 0.95, y: -4 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
                 style={{
-                  position: 'absolute',
+                  position: 'fixed',
                   top: slashMenuPos ? `${slashMenuPos.top}px` : '16px',
                   left: slashMenuPos ? `${slashMenuPos.left}px` : '16px',
-                  zIndex: 50,
+                  zIndex: 120,
                 }}
                 className="w-[280px] sm:w-[310px] max-h-[320px] bg-surface/95 backdrop-blur-2xl border border-accent/35 shadow-2xl rounded-2xl p-2.5 flex flex-col font-sans"
                 role="dialog"

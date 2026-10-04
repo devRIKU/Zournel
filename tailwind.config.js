@@ -26,7 +26,7 @@ export default {
         sans: ['var(--font-body)', 'Inter', '"Outfit"', 'sans-serif'],
         display: ['var(--font-heading)', 'Outfit', 'Playfair Display', 'sans-serif'],
         
-        mono: ['JetBrains Mono', 'monospace'],
+        mono: ['SFMono-Regular', 'ui-monospace', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       colors: {
         bg: themeColor('--color-bg'),

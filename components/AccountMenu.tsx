@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { User, Settings, LogOut } from './Icons';
+import { User, Settings, LogOut, Sparkles, CloudUpload, RefreshCw } from './Icons';
 import { UserProfile } from '../types';
 import { press, springPlayful, springPress, triggerHaptic } from '../utils/uiSprings';
 
@@ -10,6 +10,9 @@ interface AccountMenuProps {
   isActive: boolean;
   onOpenAccount: () => void;
   onOpenSettings: () => void;
+  onOpenAi?: () => void;
+  onManualBackup?: () => Promise<void>;
+  isBackingUp?: boolean;
   onSignOut: () => void;
 }
 
@@ -35,6 +38,9 @@ export const AccountMenu: React.FC<AccountMenuProps> = ({
   isActive,
   onOpenAccount,
   onOpenSettings,
+  onOpenAi,
+  onManualBackup,
+  isBackingUp = false,
   onSignOut
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -105,6 +111,39 @@ export const AccountMenu: React.FC<AccountMenuProps> = ({
                 {googleUser?.email || (profile?.username ? `@${profile.username}` : 'Local device key')}
               </p>
             </div>
+
+            {onOpenAi && (
+              <motion.button
+                type="button"
+                role="menuitem"
+                variants={itemIn}
+                whileTap={{ scale: 0.97, transition: springPress }}
+                onClick={run(onOpenAi)}
+                className="sm:hidden w-full h-11 px-3 rounded-xl flex items-center gap-3 text-sm font-medium text-primary hover:bg-surface-highlight/60 transition-colors text-left"
+              >
+                <Sparkles className="w-4 h-4 text-accent shrink-0" weight="fill" />
+                <span>AI Companion</span>
+              </motion.button>
+            )}
+
+            {onManualBackup && (
+              <motion.button
+                type="button"
+                role="menuitem"
+                variants={itemIn}
+                whileTap={{ scale: 0.97, transition: springPress }}
+                onClick={() => {
+                  triggerHaptic(8);
+                  setIsOpen(false);
+                  void onManualBackup();
+                }}
+                disabled={isBackingUp}
+                className="sm:hidden w-full h-11 px-3 rounded-xl flex items-center gap-3 text-sm font-medium text-primary hover:bg-surface-highlight/60 transition-colors text-left disabled:opacity-60"
+              >
+                {isBackingUp ? <RefreshCw className="w-4 h-4 text-accent shrink-0 animate-spin" /> : <CloudUpload className="w-4 h-4 text-secondary shrink-0" />}
+                <span>{isBackingUp ? 'Backing up…' : 'Back up now'}</span>
+              </motion.button>
+            )}
 
             <motion.button
               type="button"

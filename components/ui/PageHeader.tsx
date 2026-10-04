@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { springSoft } from '../../utils/uiSprings';
 
-// One header for every tab: same title scale, same eyebrow, same rule, same rhythm.
+/** A large, quiet page title with an independently scrollable action row on mobile. */
 export const PageHeader: React.FC<{
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -11,16 +11,20 @@ export const PageHeader: React.FC<{
   <motion.div
     initial={{ opacity: 0, y: 6 }}
     animate={{ opacity: 1, y: 0, transition: { ...springSoft, delay: 0.04 } }}
-    className="mb-5 sm:mb-6 pb-3.5 sm:pb-4 border-b border-surface-highlight/60 flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4"
+    className="mb-6 sm:mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between sm:gap-6"
   >
     <div className="min-w-0">
-      <h2 className="text-2xl sm:text-3xl font-display font-bold text-primary tracking-tight leading-tight">
+      <h2 className="text-[32px] sm:text-4xl font-semibold text-primary tracking-[-0.04em] leading-[1.08]">
         {title}
       </h2>
       {subtitle && (
-        <p className="mt-1 text-[11px] font-mono uppercase tracking-wider text-secondary/70">{subtitle}</p>
+        <p className="mt-1.5 text-sm text-secondary/80">{subtitle}</p>
       )}
     </div>
-    {actions && <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">{actions}</div>}
+    {actions && (
+      <div className="flex max-w-full items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:overflow-visible sm:pb-0">
+        {actions}
+      </div>
+    )}
   </motion.div>
 );

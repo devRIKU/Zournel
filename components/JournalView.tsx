@@ -12,7 +12,7 @@ import { DraggableSegmentedToggle } from './ui/DraggableToggle';
 import { PageHeader } from './ui/PageHeader';
 
 // 40px round icon button matching the top bar's.
-const HEADER_BUTTON = 'w-10 h-10 rounded-full flex items-center justify-center bg-surface border border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60 transition shrink-0';
+const HEADER_BUTTON = 'journal-header-action w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center bg-surface border border-surface-highlight text-secondary hover:text-primary hover:bg-surface-highlight/60 transition shrink-0';
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -350,7 +350,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
         score: moodInfo ? moodInfo.score : 3,
         label: moodInfo ? moodInfo.label : 'Reflective',
         emoji: moodInfo ? moodInfo.emoji : '😊',
-        color: moodInfo ? moodInfo.color : '#C69C6D',
+        color: moodInfo ? moodInfo.color : 'var(--color-accent)',
         contentSnippet: entry.content.replace(/[#*`_~[\]()]/g, '').trim().slice(0, 60),
         rawEntry: entry,
       };
@@ -553,117 +553,6 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
 
   return (
     <div className="w-full">
-      {/* 1. VERY FIRST: Progressive Gradient Resurface Section (Minimal & Accessible, Mobile-First) */}
-      {resurfacedMemories.length > 0 && !searchQuery && (
-        <section
-          aria-label="Resurfaced Memories"
-          className="relative mb-5 sm:mb-6 rounded-3xl border border-accent/25 bg-gradient-to-br from-accent/[0.14] via-accent/[0.05] to-transparent p-3.5 sm:p-5 shadow-2xs overflow-hidden transition-all"
-        >
-          {/* Ambient progressive top-edge shimmer */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent"
-          />
-
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="w-7 h-7 rounded-xl bg-accent/15 border border-accent/25 text-accent flex items-center justify-center shrink-0">
-                <Clock className="w-3.5 h-3.5" />
-              </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-xs sm:text-sm font-display font-bold text-primary tracking-tight">
-                    On This Day &bull; Resurfaced
-                  </h2>
-                  <span className="px-1.5 py-0.5 rounded-full bg-surface/80 border border-surface-highlight text-[10px] font-mono text-secondary">
-                    {resurfacedMemories.length}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsResurfaceCollapsed((prev) => !prev)}
-              aria-expanded={!isResurfaceCollapsed}
-              aria-label={isResurfaceCollapsed ? 'Expand resurfaced memories' : 'Collapse resurfaced memories'}
-              className="h-8 px-2.5 rounded-full bg-surface/80 hover:bg-surface border border-surface-highlight text-[11px] font-mono text-secondary hover:text-primary flex items-center gap-1 transition active:scale-95 shrink-0"
-            >
-              <span>{isResurfaceCollapsed ? 'Show' : 'Hide'}</span>
-              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isResurfaceCollapsed ? '' : 'rotate-180'}`} />
-            </button>
-          </div>
-
-          {!isResurfaceCollapsed && (
-            <div className="relative mt-3">
-              <div className="flex gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pr-6">
-                {resurfacedMemories.map(({ badge, dateStr, entry }) => {
-                  const titleText = entry.title || extractAutoTitle(entry.content);
-                  const moodEmoji = entry.mood ? entry.mood.split(' ')[0] : null;
-                  return (
-                    <div
-                      key={entry.id}
-                      className="snap-start shrink-0 w-[260px] sm:w-[285px] rounded-2xl bg-surface/90 backdrop-blur-md border border-surface-highlight/80 hover:border-accent/40 p-3.5 flex flex-col justify-between gap-2.5 transition shadow-2xs"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => onEdit(entry)}
-                        className="text-left group/resurface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-xl"
-                      >
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/12 border border-accent/25 text-accent text-[10px] font-mono font-bold uppercase tracking-wider">
-                            {badge}
-                          </span>
-                          <span className="text-[10px] font-mono text-secondary/70 flex items-center gap-1">
-                            {dateStr}
-                            {moodEmoji && <span>{moodEmoji}</span>}
-                          </span>
-                        </div>
-                        <h3 className="text-sm font-display font-bold text-primary group-hover/resurface:text-accent transition-colors truncate">
-                          {titleText}
-                        </h3>
-                        <p className="text-xs text-secondary line-clamp-2 mt-1 leading-relaxed">
-                          {stripMarkdownAndTruncate(entry.content)}
-                        </p>
-                      </button>
-
-                      <div className="pt-2 border-t border-surface-highlight/50 flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onEdit(entry)}
-                          className="text-[11px] font-semibold text-secondary hover:text-primary transition"
-                        >
-                          Revisit →
-                        </button>
-                        {onReflectOnMemory && (
-                          <button
-                            type="button"
-                            onClick={() => onReflectOnMemory(entry)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent/12 hover:bg-accent text-accent hover:text-accent-fg text-[10px] font-mono font-bold uppercase tracking-wider transition active:scale-95"
-                            title="Write a new reflection mentioning this memory"
-                          >
-                            <Feather className="w-3 h-3" />
-                            <span>Reflect</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Progressive right-edge gradient mask for multi-card mobile carousel */}
-              {resurfacedMemories.length > 1 && (
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg/80 to-transparent sm:hidden"
-                />
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
       <PageHeader
         title={
           isEditingTitle && subTab === 'timeline' ? (
@@ -734,6 +623,111 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
           </>
         }
       />
+
+      {/* A quiet archive nudge, placed beneath the Journal heading. */}
+      {resurfacedMemories.length > 0 && !searchQuery && (
+        <section
+          aria-label="Resurfaced Memories"
+          className="relative mb-6 rounded-3xl border border-surface-highlight bg-surface p-4 sm:p-5 shadow-sm overflow-hidden transition-all"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="w-9 h-9 rounded-xl bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                <Clock className="w-3.5 h-3.5" />
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs sm:text-sm font-display font-bold text-primary tracking-tight">
+                    On This Day &bull; Resurfaced
+                  </h2>
+                  <span className="px-1.5 py-0.5 rounded-full bg-surface/80 border border-surface-highlight text-[10px] font-mono text-secondary">
+                    {resurfacedMemories.length}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsResurfaceCollapsed((prev) => !prev)}
+              aria-expanded={!isResurfaceCollapsed}
+              aria-label={isResurfaceCollapsed ? 'Expand resurfaced memories' : 'Collapse resurfaced memories'}
+              className="min-h-11 px-3 rounded-full bg-surface/80 hover:bg-surface border border-surface-highlight text-xs font-medium text-secondary hover:text-primary flex items-center gap-1.5 transition active:scale-95 shrink-0"
+            >
+              <span>{isResurfaceCollapsed ? 'Show' : 'Hide'}</span>
+              <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isResurfaceCollapsed ? '' : 'rotate-180'}`} />
+            </button>
+          </div>
+
+          {!isResurfaceCollapsed && (
+            <div className="relative mt-3">
+              <div className="flex gap-2.5 sm:gap-3 overflow-x-auto no-scrollbar snap-x snap-mandatory pr-6">
+                {resurfacedMemories.map(({ badge, dateStr, entry }) => {
+                  const titleText = entry.title || extractAutoTitle(entry.content);
+                  const moodEmoji = entry.mood ? entry.mood.split(' ')[0] : null;
+                  return (
+                    <div
+                      key={entry.id}
+                      className="snap-start shrink-0 w-[260px] sm:w-[285px] rounded-2xl bg-surface/90 backdrop-blur-md border border-surface-highlight/80 hover:border-accent/40 p-3.5 flex flex-col justify-between gap-2.5 transition shadow-2xs"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => onEdit(entry)}
+                        className="text-left group/resurface focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-xl"
+                      >
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-accent/12 border border-accent/25 text-accent text-[10px] font-mono font-bold uppercase tracking-wider">
+                            {badge}
+                          </span>
+                          <span className="text-[10px] font-mono text-secondary/70 flex items-center gap-1">
+                            {dateStr}
+                            {moodEmoji && <span>{moodEmoji}</span>}
+                          </span>
+                        </div>
+                        <h3 className="text-sm font-display font-bold text-primary group-hover/resurface:text-accent transition-colors truncate">
+                          {titleText}
+                        </h3>
+                        <p className="text-xs text-secondary line-clamp-2 mt-1 leading-relaxed">
+                          {stripMarkdownAndTruncate(entry.content)}
+                        </p>
+                      </button>
+
+                      <div className="pt-2 border-t border-surface-highlight/50 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onEdit(entry)}
+                          className="min-h-11 px-2 text-xs font-medium text-secondary hover:text-primary transition"
+                        >
+                          Revisit →
+                        </button>
+                        {onReflectOnMemory && (
+                          <button
+                            type="button"
+                            onClick={() => onReflectOnMemory(entry)}
+                            className="inline-flex min-h-11 items-center gap-1 px-3 rounded-full bg-accent/10 hover:bg-accent text-accent hover:text-accent-fg text-xs font-semibold transition active:scale-95"
+                            title="Write a new reflection mentioning this memory"
+                          >
+                            <Feather className="w-3 h-3" />
+                            <span>Reflect</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Progressive right-edge gradient mask for multi-card mobile carousel */}
+              {resurfacedMemories.length > 1 && (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg/80 to-transparent sm:hidden"
+                />
+              )}
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Mobile-First Expandable Search Bar */}
       <AnimatePresence>
@@ -837,15 +831,15 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                 </button>
               </div>
             ) : (
-          <div className="space-y-12 sm:space-y-20">
+          <div className="space-y-9 sm:space-y-12">
             {groupedEntries.map(([dateLabel, dayEntries]) => (
               <section key={dateLabel} className="group/section animate-slide-up">
-                <div className="flex items-baseline gap-3 sm:gap-6 mb-5 sm:mb-8">
-                  <span className="text-xl sm:text-2xl md:text-3xl font-display font-bold text-primary group-hover/section:text-accent transition-colors duration-500 break-words">{dateLabel}</span>
+                <div className="flex items-baseline gap-3 sm:gap-6 mb-4 sm:mb-5">
+                  <span className="text-lg sm:text-xl font-semibold text-primary tracking-tight break-words">{dateLabel}</span>
                   <div className="h-px flex-grow bg-surface-highlight opacity-50"></div>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {dayEntries.map((entry, idx) => {
                     const isHero = dayEntries.length === 1 || (dayEntries.length > 2 && idx === 0);
                     const timeString = entry.createdAt ? new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -888,27 +882,24 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                           }
                         }}
                         title={isBulkSelecting ? (isSelected ? "Deselect Memory" : "Select Memory") : "View & Edit Memory"}
-                        whileHover={{ y: -8, scale: 1.015 }}
-                        whileTap={{ scale: 0.97 }}
-                        transition={{ type: 'spring', damping: 22, stiffness: 300 }}
-                        className={`group relative flex flex-col text-left rounded-3xl border shadow-[0_8px_32px_0_rgba(0,0,0,0.12)] hover:shadow-[0_32px_80px_-12px_rgba(0,0,0,0.3)] hover:border-accent/60 transition-all duration-500 overflow-hidden outline-none cursor-pointer backdrop-blur-2xl bg-white/15 dark:bg-[#121212]/50 border-white/20 dark:border-white/10 ${
+                        whileHover={{ y: -2, scale: 1.005 }}
+                        whileTap={{ scale: 0.99 }}
+                        transition={{ type: 'spring', damping: 24, stiffness: 320 }}
+                        className={`group relative flex flex-col text-left rounded-[26px] border shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden outline-none cursor-pointer bg-surface border-surface-highlight ${
                           isHero ? 'md:col-span-2' : ''
                         } ${
                           isBulkSelecting && isSelected
-                            ? 'ring-2 ring-accent border-accent shadow-xl bg-accent/10'
-                            : 'border-white/20 dark:border-neutral-800'
+                            ? 'ring-2 ring-accent border-accent bg-accent/5'
+                            : ''
                         }`}
                       >
-                        {/* Ambient Light Leak Effect */}
-                        <div className="absolute -top-24 -right-24 w-72 h-72 bg-gradient-to-br from-accent/30 via-purple-500/20 to-transparent rounded-full blur-3xl pointer-events-none opacity-60 group-hover:opacity-100 transition-opacity duration-700"></div>
-                        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-gradient-to-tr from-pink-500/25 via-indigo-500/15 to-transparent rounded-full blur-3xl pointer-events-none opacity-40 group-hover:opacity-80 transition-opacity duration-700"></div>
                         {isBulkSelecting && (
                           <div 
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleSelectEntry(entry.id);
                             }}
-                            className={`absolute top-4 left-4 z-30 w-7 h-7 rounded-full flex items-center justify-center transition-all shadow-md ${
+                            className={`absolute top-3 left-3 z-30 w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-md ${
                               isSelected
                                 ? 'bg-accent text-accent-fg ring-2 ring-accent shadow-accent/30'
                                 : 'bg-black/50 hover:bg-black/70 text-white/50 border border-white/40'
@@ -931,7 +922,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                               }
                             }}
                             title="Delete Memory"
-                            className={`absolute top-4 right-4 z-20 px-3 py-1.5 rounded-full backdrop-blur-md transition active:scale-[0.97] shadow-md flex items-center gap-2 ${deleteConfirmId === entry.id ? 'bg-red-600 text-white opacity-100' : 'bg-black/50 hover:bg-red-600/90 text-white/90 hover:text-white opacity-100 sm:opacity-0 group-hover:opacity-100'}`}
+                            className={`journal-delete-button absolute top-3 right-3 z-20 min-h-11 min-w-11 px-3 rounded-full backdrop-blur-md transition active:scale-[0.97] shadow-md flex items-center justify-center gap-2 ${deleteConfirmId === entry.id ? 'bg-red-600 text-white opacity-100' : 'bg-black/45 hover:bg-red-600/90 text-white/90 hover:text-white opacity-100 sm:opacity-0 group-hover:opacity-100'}`}
                           >
                             <Trash2 className="w-4 h-4" />
                             {deleteConfirmId === entry.id && <span className="text-xs font-bold uppercase tracking-wider">Confirm</span>}
@@ -939,7 +930,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                         )}
 
                         {entry.image ? (
-                          <div className={`${isHero ? 'h-64 sm:h-80' : 'h-52'} w-full overflow-hidden relative bg-surface-highlight`}>
+                          <div className={`${isHero ? 'h-48 sm:h-64' : 'h-40 sm:h-48'} w-full overflow-hidden relative bg-surface-highlight`}>
                             <img 
                               src={entry.image} 
                               alt="cover" 
@@ -986,7 +977,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                           </div>
                         )}
 
-                        <div className="p-6 sm:p-8 flex-1 flex flex-col justify-between">
+                        <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
                           <div>
                              {/* Auto Title with Edit Title button & Smooth AI Gen Online Animation */}
                              <div className="mb-3">
@@ -1076,7 +1067,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                                  </div>
                                ) : (
                                  <div className="flex items-start justify-between gap-2 group/title">
-                                   <h3 className="text-xl sm:text-2xl font-display font-bold text-primary group-hover:text-accent transition-colors duration-300 leading-snug tracking-tight line-clamp-2 flex-1">
+                                   <h3 className="text-xl sm:text-2xl font-semibold text-primary group-hover:text-accent transition-colors duration-200 leading-snug tracking-tight line-clamp-2 flex-1">
                                      {displayTitle}
                                    </h3>
                                    {!isBulkSelecting && (
@@ -1087,7 +1078,7 @@ export const JournalView: React.FC<JournalViewProps> = ({ entries, tasks = [], o
                                          startEditingCardTitle(entry.id, displayTitle);
                                        }}
                                        title="Edit Title"
-                                       className="opacity-70 sm:opacity-0 group-hover:opacity-100 group-hover/title:opacity-100 focus:opacity-100 transition-all p-1.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-accent shrink-0 border border-transparent hover:border-surface-highlight"
+                                       className="journal-title-edit-button min-h-11 min-w-11 opacity-70 sm:opacity-0 group-hover:opacity-100 group-hover/title:opacity-100 focus:opacity-100 transition-all p-2.5 rounded-xl hover:bg-surface-highlight text-secondary hover:text-accent shrink-0 border border-transparent hover:border-surface-highlight"
                                      >
                                        <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                                      </button>

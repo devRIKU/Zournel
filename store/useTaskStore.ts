@@ -55,7 +55,7 @@ export const useTaskStore = create<TaskState>((set, get) => ({
     };
     get().setTasks((prev) => [newTask, ...prev]);
 
-    // Predictive priority: Jev scores urgency + "is this really several steps?" in one call.
+    // Predictive priority: the configured decision model scores urgency and task complexity in one call.
     // Fire-and-forget; the task is usable immediately and the badge updates when the answer lands.
     if (priority === 'medium' && isJevAvailable()) {
       assessTaskWithJev(newTask.text).then((res) => {

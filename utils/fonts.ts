@@ -1,5 +1,9 @@
-// Google Fonts are fetched lazily: boot only loads Inter/Outfit/Playfair/JetBrains Mono (see index.html).
+// Optional Google Fonts are fetched lazily when a non-system typeface is selected.
 const FONT_QUERY: Record<string, string> = {
+  inter: 'Inter:ital,wght@0,300..700;1,300..700',
+  outfit: 'Outfit:wght@400..800',
+  playfair: 'Playfair+Display:ital,wght@0,400..800;1,400..800',
+  'jetbrains-mono': 'JetBrains+Mono:wght@300..700',
   'plus-jakarta': 'Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800',
   lora: 'Lora:ital,wght@0,400..700;1,400..700',
   merriweather: 'Merriweather:ital,wght@0,300;0,400;0,700;1,300',

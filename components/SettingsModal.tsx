@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence, useDragControls } from 'motion/react';
-import { X, Moon, Sun, Cpu, Palette, Key, Grid, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw, ChevronRight } from './Icons';
+import { X, Cpu, Palette, Key, TreePine, Cat, CheckCircle, Coffee, Type, CloudCheck, ShieldCheck, RefreshCw, ChevronRight } from './Icons';
 import { AppSettings, Theme, CompletionAnimation } from '../types';
 import { backdrop, sheet, springSheet, triggerHaptic } from '../utils/uiSprings';
 import { DraggableSwitch } from './ui/DraggableToggle';
@@ -18,6 +18,7 @@ interface SettingsModalProps {
 }
 
 const HEADING_FONTS = [
+  { id: 'system', name: 'System', tag: 'Native platform', sampleFont: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif' },
   { id: 'syncopate', name: 'Syncopate', tag: 'Wide Display', sampleFont: "'Syncopate', sans-serif" },
   { id: 'syne', name: 'Syne', tag: 'Avant-Garde', sampleFont: "'Syne', sans-serif" },
   { id: 'outfit', name: 'Outfit', tag: 'Modern Display', sampleFont: "'Outfit', sans-serif" },
@@ -28,6 +29,7 @@ const HEADING_FONTS = [
 ];
 
 const BODY_FONTS = [
+  { id: 'system', name: 'System', tag: 'Native platform', sampleFont: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif' },
   { id: 'inter', name: 'Inter', tag: 'Modern Sans', sampleFont: "'Inter', sans-serif" },
   { id: 'plus-jakarta', name: 'Plus Jakarta', tag: 'Geometric Sans', sampleFont: "'Plus Jakarta Sans', sans-serif" },
   { id: 'lora', name: 'Lora', tag: 'Warm Serif', sampleFont: "'Lora', serif" },
@@ -161,7 +163,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                      className="w-full bg-surface-lowest p-4 rounded-xl border border-surface-highlight outline-none text-primary placeholder:text-secondary/40 font-mono text-sm focus:ring-2 focus:ring-accent/50 transition"
                    />
                    <p className="mt-3 text-[10px] text-secondary/60 leading-relaxed">
-                     Powers any tier set to OpenRouter (chat completions v1) and the decision model when its endpoint is OpenRouter (SystemOne).
+                     Powers OpenRouter text tiers and its default decision model, Mercury Decide (free).
                    </p>
 
                    <label className="block text-xs font-bold text-secondary uppercase tracking-wider mb-2 mt-5">OpenCode Zen Key <span className="text-accent normal-case tracking-normal font-medium">· Jev</span></label>
@@ -280,12 +282,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Heading &amp; Display</span>
                       <span className="text-[10px] font-mono text-accent font-semibold capitalize">
-                        {HEADING_FONTS.find(f => f.id === (settings.headingFontFamily || 'outfit'))?.name}
+                        {HEADING_FONTS.find(f => f.id === (settings.headingFontFamily || 'system'))?.name}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                       {HEADING_FONTS.map(f => {
-                        const active = (settings.headingFontFamily || 'outfit') === f.id;
+                        const active = (settings.headingFontFamily || 'system') === f.id;
                         return (
                           <button
                             key={f.id}
@@ -314,12 +316,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, s
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-[11px] font-bold text-primary uppercase tracking-wider">Body &amp; Editor</span>
                       <span className="text-[10px] font-mono text-accent font-semibold capitalize">
-                        {BODY_FONTS.find(f => f.id === (settings.fontFamily || 'inter'))?.name}
+                        {BODY_FONTS.find(f => f.id === (settings.fontFamily || 'system'))?.name}
                       </span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
                       {BODY_FONTS.map(f => {
-                        const active = (settings.fontFamily || 'inter') === f.id;
+                        const active = (settings.fontFamily || 'system') === f.id;
                         return (
                           <button
                             key={f.id}

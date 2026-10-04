@@ -127,7 +127,7 @@ export const DraggableSegmentedToggle = <T extends string = string>({
   return (
     <div
       ref={containerRef}
-      className={`relative inline-flex items-center h-10 p-1 rounded-full bg-surface-highlight/40 border border-surface-highlight select-none ${className}`}
+      className={`segmented-toggle relative inline-flex items-center h-[52px] sm:h-10 p-1 rounded-full bg-surface-highlight/40 border border-surface-highlight select-none ${className}`}
     >
       {options.map((option) => {
         const isSelected = option.value === value;
@@ -136,7 +136,7 @@ export const DraggableSegmentedToggle = <T extends string = string>({
             key={option.value}
             type="button"
             onClick={() => onChange(option.value)}
-            className={`relative flex items-center justify-center gap-1.5 h-8 px-3 sm:px-4 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 z-10 touch-manipulation cursor-pointer ${
+            className={`relative flex min-w-[44px] items-center justify-center gap-1.5 h-11 px-2.5 sm:h-8 sm:px-4 rounded-full text-xs font-medium whitespace-nowrap transition-colors duration-200 z-10 touch-manipulation cursor-pointer ${
               isSelected ? 'text-primary' : 'text-secondary hover:text-primary'
             }`}
           >
