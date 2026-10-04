@@ -1,4 +1,4 @@
-import { AppSettings, ModelSlot, ModelTier } from '../types';
+import { AppSettings, DecisionProvider, ModelSlot, ModelTier } from '../types';
 
 /**
  * One place that knows: which tiers exist, which models each provider offers,
@@ -73,7 +73,11 @@ export const DEFAULT_TIERS: Record<ModelTier, ModelSlot> = {
   beacon: { provider: 'gemini', model: 'gemma-4-31b-it' },
 };
 
-export const DEFAULT_DECISION_MODEL = 'jev-1.13-free';
+export const DEFAULT_DECISION_MODEL = 'inception/mercury-decide:free';
+export const DEFAULT_ZEN_DECISION_MODEL = 'jev-1.13-free';
+
+export const defaultDecisionModelFor = (provider: DecisionProvider): string =>
+  provider === 'openrouter' ? DEFAULT_DECISION_MODEL : DEFAULT_ZEN_DECISION_MODEL;
 
 /** Where a pre-tier `settings.model` lands once it's migrated into a slot. */
 const LEGACY_TIER: Record<string, ModelTier> = {

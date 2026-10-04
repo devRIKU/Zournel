@@ -93,7 +93,7 @@ export const AiGlitterPill: React.FC<{ label: string; icon?: React.ReactNode; on
       whileHover={{ scale: 1.04 }}
       whileTap={{ scale: 0.96 }}
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-accent/20 via-amber-400/20 to-accent/20 border border-accent/40 text-accent font-bold text-xs shadow-xs cursor-pointer select-none ai-glitter-highlight"
+      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-accent/10 via-accent/25 to-accent/10 border border-accent/40 text-accent font-bold text-xs shadow-xs cursor-pointer select-none ai-glitter-highlight"
     >
       {icon || <Wand2 className="w-3.5 h-3.5 text-accent animate-pulse" />}
       <span>{label}</span>

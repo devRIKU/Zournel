@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Zap, Lightbulb, Compass, Key, CheckCircle, AlertCircle, Sparkles, RefreshCw } from './Icons';
-import { AppSettings, ModelSlot, ModelTier } from '../types';
-import { TIERS, DEFAULT_TIERS, DEFAULT_DECISION_MODEL, ModelOption, presetsFor, hasKey } from '../services/modelConfig';
+import { AppSettings, DecisionProvider, ModelSlot, ModelTier } from '../types';
+import { TIERS, DEFAULT_TIERS, defaultDecisionModelFor, ModelOption, presetsFor, hasKey } from '../services/modelConfig';
 import { fetchOpenRouterModels } from '../services/openrouter';
 import { fetchGeminiModels } from '../services/geminiService';
 import { getDecisionTarget } from '../services/jevService';
@@ -44,7 +44,7 @@ const isPresetList = (options: ModelOption[], provider: ModelSlot['provider']): 
 
 /**
  * The model half of Preferences: three named tiers, each mapped to a provider +
- * model, plus the decision (SystemOne) model that answers mood / priority / intent.
+ * model, plus the decision model that answers mood / priority / intent.
  */
 export const ModelPanel: React.FC<ModelPanelProps> = ({ settings, onUpdate, onBack }) => {
   const tiers = settings.modelTiers || DEFAULT_TIERS;
@@ -237,7 +237,7 @@ export const ModelPanel: React.FC<ModelPanelProps> = ({ settings, onUpdate, onBa
           );
         })}
 
-        {/* Decision model — SystemOne, either on OpenCode Zen or OpenRouter */}
+        {/* Decision model — Jev on OpenCode Zen or Mercury Decide on OpenRouter */}
         <motion.div variants={cardIn} className="p-4 rounded-2xl bg-surface-highlight/30 border border-surface-highlight/50">
           <div className="flex items-start gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-surface-highlight/70 text-secondary flex items-center justify-center shrink-0">
@@ -246,7 +246,7 @@ export const ModelPanel: React.FC<ModelPanelProps> = ({ settings, onUpdate, onBa
             <div className="min-w-0 flex-1">
               <span className="text-sm font-bold text-primary">Decision model</span>
               <p className="text-[11px] text-secondary/70 mt-0.5">
-                Classifies mood, priority and intent. No text generation, near-instant, cached on device.
+                Fast structured decisions for mood, priority and intent. OpenRouter defaults to Mercury Decide (free); Zen defaults to Jev.
               </p>
             </div>
           </div>
@@ -259,7 +259,10 @@ export const ModelPanel: React.FC<ModelPanelProps> = ({ settings, onUpdate, onBa
                 { value: 'openrouter', label: 'OpenRouter' },
               ]}
               value={decisionProvider}
-              onChange={(v) => onUpdate({ ...settings, decisionProvider: v as 'zen' | 'openrouter' })}
+              onChange={(v) => {
+                const provider = v as DecisionProvider;
+                onUpdate({ ...settings, decisionProvider: provider, decisionModel: defaultDecisionModelFor(provider) });
+              }}
             />
           </div>
 
@@ -267,9 +270,9 @@ export const ModelPanel: React.FC<ModelPanelProps> = ({ settings, onUpdate, onBa
             <span className="text-[10px] font-mono uppercase tracking-wider text-secondary/70">Model</span>
             <input
               type="text"
-              value={settings.decisionModel || DEFAULT_DECISION_MODEL}
+              value={decision.model}
               onChange={(e) => onUpdate({ ...settings, decisionModel: e.target.value })}
-              placeholder={DEFAULT_DECISION_MODEL}
+              placeholder={defaultDecisionModelFor(decisionProvider)}
               className="mt-1.5 w-full bg-surface-lowest border border-surface-highlight rounded-xl px-3 py-2.5 font-mono text-xs text-primary placeholder:text-secondary/40 focus:outline-none focus:border-accent transition-colors"
             />
           </div>

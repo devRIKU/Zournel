@@ -47,7 +47,7 @@ export interface AppSettings {
   modelTiers?: Record<ModelTier, ModelSlot>;
   openrouterApiKey?: string;
   decisionProvider?: DecisionProvider;
-  /** Decision (SystemOne) model id — e.g. `jev-1.13-free`. */
+  /** Decision model id — e.g. `inception/mercury-decide:free` or `jev-1.13-free`. */
   decisionModel?: string;
   /** OpenCode Zen key — enables Jev (fast structured decisions: mood, priority, intent). */
   opencodeApiKey?: string;

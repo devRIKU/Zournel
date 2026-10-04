@@ -352,7 +352,7 @@ export const moodFromLabel = (label: string) => {
 };
 
 export const detectMoodFromJournal = async (journalText: string, tier: string = 'ember'): Promise<{ emoji: string; label: string; fullMood: string } | null> => {
-  // Jev (System One) answers a classification in one tiny request and is cached per text —
+  // The configured decision model answers a classification in one tiny request and is cached per text —
   // no LLM, no tokens, no streaming. Gemini below is only the fallback.
   if (isJevAvailable()) {
     const jev = await detectMoodWithJev(journalText);

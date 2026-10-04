@@ -9,7 +9,6 @@ import { AutoBackupPill } from './components/AutoBackupPill';
 import { AccountMenu } from './components/AccountMenu';
 import { useTaskStore } from './store/useTaskStore';
 import { useJournalStore } from './store/useJournalStore';
-import { SpotlightGlow } from './components/ui/background-beams';
 import { ensureFontLoaded } from './utils/fonts';
 import { migrateModelSettings } from './services/modelConfig';
 import type { GoogleAccountUser } from './services/authService';
@@ -48,7 +47,6 @@ const AppShell: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [focusInputSignal, setFocusInputSignal] = useState(0); 
 
   // Zustand stores
   const { tasks, addTask, toggleTask, deleteTask, updateTask, setTasks } = useTaskStore();
@@ -75,8 +73,8 @@ const AppShell: React.FC = () => {
     } catch (e) {}
     return migrateModelSettings({
       theme: 'cozy-light',
-      fontFamily: 'inter',
-      headingFontFamily: 'outfit',
+      fontFamily: 'system',
+      headingFontFamily: 'system',
       completionAnimation: 'confetti',
       deleteAnimation: 'shrink',
       model: 'lantern',
@@ -318,6 +316,7 @@ const AppShell: React.FC = () => {
   // Font Applier
   useEffect(() => {
     const bodyFontMap: Record<string, string> = {
+      'system': '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif',
       'inter': "'Inter', sans-serif",
       'plus-jakarta': "'Plus Jakarta Sans', sans-serif",
       'lora': "'Lora', serif",
@@ -326,6 +325,7 @@ const AppShell: React.FC = () => {
       'jetbrains-mono': "'JetBrains Mono', monospace"
     };
     const headingFontMap: Record<string, string> = {
+      'system': '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif',
       'syncopate': "'Syncopate', sans-serif",
       'syne': "'Syne', sans-serif",
       'playfair': "'Playfair Display', serif",
@@ -334,23 +334,19 @@ const AppShell: React.FC = () => {
       'cormorant': "'Cormorant Garamond', serif",
       'cinzel': "'Cinzel', serif"
     };
-    const selectedBodyFont = bodyFontMap[settings.fontFamily || 'inter'] || "'Inter', sans-serif";
-    const selectedHeadingFont = headingFontMap[settings.headingFontFamily || 'outfit'] || "'Outfit', sans-serif";
+    const selectedBodyFont = bodyFontMap[settings.fontFamily || 'system'] || bodyFontMap.system;
+    const selectedHeadingFont = headingFontMap[settings.headingFontFamily || 'system'] || headingFontMap.system;
 
-    ensureFontLoaded(settings.fontFamily || 'inter');
-    ensureFontLoaded(settings.headingFontFamily || 'outfit');
+    ensureFontLoaded(settings.fontFamily || 'system');
+    ensureFontLoaded(settings.headingFontFamily || 'system');
     document.documentElement.style.setProperty('--font-body', selectedBodyFont);
     document.documentElement.style.setProperty('--font-heading', selectedHeadingFont);
-    document.documentElement.setAttribute('data-heading-font', settings.headingFontFamily || 'outfit');
+    document.documentElement.setAttribute('data-heading-font', settings.headingFontFamily || 'system');
   }, [settings.fontFamily, settings.headingFontFamily]);
 
   const handlePlusClick = () => {
-    if (activeTab === Tab.JOURNAL) {
-      setEditingEntry(null);
-      setIsEditorOpen(true);
-    } else {
-      setFocusInputSignal(prev => prev + 1);
-    }
+    setEditingEntry(null);
+    setIsEditorOpen(true);
   };
 
   const handleAddDataFromAI = (newTasks: string[], journal: string | null, mood: string | null) => {
@@ -424,10 +420,8 @@ const AppShell: React.FC = () => {
 
   const activeTier = settings.activeTier || 'lantern';
 
-  const brandSubtitle =
-    activeTab === Tab.TODO ? 'Today' : activeTab === Tab.JOURNAL ? `${journalEntries.length} Memories` : 'Account';
-
-  const isFabVisible = activeTab !== Tab.PROFILE && !isEditorOpen;
+  // Tasks are added from the inline composer; the floating action is reserved for a new memory.
+  const isFabVisible = activeTab === Tab.JOURNAL && !isEditorOpen;
 
   if (isRouteLoading) {
     return (
@@ -463,48 +457,33 @@ const AppShell: React.FC = () => {
   }
 
   return (
-    <div className="h-[100dvh] overflow-y-auto overscroll-y-contain flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in paper-texture relative">
-      <SpotlightGlow className="opacity-40 pointer-events-none" />
-      
-      {/* Zone 1: Sticky top bar. Scaled for thumbs: 64px tall, 44px targets,
-          one identity menu on the right and nothing else that repeats the dock. */}
-      <header className="sticky top-0 z-40 w-full bg-surface-lowest/85 backdrop-blur-xl border-b border-surface-highlight/60 pt-[env(safe-area-inset-top,0px)]">
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 h-16 sm:h-[4.5rem] flex items-center justify-between gap-3">
+    <div className="app-shell h-[100dvh] overflow-y-auto overscroll-y-contain flex flex-col bg-surface-lowest text-primary font-sans transition-colors duration-200 animate-fade-in relative">
+      {/* A quiet, translucent system-style top bar. Tab context lives in the page title. */}
+      <header className="sticky top-0 z-40 w-full bg-surface/85 backdrop-blur-2xl border-b border-surface-highlight/60 pt-[env(safe-area-inset-top,0px)]">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 h-[60px] sm:h-[68px] flex items-center justify-between gap-3">
           <motion.button
             type="button"
-            whileTap={{ scale: 0.985, transition: springPress }}
+            whileTap={{ scale: 0.97, transition: springPress }}
             onClick={() => setActiveTab(Tab.TODO)}
-            className="flex items-center gap-3 text-left min-w-0 flex-1 rounded-2xl"
+            className="flex items-center gap-2.5 sm:gap-3 text-left min-w-0 flex-1 rounded-2xl"
             title="Zournel — Go to Today"
           >
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-accent/12 border border-accent/25 text-accent flex items-center justify-center shrink-0 shadow-2xs transition-colors">
-              <BookOpen className="w-[22px] h-[22px] sm:w-6 sm:h-6" weight="fill" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[14px] bg-accent/10 text-accent flex items-center justify-center shrink-0">
+              <BookOpen className="w-5 h-5" weight="fill" />
             </div>
-            <div className="min-w-0 flex-1 leading-none">
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-primary tracking-tight truncate">Zournel</h1>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.p
-                  key={brandSubtitle}
-                  initial={{ opacity: 0, y: 7 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -7 }}
-                  transition={springPlayful}
-                  className="mt-1.5 text-[11px] sm:text-xs font-mono uppercase tracking-wider text-secondary/70 truncate"
-                >
-                  {brandSubtitle}
-                </motion.p>
-              </AnimatePresence>
-            </div>
+            <h1 className="text-[18px] sm:text-xl font-semibold text-primary tracking-tight truncate">Zournel</h1>
           </motion.button>
 
           <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
-            <AutoBackupPill
-              isBackingUp={isAutoBackingUp}
-              lastBackupTime={lastAutoBackupTime}
-              autoBackupEnabled={settings.autoBackupEnabled ?? true}
-              onManualBackup={performAutoBackup}
-              onOpenSettings={() => setIsSettingsOpen(true)}
-            />
+            <div className="hidden sm:block">
+              <AutoBackupPill
+                isBackingUp={isAutoBackingUp}
+                lastBackupTime={lastAutoBackupTime}
+                autoBackupEnabled={settings.autoBackupEnabled ?? true}
+                onManualBackup={performAutoBackup}
+                onOpenSettings={() => setIsSettingsOpen(true)}
+              />
+            </div>
 
             <motion.button
               type="button"
@@ -512,10 +491,10 @@ const AppShell: React.FC = () => {
               onClick={() => setIsAddModalOpen(true)}
               title="AI Companion"
               aria-label="AI Companion"
-              className="w-11 h-11 lg:w-auto lg:px-4 rounded-full bg-accent/12 hover:bg-accent/20 border border-accent/25 text-accent flex items-center justify-center gap-1.5 shrink-0"
+              className="hidden sm:flex w-11 h-11 lg:w-auto lg:px-4 rounded-full bg-accent/10 hover:bg-accent/15 text-accent items-center justify-center gap-1.5 shrink-0 transition-colors"
             >
               <Sparkles className="w-5 h-5 shrink-0" weight="fill" />
-              <span className="hidden lg:inline text-xs font-bold tracking-tight">AI</span>
+              <span className="hidden lg:inline text-sm font-semibold tracking-tight">AI Companion</span>
             </motion.button>
 
             <AccountMenu
@@ -524,6 +503,9 @@ const AppShell: React.FC = () => {
               isActive={activeTab === Tab.PROFILE}
               onOpenAccount={() => setActiveTab(Tab.PROFILE)}
               onOpenSettings={() => setIsSettingsOpen(true)}
+              onOpenAi={() => setIsAddModalOpen(true)}
+              onManualBackup={performAutoBackup}
+              isBackingUp={isAutoBackingUp}
               onSignOut={handleGoogleSignOut}
             />
           </div>
@@ -531,7 +513,7 @@ const AppShell: React.FC = () => {
       </header>
 
       {/* Zone 2: Flexible Content Container */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-5 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+7.5rem)]">
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 md:px-8 pt-5 sm:pt-8 pb-[calc(env(safe-area-inset-bottom,0px)+6.5rem)] sm:pb-28">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={activeTab}
@@ -551,7 +533,6 @@ const AppShell: React.FC = () => {
                   onAddTask={addTask} 
                   onReflectOnTask={handleReflectOnTask}
                   onSaveAsMemory={(text) => { saveJournalEntryStore(text, undefined, undefined, false, undefined, activeTier); setActiveTab(Tab.JOURNAL); }}
-                  focusInputSignal={focusInputSignal}
                   completionAnim={settings.completionAnimation} 
                   deleteAnim={settings.deleteAnimation}
                   selectedModel={activeTier}
@@ -601,9 +582,9 @@ const AppShell: React.FC = () => {
           whileTap={{ scale: 0.9 }}
           transition={springPlayful}
           onClick={handlePlusClick}
-          title={activeTab === Tab.TODO ? 'Add task' : 'New memory'}
-          aria-label={activeTab === Tab.TODO ? 'Add task' : 'New memory'}
-          className="w-14 h-14 rounded-full bg-accent text-accent-fg shadow-lg shadow-accent/25 flex items-center justify-center"
+          title="New memory"
+          aria-label="New memory"
+          className="w-14 h-14 rounded-full bg-accent text-accent-fg shadow-lg shadow-accent/25 flex items-center justify-center ring-4 ring-bg/70"
         >
           <Plus className="w-6 h-6" weight="bold" />
         </motion.button>

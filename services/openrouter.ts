@@ -1,15 +1,13 @@
-// OpenRouter, two endpoint styles, no SDK:
+// OpenRouter endpoints, no SDK:
 //   • /api/v1/chat/completions — OpenAI-shaped text generation
-//   • /api/v1/systemone        — typed decisions (the shape OpenCode Zen exposes for Jev)
-// Anything that speaks SystemOne can be pointed at `SYSTEMONE_ENDPOINT` below,
-// which is how the decision model can run on either provider.
+//   • /api/alpha/decisions     — typed System One decisions (Mercury Decide and Jev-compatible)
 
 import { ModelOption, getOpenRouterKey, presetsFor, readModelCache, readSettings, writeModelCache } from './modelConfig';
 
 const V1_BASE = 'https://openrouter.ai/api/v1';
 const CHAT_ENDPOINT = `${V1_BASE}/chat/completions`;
 const MODELS_ENDPOINT = `${V1_BASE}/models`;
-export const SYSTEMONE_ENDPOINT = `${V1_BASE}/systemone`;
+export const DECISIONS_ENDPOINT = 'https://openrouter.ai/api/alpha/decisions';
 
 const CHAT_TIMEOUT_MS = 25000;
 
